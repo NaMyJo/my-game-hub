@@ -36,7 +36,6 @@ public class FirebaseConfig {
             );
 
         } else {
-            // 로컬 개발에서는 기존 방식 사용 가능
             credentials = GoogleCredentials.getApplicationDefault();
         }
 
