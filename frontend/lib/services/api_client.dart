@@ -22,7 +22,7 @@ class ApiClient {
   /// Chrome에서 Flutter Web을 실행할 때 백엔드 주소.
   ///
   /// 실제 배포에서는 환경별로 분리하는 것을 권장합니다.
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'https://my-game-hub-api.onrender.com';
 
   Future<Map<String, String>> _headers() async {
     final user = FirebaseAuth.instance.currentUser;
