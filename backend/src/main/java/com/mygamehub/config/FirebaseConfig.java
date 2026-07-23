@@ -19,23 +19,29 @@ public class FirebaseConfig {
             return FirebaseApp.getInstance();
         }
 
-        String firebaseServiceAccountJson =
+        String serviceAccountJson =
                 System.getenv("FIREBASE_SERVICE_ACCOUNT_JSON");
 
         GoogleCredentials credentials;
 
-        if (firebaseServiceAccountJson != null
-                && !firebaseServiceAccountJson.isBlank()) {
+        if (serviceAccountJson != null && !serviceAccountJson.isBlank()) {
+
+            System.out.println(
+                    "Firebase credentials: FIREBASE_SERVICE_ACCOUNT_JSON"
+            );
 
             credentials = GoogleCredentials.fromStream(
                     new ByteArrayInputStream(
-                            firebaseServiceAccountJson.getBytes(
-                                    StandardCharsets.UTF_8
-                            )
+                            serviceAccountJson.getBytes(StandardCharsets.UTF_8)
                     )
             );
 
         } else {
+
+            System.out.println(
+                    "Firebase credentials: Application Default Credentials"
+            );
+
             credentials = GoogleCredentials.getApplicationDefault();
         }
 
