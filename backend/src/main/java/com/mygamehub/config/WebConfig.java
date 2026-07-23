@@ -12,7 +12,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOriginPatterns(
                         "http://localhost:*",
-                        "http://127.0.0.1:*"
+                        "http://127.0.0.1:*",
+                        "https://my-game-hub-six.vercel.app"
                 )
                 .allowedMethods(
                         "GET",
