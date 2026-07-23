@@ -1,0 +1,26 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  profiles:
+    default: local
+
+  jpa:
+    open-in-view: false
+
+app:
+  cors:
+    allowed-origins: "http://localhost:3000,http://localhost:5000,http://localhost:8081,http://localhost:5173"
+
+  lostark:
+    base-url: https://developer-lostark.game.onstove.com
+    api-token: ${LOSTARK_API_TOKEN:}
+
+  riot:
+    dev-api-key: ${RIOT_DEV_API_KEY:}
+    lol-api-key: ${RIOT_LOL_API_KEY:}
+    tft-api-key: ${RIOT_TFT_API_KEY:}
+
+  eternal-return:
+    base-url: https://open-api.bser.io
+    production-api-key: ${ER_PRODUCTION_API_KEY:}

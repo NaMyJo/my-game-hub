@@ -1,0 +1,25 @@
+# IDE
+.vscode/
+.idea/
+
+# Flutter / Dart
+.dart_tool/
+**/.dart_tool/
+**/build/
+
+# Java / Maven
+**/target/
+
+# Local DB
+**/data/
+
+# Secrets
+secrets/
+**/secrets/
+firebase-service-account.json
+**/firebase-service-account.json
+.env
+.env.*
+
+# Logs
+*.log
