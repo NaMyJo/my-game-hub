@@ -31,6 +31,29 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _signInAnonymously() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      await AuthService.instance.signInAnonymously();
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = '게스트 로그인에 실패했습니다.\n$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,6 +152,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ],
                             ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: OutlinedButton.icon(
+                      onPressed: _loading ? null : _signInAnonymously,
+                      icon: const Icon(
+                        Icons.person_outline_rounded,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        '로그인 없이 시작하기',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFD7DEE9),
+                        side: const BorderSide(
+                          color: Color(0xFF35465F),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                     ),
                   ),
                   if (_error != null) ...[

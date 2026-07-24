@@ -9,9 +9,15 @@ class AuthService {
 
   Future<UserCredential> signInWithGoogle() async {
     final provider = GoogleAuthProvider();
-    provider.setCustomParameters({'prompt': 'select_account'});
+    provider.setCustomParameters({
+      'prompt': 'select_account',
+    });
 
     return _auth.signInWithPopup(provider);
+  }
+
+  Future<UserCredential> signInAnonymously() async {
+    return _auth.signInAnonymously();
   }
 
   Future<void> signOut() => _auth.signOut();

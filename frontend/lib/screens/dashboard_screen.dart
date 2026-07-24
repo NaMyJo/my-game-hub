@@ -398,6 +398,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _confirmSignOut() async {
+    final isGuest = _user?.isAnonymous == true;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -406,16 +408,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: const Text(
-            '로그아웃',
-            style: TextStyle(
+          title: Text(
+            isGuest ? '게스트 이용 종료' : '로그아웃',
+            style: const TextStyle(
               fontWeight: FontWeight.w800,
             ),
           ),
-          content: const Text(
-            '정말 로그아웃하시겠습니까?',
-            style: TextStyle(
+          content: Text(
+            isGuest
+                ? '게스트 이용을 종료하시겠습니까?\n\n'
+                    '종료하면 현재 게스트 계정의 게임 데이터를 '
+                    '다시 불러오지 못할 수 있습니다.'
+                : '정말 로그아웃하시겠습니까?',
+            style: const TextStyle(
               color: Color(0xFFAEB9C8),
+              height: 1.5,
             ),
           ),
           actions: [
@@ -425,7 +432,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('로그아웃'),
+              child: Text(
+                isGuest ? '게스트 종료' : '로그아웃',
+              ),
             ),
           ],
         );
@@ -643,7 +652,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onDashboard: _openDashboard,
                 onAddGame: _openAddGame,
                 onTools: _openTools,
-                onSignOut: _signOut,
+                onSignOut: _confirmSignOut,
               ),
               Expanded(
                 child: SafeArea(
@@ -728,6 +737,11 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = user?.isAnonymous == true;
+
+    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+
+    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
     return Container(
       width: 230,
       decoration: const BoxDecoration(
@@ -793,12 +807,14 @@ class _Sidebar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user?.displayName ?? '게이머',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user?.email ?? '',
+                      accountText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -811,10 +827,17 @@ class _Sidebar extends StatelessWidget {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: onSignOut,
-                        icon: const Icon(Icons.logout_rounded, size: 16),
-                        label: const Text('로그아웃'),
+                        icon: Icon(
+                          isGuest
+                              ? Icons.exit_to_app_rounded
+                              : Icons.logout_rounded,
+                          size: 16,
+                        ),
+                        label: Text(
+                          isGuest ? '게스트 종료' : '로그아웃',
+                        ),
                       ),
-                    ),
+                    )
                   ],
                 ),
               ),
@@ -884,6 +907,11 @@ class _HeroProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = user?.isAnonymous == true;
+
+    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+
+    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 170),
@@ -921,7 +949,7 @@ class _HeroProfile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.displayName ?? '게이머',
+                  displayName,
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -937,7 +965,7 @@ class _HeroProfile extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  user?.email ?? '',
+                  accountText,
                   style: const TextStyle(
                     color: Color(0xFF7C899D),
                     fontSize: 12,
@@ -1677,6 +1705,7 @@ class _MobileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = user?.isAnonymous == true;
     return Row(
       children: [
         ClipRRect(
@@ -1699,11 +1728,11 @@ class _MobileHeader extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: '로그아웃',
+          tooltip: isGuest ? '게스트 종료' : '로그아웃',
           onPressed: onSignOut,
-          icon: const Icon(
-            Icons.logout_rounded,
-            color: Color(0xFF8794A8),
+          icon: Icon(
+            isGuest ? Icons.exit_to_app_rounded : Icons.logout_rounded,
+            color: const Color(0xFF8794A8),
           ),
         ),
       ],
@@ -1717,9 +1746,14 @@ class _MobileHeroProfile extends StatelessWidget {
   });
 
   final User? user;
-
   @override
   Widget build(BuildContext context) {
+    final isGuest = user?.isAnonymous == true;
+
+    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+
+    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -1752,7 +1786,7 @@ class _MobileHeroProfile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.displayName ?? '게이머',
+                  displayName,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 17,
@@ -1761,7 +1795,7 @@ class _MobileHeroProfile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.email ?? '',
+                  accountText,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF8290A4),
