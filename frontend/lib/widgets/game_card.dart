@@ -155,16 +155,25 @@ class GameCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.15),
+                  color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  _icon(profile.type),
-                  color: accent,
-                  size: 20,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Image.asset(
+                    _gameIcon(profile.type),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        _fallbackIcon(profile.type),
+                        color: accent,
+                        size: 20,
+                      );
+                    },
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -514,14 +523,33 @@ class GameCard extends StatelessWidget {
     );
   }
 
-  IconData _icon(GameType type) {
+  String _gameIcon(GameType type) {
+    switch (type) {
+      case GameType.lostArk:
+        return 'assets/game_icons/lostark.png';
+
+      case GameType.leagueOfLegends:
+        return 'assets/game_icons/lol.png';
+
+      case GameType.tft:
+        return 'assets/game_icons/tft.png';
+
+      case GameType.eternalReturn:
+        return 'assets/game_icons/eternal_return.png';
+    }
+  }
+
+  IconData _fallbackIcon(GameType type) {
     switch (type) {
       case GameType.lostArk:
         return Icons.auto_awesome_rounded;
+
       case GameType.leagueOfLegends:
         return Icons.shield_rounded;
+
       case GameType.tft:
         return Icons.workspace_premium_rounded;
+
       case GameType.eternalReturn:
         return Icons.diamond_rounded;
     }

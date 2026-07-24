@@ -742,12 +742,16 @@ class _Sidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(
-                    Icons.sports_esports_rounded,
-                    color: Color(0xFF8067FF),
-                    size: 32,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset(
+                      'assets/app_icon/favicon.png',
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   SizedBox(width: 10),
                   Text(
@@ -902,14 +906,14 @@ class _HeroProfile extends StatelessWidget {
         runSpacing: 18,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 54,
-            backgroundColor: const Color(0xFF6E56E9),
-            backgroundImage:
-                user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
-            child: user?.photoURL == null
-                ? const Icon(Icons.person_rounded, size: 48)
-                : null,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'assets/app_icon/favicon.png',
+              width: 104,
+              height: 104,
+              fit: BoxFit.cover,
+            ),
           ),
           SizedBox(
             width: 540,
@@ -986,6 +990,7 @@ class _SummaryRow extends StatelessWidget {
               width: cardWidth,
               child: StatCard(
                 icon: Icons.auto_awesome_rounded,
+                imageAsset: 'assets/game_icons/lostark.png',
                 label: 'LOST ARK',
                 value: '$lostArkCount개',
                 caption: '등록 계정',
@@ -995,6 +1000,7 @@ class _SummaryRow extends StatelessWidget {
               width: cardWidth,
               child: StatCard(
                 icon: Icons.shield_rounded,
+                imageAsset: 'assets/game_icons/lol.png',
                 label: 'RIOT GAMES',
                 value: 'LoL $lolCount개 · TFT $tftCount개',
                 caption: '등록 계정',
@@ -1004,6 +1010,7 @@ class _SummaryRow extends StatelessWidget {
               width: cardWidth,
               child: StatCard(
                 icon: Icons.diamond_rounded,
+                imageAsset: 'assets/game_icons/eternal_return.png',
                 label: 'ETERNAL RETURN',
                 value: '$eternalReturnCount개',
                 caption: '등록 계정',
@@ -1165,16 +1172,16 @@ class _AddGameCard extends StatelessWidget {
             style: BorderStyle.solid,
           ),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Color(0xFF151E34),
-              child: Icon(
-                Icons.add_rounded,
-                size: 36,
-                color: Color(0xFF9B91D8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/app_icon/favicon.png',
+                width: 104,
+                height: 104,
+                fit: BoxFit.cover,
               ),
             ),
             SizedBox(height: 16),
@@ -1672,10 +1679,14 @@ class _MobileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(
-          Icons.sports_esports_rounded,
-          color: Color(0xFF8067FF),
-          size: 28,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.asset(
+            'assets/app_icon/favicon.png',
+            width: 24,
+            height: 24,
+            fit: BoxFit.cover,
+          ),
         ),
         const SizedBox(width: 9),
         const Expanded(
