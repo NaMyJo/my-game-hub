@@ -277,9 +277,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 900;
-
     // ============================
     // 대시보드 요약 데이터 계산
     // ============================
@@ -326,71 +323,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lastSyncText = _formatRelativeTime(
       latestGame?.updatedAt,
     );
-
     return Scaffold(
-      body: Row(
-        children: [
-          if (!compact)
-            _Sidebar(
-              user: _user,
-              currentPage: _currentPage,
-              onDashboard: _openDashboard,
-              onAddGame: _openAddGame,
-              onTools: _openTools,
-              onSignOut: _signOut,
-            ),
-          Expanded(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(compact ? 18 : 26),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1500),
-                    child: _currentPage == DashboardPage.dashboard
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _HeroProfile(user: _user),
-                              const SizedBox(height: 18),
-                              _SummaryRow(
-                                lostArkCount: lostArkCount,
-                                lolCount: lolCount,
-                                tftCount: tftCount,
-                                eternalReturnCount: eternalReturnCount,
-                                lastSyncText: lastSyncText,
-                              ),
-                              const SizedBox(height: 18),
-                              _GameGrid(
-                                games: _games,
-                                refreshingGameId: _refreshingGameId,
-                                onAddGame: _openAddGame,
-                                onRefresh: _refreshGame,
-                                onReorder: _reorderGame,
-                                onRemove: (game) async {
-                                  try {
-                                    await GameRepository.instance
-                                        .deleteGame(game.id);
+      body: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 1600,
+          child: Row(
+            children: [
+              _Sidebar(
+                user: _user,
+                currentPage: _currentPage,
+                onDashboard: _openDashboard,
+                onAddGame: _openAddGame,
+                onTools: _openTools,
+                onSignOut: _signOut,
+              ),
+              Expanded(
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(26),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1500),
+                        child: _currentPage == DashboardPage.dashboard
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _HeroProfile(user: _user),
+                                  const SizedBox(height: 18),
+                                  _SummaryRow(
+                                    lostArkCount: lostArkCount,
+                                    lolCount: lolCount,
+                                    tftCount: tftCount,
+                                    eternalReturnCount: eternalReturnCount,
+                                    lastSyncText: lastSyncText,
+                                  ),
+                                  const SizedBox(height: 18),
+                                  _GameGrid(
+                                    games: _games,
+                                    refreshingGameId: _refreshingGameId,
+                                    onAddGame: _openAddGame,
+                                    onRefresh: _refreshGame,
+                                    onReorder: _reorderGame,
+                                    onRemove: (game) async {
+                                      try {
+                                        await GameRepository.instance
+                                            .deleteGame(game.id);
 
-                                    if (!mounted) return;
+                                        if (!mounted) return;
 
-                                    setState(() {
-                                      _games.remove(game);
-                                    });
-                                  } catch (error) {
-                                    if (!mounted) return;
-                                    await _showApiError();
-                                  }
-                                },
-                              ),
-                            ],
-                          )
-                        : const _ToolsPage(),
+                                        setState(() {
+                                          _games.remove(game);
+                                        });
+                                      } catch (error) {
+                                        if (!mounted) return;
+                                        await _showApiError();
+                                      }
+                                    },
+                                  ),
+                                ],
+                              )
+                            : const _ToolsPage(),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
