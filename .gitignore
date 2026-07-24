@@ -23,3 +23,6 @@ firebase-service-account.json
 
 # Logs
 *.log
+
+
+**/.flutter-plugins-dependencies

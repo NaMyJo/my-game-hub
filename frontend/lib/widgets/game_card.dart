@@ -10,12 +10,14 @@ class GameCard extends StatelessWidget {
     required this.isRefreshing,
     required this.onRefresh,
     required this.onRemove,
+    this.mobile = false,
   });
 
   final GameProfile profile;
   final bool isRefreshing;
   final VoidCallback onRefresh;
   final VoidCallback onRemove;
+  final bool mobile;
   ({String gameName, String tagLine})? _parseRiotId() {
     final parts = profile.accountName.split('#');
 
@@ -34,6 +36,32 @@ class GameCard extends StatelessWidget {
       gameName: gameName,
       tagLine: tagLine,
     );
+  }
+
+  String _mobileTier(String value) {
+    // 예:
+    // EMERALD IV · 72 LP · 137승 131패
+    // -> EMERALD IV
+
+    final dotIndex = value.indexOf('·');
+
+    if (dotIndex != -1) {
+      return value.substring(0, dotIndex).trim();
+    }
+
+    // 혹시 "EMERALD IV 72 LP" 같은 형태면 LP 앞까지만
+    final lpIndex = value.toUpperCase().indexOf(' LP');
+
+    if (lpIndex != -1) {
+      final beforeLp = value.substring(0, lpIndex).trim();
+      final parts = beforeLp.split(' ');
+
+      if (parts.length >= 2) {
+        return parts.take(parts.length - 1).join(' ');
+      }
+    }
+
+    return value;
   }
 
   Future<void> _openOpgg() async {
@@ -102,13 +130,20 @@ class GameCard extends StatelessWidget {
     final accent = _accent(profile.type);
 
     return Container(
-      height: switch (profile.type) {
-        GameType.lostArk => 340,
-        GameType.leagueOfLegends => 360,
-        GameType.tft => 360,
-        GameType.eternalReturn => 480,
-      },
-      padding: const EdgeInsets.all(18),
+      height: mobile
+          ? switch (profile.type) {
+              GameType.lostArk => 300,
+              GameType.leagueOfLegends => 260,
+              GameType.tft => 260,
+              GameType.eternalReturn => 330,
+            }
+          : switch (profile.type) {
+              GameType.lostArk => 340,
+              GameType.leagueOfLegends => 360,
+              GameType.tft => 360,
+              GameType.eternalReturn => 480,
+            },
+      padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: const Color(0xFF091322),
@@ -116,7 +151,7 @@ class GameCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Row(
             children: [
               Container(
@@ -199,62 +234,73 @@ class GameCard extends StatelessWidget {
                   ? '-'
                   : profile.averagePlacement!.toStringAsFixed(2),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              '선호 실험체',
-              style: TextStyle(
-                color: Color(0xFF7B899D),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _FavoriteCharacter(
-                    rank: 1,
-                    character: profile.favoriteCharacter1,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _FavoriteCharacter(
-                    rank: 2,
-                    character: profile.favoriteCharacter2,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: _FavoriteCharacter(
-                    rank: 3,
-                    character: profile.favoriteCharacter3,
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            _Metric(
-              label: profile.primaryLabel,
-              value: profile.primaryValue,
-              color: accent,
-              prominent: true,
-            ),
-            if (profile.secondaryLabel != null &&
-                profile.secondaryValue != null) ...[
+            if (!mobile) ...[
               const SizedBox(height: 16),
-              _Metric(
-                label: profile.secondaryLabel!,
-                value: profile.secondaryValue!,
+              const Text(
+                '선호 실험체',
+                style: TextStyle(
+                  color: Color(0xFF7B899D),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FavoriteCharacter(
+                      rank: 1,
+                      character: profile.favoriteCharacter1,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _FavoriteCharacter(
+                      rank: 2,
+                      character: profile.favoriteCharacter2,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _FavoriteCharacter(
+                      rank: 3,
+                      character: profile.favoriteCharacter3,
+                    ),
+                  ),
+                ],
               ),
             ],
-            if (profile.tertiaryLabel != null &&
-                profile.tertiaryValue != null) ...[
-              const SizedBox(height: 16),
+          ] else ...[
+            if (mobile &&
+                (profile.type == GameType.leagueOfLegends ||
+                    profile.type == GameType.tft))
+              _MobileTier(
+                value: _mobileTier(profile.primaryValue),
+                color: accent,
+              )
+            else ...[
               _Metric(
-                label: profile.tertiaryLabel!,
-                value: profile.tertiaryValue!,
+                label: profile.primaryLabel,
+                value: profile.primaryValue,
+                color: accent,
+                prominent: true,
               ),
+              if (profile.secondaryLabel != null &&
+                  profile.secondaryValue != null) ...[
+                const SizedBox(height: 16),
+                _Metric(
+                  label: profile.secondaryLabel!,
+                  value: profile.secondaryValue!,
+                ),
+              ],
+              if (profile.tertiaryLabel != null &&
+                  profile.tertiaryValue != null) ...[
+                const SizedBox(height: 16),
+                _Metric(
+                  label: profile.tertiaryLabel!,
+                  value: profile.tertiaryValue!,
+                ),
+              ],
             ],
           ],
           const Spacer(),
@@ -308,43 +354,63 @@ class GameCard extends StatelessWidget {
 // LEAGUE OF LEGENDS
 // ====================
           if (profile.type == GameType.leagueOfLegends) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openOpgg,
-                    icon: const Icon(
-                      Icons.open_in_new_rounded,
-                      size: 15,
-                    ),
-                    label: const Text(
-                      'OP.GG',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: _externalButtonStyle(),
+            if (mobile)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openOpgg,
+                  icon: const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 14,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openLolPs,
-                    icon: const Icon(
-                      Icons.open_in_new_rounded,
-                      size: 15,
+                  label: const Text(
+                    'OP.GG',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
-                    label: const Text(
-                      'LOL.PS',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: _externalButtonStyle(),
                   ),
+                  style: _externalButtonStyle(),
                 ),
-              ],
-            ),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openOpgg,
+                      icon: const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 15,
+                      ),
+                      label: const Text(
+                        'OP.GG',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: _externalButtonStyle(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openLolPs,
+                      icon: const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 15,
+                      ),
+                      label: const Text(
+                        'LOL.PS',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: _externalButtonStyle(),
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: 12),
           ],
 
@@ -397,50 +463,52 @@ class GameCard extends StatelessWidget {
           ],
 
 // 기존 API 출처
-          Row(
-            children: [
-              const Icon(
-                Icons.sync_rounded,
-                color: Color(0xFF5F6E82),
-                size: 14,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                switch (profile.type) {
-                  GameType.lostArk => 'Lost Ark Open API',
-                  GameType.leagueOfLegends => 'Riot Games API',
-                  GameType.tft => 'Riot Games TFT API',
-                  GameType.eternalReturn => 'Eternal Return Open API',
-                },
-                style: const TextStyle(
+          if (!mobile) ...[
+            Row(
+              children: [
+                const Icon(
+                  Icons.sync_rounded,
                   color: Color(0xFF5F6E82),
-                  fontSize: 10,
+                  size: 14,
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              const Icon(
-                Icons.sync_rounded,
-                color: Color(0xFF5F6E82),
-                size: 14,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                switch (profile.type) {
-                  GameType.lostArk => 'Lost Ark Open API',
-                  GameType.leagueOfLegends => 'Riot Games API',
-                  GameType.tft => 'Riot Games TFT API',
-                  GameType.eternalReturn => 'Eternal Return API 승인 대기',
-                },
-                style: const TextStyle(
+                const SizedBox(width: 5),
+                Text(
+                  switch (profile.type) {
+                    GameType.lostArk => 'Lost Ark Open API',
+                    GameType.leagueOfLegends => 'Riot Games API',
+                    GameType.tft => 'Riot Games TFT API',
+                    GameType.eternalReturn => 'Eternal Return Open API',
+                  },
+                  style: const TextStyle(
+                    color: Color(0xFF5F6E82),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.sync_rounded,
                   color: Color(0xFF5F6E82),
-                  fontSize: 10,
+                  size: 14,
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 5),
+                Text(
+                  switch (profile.type) {
+                    GameType.lostArk => 'Lost Ark Open API',
+                    GameType.leagueOfLegends => 'Riot Games API',
+                    GameType.tft => 'Riot Games TFT API',
+                    GameType.eternalReturn => 'Eternal Return API 승인 대기',
+                  },
+                  style: const TextStyle(
+                    color: Color(0xFF5F6E82),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -626,7 +694,7 @@ class _FavoriteCharacter extends StatelessWidget {
           Text(
             games == null
                 ? '-'
-                : '${games}판 · 평균 ${averageRank?.toStringAsFixed(1) ?? '-'}등',
+                : '$games판 · 평균 ${averageRank?.toStringAsFixed(1) ?? '-'}등',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -638,6 +706,43 @@ class _FavoriteCharacter extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MobileTier extends StatelessWidget {
+  const _MobileTier({
+    required this.value,
+    required this.color,
+  });
+
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '티어',
+          style: TextStyle(
+            color: Color(0xFF7B899D),
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }

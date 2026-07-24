@@ -24,7 +24,12 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final List<GameProfile> _games = [];
   int? _refreshingGameId;
+  bool _isLoadingGames = true;
+  bool _loadGamesTakingLong = false;
+  String? _loadGamesError;
+
   DashboardPage _currentPage = DashboardPage.dashboard;
+
   @override
   void initState() {
     super.initState();
@@ -45,20 +50,167 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   User? get _user => FirebaseAuth.instance.currentUser;
   Future<void> _loadGames() async {
-    try {
-      final games = await GameRepository.instance.getMyGames();
+    if (!mounted) return;
 
-      if (!mounted) return;
+    setState(() {
+      _isLoadingGames = true;
+      _loadGamesTakingLong = false;
+      _loadGamesError = null;
+    });
+
+    // 평소보다 오래 걸릴 때만 안내
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted || !_isLoadingGames) return;
 
       setState(() {
-        _games
-          ..clear()
-          ..addAll(games);
+        _loadGamesTakingLong = true;
       });
-    } catch (error) {
-      if (!mounted) return;
-      await _showApiError();
+    });
+
+    const maxRetries = 2;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        debugPrint('게임 목록 불러오기 시도: $attempt/$maxRetries');
+
+        final games = await GameRepository.instance
+            .getMyGames()
+            .timeout(const Duration(seconds: 15));
+
+        if (!mounted) return;
+
+        setState(() {
+          _games
+            ..clear()
+            ..addAll(games);
+
+          _isLoadingGames = false;
+          _loadGamesTakingLong = false;
+          _loadGamesError = null;
+        });
+
+        debugPrint('게임 목록 로딩 성공: ${games.length}개');
+        return;
+      } catch (e) {
+        debugPrint('게임 목록 로딩 실패 ($attempt/$maxRetries): $e');
+
+        if (attempt < maxRetries) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
     }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingGames = false;
+      _loadGamesTakingLong = false;
+      _loadGamesError = '게임 정보를 불러오지 못했습니다.';
+    });
+  }
+
+  Widget _buildGameLoadingState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 42,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF091322),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF1A293C),
+        ),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            _loadGamesTakingLong
+                ? '게임 정보를 불러오는 데 시간이 조금 걸리고 있습니다.\n잠시만 기다려주세요.'
+                : '게임 정보를 불러오는 중입니다...',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF7C899D),
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _loadGamesTakingLong
+                ? '오랜만에 접속한 경우 최대 1분 정도 걸릴 수 있습니다.\n1분 이상 표시될 경우 새로고침해주세요.'
+                : '잠시만 기다려주세요.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF7C899D),
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGameLoadErrorState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: 36,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF091322),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF1A293C),
+        ),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 34,
+            color: Color(0xFF7C899D),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _loadGamesError ?? '게임 정보를 불러오지 못했습니다.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '서버 연결에 시간이 걸리고 있을 수 있습니다.\n'
+            '잠시 후 다시 시도하거나 새로고침해주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF7C899D),
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _loadGames,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _refreshGame(GameProfile game) async {
@@ -245,6 +397,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0C1624),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            '로그아웃',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: const Text(
+            '정말 로그아웃하시겠습니까?',
+            style: TextStyle(
+              color: Color(0xFFAEB9C8),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('로그아웃'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _signOut();
+    }
+  }
+
   String _formatRelativeTime(DateTime? dateTime) {
     if (dateTime == null) {
       return '-';
@@ -275,8 +467,113 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${difference.inDays}일 전';
   }
 
+  Widget _buildMobileLayout({
+    required int lostArkCount,
+    required int lolCount,
+    required int tftCount,
+    required int eternalReturnCount,
+    required String lastSyncText,
+  }) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050C16),
+
+      // 가운데 원형 게임 추가 버튼
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAddGame,
+        backgroundColor: const Color(0xFF745CFF),
+        foregroundColor: Colors.white,
+        elevation: 8,
+        shape: const CircleBorder(),
+        child: const Icon(
+          Icons.add_rounded,
+          size: 32,
+        ),
+      ),
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+      // 모바일 하단 내비게이션
+      bottomNavigationBar: _MobileBottomBar(
+        currentPage: _currentPage,
+        onDashboard: _openDashboard,
+        onTools: _openTools,
+      ),
+
+      body: SafeArea(
+        bottom: false,
+        child: _currentPage == DashboardPage.dashboard
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  14,
+                  16,
+                  14,
+                  100,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MobileHeader(
+                      user: _user,
+                      onSignOut: _confirmSignOut,
+                    ),
+                    const SizedBox(height: 16),
+                    _MobileHeroProfile(
+                      user: _user,
+                    ),
+                    const SizedBox(height: 14),
+                    if (_isLoadingGames)
+                      _buildGameLoadingState()
+                    else if (_loadGamesError != null)
+                      _buildGameLoadErrorState()
+                    else ...[
+                      _MobileSummaryGrid(
+                        lostArkCount: lostArkCount,
+                        lolCount: lolCount,
+                        tftCount: tftCount,
+                        eternalReturnCount: eternalReturnCount,
+                        lastSyncText: lastSyncText,
+                      ),
+                      const SizedBox(height: 14),
+                      _MobileGameGrid(
+                        games: _games,
+                        refreshingGameId: _refreshingGameId,
+                        onRefresh: _refreshGame,
+                        onRemove: (game) async {
+                          try {
+                            await GameRepository.instance.deleteGame(game.id);
+
+                            if (!mounted) return;
+
+                            setState(() {
+                              _games.remove(game);
+                            });
+                          } catch (error) {
+                            if (!mounted) return;
+                            await _showApiError();
+                          }
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              )
+            : const SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  20,
+                  14,
+                  100,
+                ),
+                child: _ToolsPage(),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < 700;
     // ============================
     // 대시보드 요약 데이터 계산
     // ============================
@@ -323,6 +620,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final lastSyncText = _formatRelativeTime(
       latestGame?.updatedAt,
     );
+
+    if (isMobile) {
+      return _buildMobileLayout(
+        lostArkCount: lostArkCount,
+        lolCount: lolCount,
+        tftCount: tftCount,
+        eternalReturnCount: eternalReturnCount,
+        lastSyncText: lastSyncText,
+      );
+    }
     return Scaffold(
       body: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -349,40 +656,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ? Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _HeroProfile(user: _user),
-                                  const SizedBox(height: 18),
-                                  _SummaryRow(
-                                    lostArkCount: lostArkCount,
-                                    lolCount: lolCount,
-                                    tftCount: tftCount,
-                                    eternalReturnCount: eternalReturnCount,
-                                    lastSyncText: lastSyncText,
-                                  ),
-                                  const SizedBox(height: 18),
-                                  _GameGrid(
-                                    games: _games,
-                                    refreshingGameId: _refreshingGameId,
-                                    onAddGame: _openAddGame,
-                                    onRefresh: _refreshGame,
-                                    onReorder: _reorderGame,
-                                    onRemove: (game) async {
-                                      try {
-                                        await GameRepository.instance
-                                            .deleteGame(game.id);
+                                    _HeroProfile(user: _user),
+                                    const SizedBox(height: 18),
+                                    if (_isLoadingGames)
+                                      _buildGameLoadingState()
+                                    else if (_loadGamesError != null)
+                                      _buildGameLoadErrorState()
+                                    else ...[
+                                      _SummaryRow(
+                                        lostArkCount: lostArkCount,
+                                        lolCount: lolCount,
+                                        tftCount: tftCount,
+                                        eternalReturnCount: eternalReturnCount,
+                                        lastSyncText: lastSyncText,
+                                      ),
+                                      const SizedBox(height: 18),
+                                      _GameGrid(
+                                        games: _games,
+                                        refreshingGameId: _refreshingGameId,
+                                        onAddGame: _openAddGame,
+                                        onRefresh: _refreshGame,
+                                        onReorder: _reorderGame,
+                                        onRemove: (game) async {
+                                          try {
+                                            await GameRepository.instance
+                                                .deleteGame(game.id);
 
-                                        if (!mounted) return;
+                                            if (!mounted) return;
 
-                                        setState(() {
-                                          _games.remove(game);
-                                        });
-                                      } catch (error) {
-                                        if (!mounted) return;
-                                        await _showApiError();
-                                      }
-                                    },
-                                  ),
-                                ],
-                              )
+                                            setState(() {
+                                              _games.remove(game);
+                                            });
+                                          } catch (error) {
+                                            if (!mounted) return;
+                                            await _showApiError();
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ])
                             : const _ToolsPage(),
                       ),
                     ),
@@ -1158,6 +1470,297 @@ class _ToolCardState extends State<_ToolCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MobileBottomBar extends StatelessWidget {
+  const _MobileBottomBar({
+    required this.currentPage,
+    required this.onDashboard,
+    required this.onTools,
+  });
+
+  final DashboardPage currentPage;
+  final VoidCallback onDashboard;
+  final VoidCallback onTools;
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomAppBar(
+      height: 72,
+      color: const Color(0xFF07101C),
+      shape: const CircularNotchedRectangle(),
+      notchMargin: 9,
+      child: Row(
+        children: [
+          Expanded(
+            child: _MobileNavItem(
+              icon: Icons.dashboard_rounded,
+              label: '대시보드',
+              selected: currentPage == DashboardPage.dashboard,
+              onTap: onDashboard,
+            ),
+          ),
+
+          // 가운데 FAB 공간
+          const SizedBox(width: 72),
+
+          Expanded(
+            child: _MobileNavItem(
+              icon: Icons.build_circle_outlined,
+              label: '도구 모음',
+              selected: currentPage == DashboardPage.tools,
+              onTap: onTools,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  const _MobileNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? const Color(0xFF9B8CFF) : const Color(0xFF718096);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 23,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileGameGrid extends StatelessWidget {
+  const _MobileGameGrid({
+    required this.games,
+    required this.refreshingGameId,
+    required this.onRefresh,
+    required this.onRemove,
+  });
+
+  final List<GameProfile> games;
+  final int? refreshingGameId;
+  final ValueChanged<GameProfile> onRefresh;
+  final ValueChanged<GameProfile> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+
+        // 모바일 게임 카드 높이 확보
+        childAspectRatio: 0.72,
+      ),
+      itemCount: games.length,
+      itemBuilder: (context, index) {
+        final game = games[index];
+        return GameCard(
+          profile: game,
+          isRefreshing: refreshingGameId == game.id,
+          onRefresh: () => onRefresh(game),
+          onRemove: () => onRemove(game),
+          mobile: true,
+        );
+      },
+    );
+  }
+}
+
+class _MobileSummaryGrid extends StatelessWidget {
+  const _MobileSummaryGrid({
+    required this.lostArkCount,
+    required this.lolCount,
+    required this.tftCount,
+    required this.eternalReturnCount,
+    required this.lastSyncText,
+  });
+
+  final int lostArkCount;
+  final int lolCount;
+  final int tftCount;
+  final int eternalReturnCount;
+  final String lastSyncText;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.35,
+      children: [
+        StatCard(
+          icon: Icons.auto_awesome_rounded,
+          label: 'LOST ARK',
+          value: '$lostArkCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.shield_rounded,
+          label: 'RIOT',
+          value: 'LoL $lolCount · TFT $tftCount',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.diamond_rounded,
+          label: 'ETERNAL RETURN',
+          value: '$eternalReturnCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.bolt_rounded,
+          label: '동기화',
+          value: lastSyncText,
+          caption: '마지막 갱신',
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileHeader extends StatelessWidget {
+  const _MobileHeader({
+    required this.user,
+    required this.onSignOut,
+  });
+
+  final User? user;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.sports_esports_rounded,
+          color: Color(0xFF8067FF),
+          size: 28,
+        ),
+        const SizedBox(width: 9),
+        const Expanded(
+          child: Text(
+            'MY GAME HUB',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: '로그아웃',
+          onPressed: onSignOut,
+          icon: const Icon(
+            Icons.logout_rounded,
+            color: Color(0xFF8794A8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileHeroProfile extends StatelessWidget {
+  const _MobileHeroProfile({
+    required this.user,
+  });
+
+  final User? user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF263348),
+        ),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF101B32),
+            Color(0xFF17233D),
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: const Color(0xFF6E56E9),
+            backgroundImage:
+                user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
+            child: user?.photoURL == null
+                ? const Icon(Icons.person_rounded)
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.displayName ?? '게이머',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user?.email ?? '',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF8290A4),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
