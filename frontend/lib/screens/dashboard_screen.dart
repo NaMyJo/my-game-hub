@@ -1281,8 +1281,20 @@ class _ToolsPage extends StatelessWidget {
               'https://lostark.game.onstove.com',
             ),
             _ToolData(
+              '로스트아크 인벤',
+              'https://lostark.inven.co.kr',
+            ),
+            _ToolData(
               'KLOA',
               'https://kloa.gg',
+            ),
+            _ToolData(
+              'iloa',
+              'https://iloa.gg/',
+            ),
+            _ToolData(
+              '로아와',
+              'https://loawa.com',
             ),
             _ToolData(
               'LOPEC',
@@ -1291,6 +1303,14 @@ class _ToolsPage extends StatelessWidget {
             _ToolData(
               '로아업',
               'https://loaup.com',
+            ),
+            _ToolData(
+              '로아 아이스펭',
+              'https://loa.icepeng.com',
+            ),
+            _ToolData(
+              '로스트빌드',
+              'https://lostbuilds.com/',
             ),
             _ToolData(
               '로아도구',
@@ -1318,6 +1338,30 @@ class _ToolsPage extends StatelessWidget {
             _ToolData(
               'FOW.KR',
               'https://fow.kr',
+            ),
+            _ToolData(
+              'deeplol',
+              'https://www.deeplol.gg/',
+            ),
+            _ToolData(
+              'poro.gg',
+              'https://poro.gg/?hl=ko-KR',
+            ),
+            _ToolData(
+              'lol_Analytics',
+              'https://lolalytics.com/ko/',
+            ),
+            _ToolData(
+              'dpm_lol',
+              'https://dpm.lol/',
+            ),
+            _ToolData(
+              'rft.gg',
+              'https://rft.gg/',
+            ),
+            _ToolData(
+              'noobhours',
+              'https://noobhours.com/',
             ),
           ],
           onOpen: _open,
@@ -1348,6 +1392,14 @@ class _ToolsPage extends StatelessWidget {
             _ToolData(
               'DAK.GG',
               'https://dak.gg/er',
+            ),
+            _ToolData(
+              '이리와지지',
+              'https://erwagg.com/',
+            ),
+            _ToolData(
+              '루미랩',
+              'https://lumilab.gg/',
             ),
           ],
           onOpen: _open,
