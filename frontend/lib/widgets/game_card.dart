@@ -133,6 +133,98 @@ class GameCard extends StatelessWidget {
     );
   }
 
+  void _showMapleCharacterImage(BuildContext context) {
+    final imageUrl = profile.characterImageUrl;
+
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF091322),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 420,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          profile.accountName,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 300,
+                    width: double.infinity,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (
+                        context,
+                        error,
+                        stackTrace,
+                      ) {
+                        return const Center(
+                          child: Icon(
+                            Icons.person_rounded,
+                            size: 100,
+                            color: Color(0xFF7B899D),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    profile.primaryValue,
+                    style: const TextStyle(
+                      color: Color(0xFFFF8A3D),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (profile.tertiaryValue != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      profile.tertiaryValue!,
+                      style: const TextStyle(
+                        color: Color(0xFFAEB9C8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = _accent(profile.type);
@@ -144,14 +236,14 @@ class GameCard extends StatelessWidget {
               GameType.leagueOfLegends => 260,
               GameType.tft => 260,
               GameType.eternalReturn => 330,
-              GameType.mapleStory => 360,
+              GameType.mapleStory => 300,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,
               GameType.leagueOfLegends => 360,
               GameType.tft => 360,
               GameType.eternalReturn => 480,
-              GameType.mapleStory => 430,
+              GameType.mapleStory => 340,
             },
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
@@ -223,49 +315,50 @@ class GameCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            profile.accountName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: profile.type == GameType.mapleStory
-                  ? const Color(0xFFE7ECF4)
-                  : const Color(0xFFAEB9C8),
-              fontSize:
-                  profile.type == GameType.mapleStory ? (mobile ? 15 : 17) : 12,
-              fontWeight: profile.type == GameType.mapleStory
-                  ? FontWeight.w700
-                  : FontWeight.normal,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          if (profile.type == GameType.mapleStory &&
-              profile.characterImageUrl != null &&
-              profile.characterImageUrl!.isNotEmpty) ...[
-            Center(
-              child: SizedBox(
-                height: mobile ? 130 : 180,
-                child: Image.network(
-                  profile.characterImageUrl!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (
-                    context,
-                    error,
-                    stackTrace,
-                  ) {
-                    return Icon(
-                      Icons.person_rounded,
-                      size: mobile ? 55 : 75,
-                      color: const Color(0xFF7B899D),
-                    );
-                  },
+          if (profile.type == GameType.mapleStory)
+            InkWell(
+              onTap: () => _showMapleCharacterImage(context),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 4,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        profile.accountName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: const Color(0xFFE7ECF4),
+                          fontSize: mobile ? 15 : 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: Color(0xFF8C99AC),
+                    ),
+                  ],
                 ),
               ),
+            )
+          else
+            Text(
+              profile.accountName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFAEB9C8),
+                fontSize: 12,
+              ),
             ),
-            const SizedBox(height: 12),
-          ] else
-            const SizedBox(height: 10),
+          const SizedBox(height: 22),
 
           if (profile.type == GameType.eternalReturn) ...[
             _Metric(
