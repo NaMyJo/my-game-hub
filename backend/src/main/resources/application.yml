@@ -27,4 +27,4 @@ app:
   
   maplestory:
     base-url: https://open.api.nexon.com
-    production_api_key: ${NEXON_API_KEY:}
+    production-api-key: ${NEXON_API_KEY:}
