@@ -86,6 +86,9 @@ public class GameAccount {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    @Column(length = 2048)
+    private String characterImageUrl;
+
     protected GameAccount() {
     }
 
@@ -107,7 +110,7 @@ public class GameAccount {
         this.displayOrder = displayOrder;
         touch();
     }
-    
+
     public void setAccountName(String accountName) {
         this.accountName = accountName;
         touch();
@@ -183,6 +186,12 @@ public class GameAccount {
 
     touch();
 }
+    public void setCharacterImageUrl(String characterImageUrl) {
+        this.characterImageUrl = characterImageUrl;
+        touch();
+    }
+
+
     public Long getId() { return id; }
     public String getFirebaseUid() { return firebaseUid; }
     public GameType getGameType() { return gameType; }
@@ -249,5 +258,7 @@ public class GameAccount {
     public String getFavoriteCharacter3Name() {
         return favoriteCharacter3Name;
     }
-    
+    public String getCharacterImageUrl() {
+        return characterImageUrl;
+    }
 }

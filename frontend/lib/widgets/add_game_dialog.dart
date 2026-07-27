@@ -126,14 +126,6 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 onFieldSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 13),
-              const Text(
-                '현재 버전은 Mock 데이터를 표시합니다. 이후 백엔드에서 공식 게임 API를 조회하도록 연결합니다.',
-                style: TextStyle(
-                  color: Color(0xFF65748A),
-                  fontSize: 11,
-                  height: 1.5,
-                ),
-              ),
             ],
           ),
         ),
@@ -156,11 +148,16 @@ class _AddGameDialogState extends State<AddGameDialog> {
     switch (type) {
       case GameType.lostArk:
         return '예: 명종';
+
       case GameType.leagueOfLegends:
       case GameType.tft:
         return '예: Hide on bush#KR1';
+
       case GameType.eternalReturn:
         return '예: playerNickname';
+
+      case GameType.mapleStory:
+        return '예: 메이플 캐릭터명';
     }
   }
 }

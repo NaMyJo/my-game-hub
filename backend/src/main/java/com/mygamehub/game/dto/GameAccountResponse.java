@@ -26,34 +26,37 @@ public record GameAccountResponse(
         FavoriteCharacterResponse favoriteCharacter2,
         FavoriteCharacterResponse favoriteCharacter3,
 
+        String characterImageUrl,
+
         Instant updatedAt
 ) {
 
     public static GameAccountResponse from(GameAccount entity) {
 
         FavoriteCharacterResponse favorite1 =
-        createFavoriteCharacter(
-                entity.getFavoriteCharacter1Code(),
-                entity.getFavoriteCharacter1Name(),
-                entity.getFavoriteCharacter1Games(),
-                entity.getFavoriteCharacter1AverageRank()
-        );
+                createFavoriteCharacter(
+                        entity.getFavoriteCharacter1Code(),
+                        entity.getFavoriteCharacter1Name(),
+                        entity.getFavoriteCharacter1Games(),
+                        entity.getFavoriteCharacter1AverageRank()
+                );
 
-FavoriteCharacterResponse favorite2 =
-        createFavoriteCharacter(
-                entity.getFavoriteCharacter2Code(),
-                entity.getFavoriteCharacter2Name(),
-                entity.getFavoriteCharacter2Games(),
-                entity.getFavoriteCharacter2AverageRank()
-        );
+        FavoriteCharacterResponse favorite2 =
+                createFavoriteCharacter(
+                        entity.getFavoriteCharacter2Code(),
+                        entity.getFavoriteCharacter2Name(),
+                        entity.getFavoriteCharacter2Games(),
+                        entity.getFavoriteCharacter2AverageRank()
+                );
 
-FavoriteCharacterResponse favorite3 =
-        createFavoriteCharacter(
-                entity.getFavoriteCharacter3Code(),
-                entity.getFavoriteCharacter3Name(),
-                entity.getFavoriteCharacter3Games(),
-                entity.getFavoriteCharacter3AverageRank()
-        );
+        FavoriteCharacterResponse favorite3 =
+                createFavoriteCharacter(
+                        entity.getFavoriteCharacter3Code(),
+                        entity.getFavoriteCharacter3Name(),
+                        entity.getFavoriteCharacter3Games(),
+                        entity.getFavoriteCharacter3AverageRank()
+                );
+
         return new GameAccountResponse(
                 entity.getId(),
                 entity.getGameType(),
@@ -75,24 +78,27 @@ FavoriteCharacterResponse favorite3 =
                 favorite2,
                 favorite3,
 
+                entity.getCharacterImageUrl(),
+
                 entity.getUpdatedAt()
         );
     }
-private static FavoriteCharacterResponse createFavoriteCharacter(
-        Integer code,
-        String name,
-        Integer games,
-        Double averageRank
-) {
-    if (code == null) {
-        return null;
-    }
 
-    return new FavoriteCharacterResponse(
-            code,
-            name,
-            games,
-            averageRank
-    );
-}
+    private static FavoriteCharacterResponse createFavoriteCharacter(
+            Integer code,
+            String name,
+            Integer games,
+            Double averageRank
+    ) {
+        if (code == null) {
+            return null;
+        }
+
+        return new FavoriteCharacterResponse(
+                code,
+                name,
+                games,
+                averageRank
+        );
+    }
 }

@@ -481,6 +481,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int lolCount,
     required int tftCount,
     required int eternalReturnCount,
+    required int mapleStoryCount,
     required String lastSyncText,
   }) {
     return Scaffold(
@@ -540,6 +541,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         lolCount: lolCount,
                         tftCount: tftCount,
                         eternalReturnCount: eternalReturnCount,
+                        mapleStoryCount: mapleStoryCount,
                         lastSyncText: lastSyncText,
                       ),
                       const SizedBox(height: 14),
@@ -597,6 +599,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final eternalReturnCount =
         _games.where((game) => game.type == GameType.eternalReturn).length;
+
+    final mapleStoryCount =
+        _games.where((game) => game.type == GameType.mapleStory).length;
+
 // 가장 최근에 갱신된 게임
     GameProfile? latestGame;
 
@@ -636,6 +642,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         lolCount: lolCount,
         tftCount: tftCount,
         eternalReturnCount: eternalReturnCount,
+        mapleStoryCount: mapleStoryCount,
         lastSyncText: lastSyncText,
       );
     }
@@ -677,6 +684,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         lolCount: lolCount,
                                         tftCount: tftCount,
                                         eternalReturnCount: eternalReturnCount,
+                                        mapleStoryCount: mapleStoryCount,
                                         lastSyncText: lastSyncText,
                                       ),
                                       const SizedBox(height: 18),
@@ -986,6 +994,7 @@ class _SummaryRow extends StatelessWidget {
     required this.lolCount,
     required this.tftCount,
     required this.eternalReturnCount,
+    required this.mapleStoryCount,
     required this.lastSyncText,
   });
 
@@ -993,6 +1002,7 @@ class _SummaryRow extends StatelessWidget {
   final int lolCount;
   final int tftCount;
   final int eternalReturnCount;
+  final int mapleStoryCount;
   final String lastSyncText;
 
   @override
@@ -1041,6 +1051,15 @@ class _SummaryRow extends StatelessWidget {
                 imageAsset: 'assets/game_icons/eternal_return.png',
                 label: 'ETERNAL RETURN',
                 value: '$eternalReturnCount개',
+                caption: '등록 계정',
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: StatCard(
+                icon: Icons.park_rounded,
+                label: 'MAPLESTORY',
+                value: '$mapleStoryCount개',
                 caption: '등록 계정',
               ),
             ),
@@ -1404,6 +1423,25 @@ class _ToolsPage extends StatelessWidget {
           ],
           onOpen: _open,
         ),
+        const SizedBox(height: 20),
+        _ToolSection(
+          title: '메이플스토리',
+          tools: const [
+            _ToolData(
+              '메이플스토리',
+              'https://maplestory.nexon.com',
+            ),
+            _ToolData(
+              'Maple.GG',
+              'https://maple.gg',
+            ),
+            _ToolData(
+              '환산 주스탯',
+              'https://maplescouter.com/ko',
+            ),
+          ],
+          onOpen: _open,
+        ),
       ],
     );
   }
@@ -1698,6 +1736,7 @@ class _MobileSummaryGrid extends StatelessWidget {
     required this.lolCount,
     required this.tftCount,
     required this.eternalReturnCount,
+    required this.mapleStoryCount,
     required this.lastSyncText,
   });
 
@@ -1705,6 +1744,7 @@ class _MobileSummaryGrid extends StatelessWidget {
   final int lolCount;
   final int tftCount;
   final int eternalReturnCount;
+  final int mapleStoryCount;
   final String lastSyncText;
 
   @override
@@ -1733,6 +1773,12 @@ class _MobileSummaryGrid extends StatelessWidget {
           icon: Icons.diamond_rounded,
           label: 'ETERNAL RETURN',
           value: '$eternalReturnCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.park_rounded,
+          label: 'MAPLESTORY',
+          value: '$mapleStoryCount개',
           caption: '등록 계정',
         ),
         StatCard(

@@ -125,6 +125,14 @@ class GameCard extends StatelessWidget {
     );
   }
 
+  Future<void> _openMapleGG() async {
+    final characterName = Uri.encodeComponent(profile.accountName.trim());
+
+    await _openExternalUrl(
+      'https://maple.gg/u/$characterName',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = _accent(profile.type);
@@ -136,12 +144,14 @@ class GameCard extends StatelessWidget {
               GameType.leagueOfLegends => 260,
               GameType.tft => 260,
               GameType.eternalReturn => 330,
+              GameType.mapleStory => 360,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,
               GameType.leagueOfLegends => 360,
               GameType.tft => 360,
               GameType.eternalReturn => 480,
+              GameType.mapleStory => 430,
             },
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
@@ -222,7 +232,36 @@ class GameCard extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-          const SizedBox(height: 22),
+
+          const SizedBox(height: 12),
+
+          if (profile.type == GameType.mapleStory &&
+              profile.characterImageUrl != null &&
+              profile.characterImageUrl!.isNotEmpty) ...[
+            Center(
+              child: SizedBox(
+                height: mobile ? 80 : 110,
+                child: Image.network(
+                  profile.characterImageUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (
+                    context,
+                    error,
+                    stackTrace,
+                  ) {
+                    return Icon(
+                      Icons.person_rounded,
+                      size: mobile ? 55 : 75,
+                      color: const Color(0xFF7B899D),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ] else
+            const SizedBox(height: 10),
+
           if (profile.type == GameType.eternalReturn) ...[
             _Metric(
               label: profile.primaryLabel,
@@ -470,8 +509,34 @@ class GameCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          // ====================
+// MAPLESTORY
+// ====================
+          if (profile.type == GameType.mapleStory) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openMapleGG,
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 15,
+                ),
+                label: Text(
+                  mobile ? 'Maple.GG' : 'Maple.GG 캐릭터 검색',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: mobile ? 11 : 14,
+                  ),
+                ),
+                style: _externalButtonStyle(),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
-// 기존 API 출처
+// ====================
+// API 출처
+// ====================
           if (!mobile) ...[
             Row(
               children: [
@@ -481,38 +546,21 @@ class GameCard extends StatelessWidget {
                   size: 14,
                 ),
                 const SizedBox(width: 5),
-                Text(
-                  switch (profile.type) {
-                    GameType.lostArk => 'Lost Ark Open API',
-                    GameType.leagueOfLegends => 'Riot Games API',
-                    GameType.tft => 'Riot Games TFT API',
-                    GameType.eternalReturn => 'Eternal Return Open API',
-                  },
-                  style: const TextStyle(
-                    color: Color(0xFF5F6E82),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(
-                  Icons.sync_rounded,
-                  color: Color(0xFF5F6E82),
-                  size: 14,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  switch (profile.type) {
-                    GameType.lostArk => 'Lost Ark Open API',
-                    GameType.leagueOfLegends => 'Riot Games API',
-                    GameType.tft => 'Riot Games TFT API',
-                    GameType.eternalReturn => 'Eternal Return API 승인 대기',
-                  },
-                  style: const TextStyle(
-                    color: Color(0xFF5F6E82),
-                    fontSize: 10,
+                Expanded(
+                  child: Text(
+                    switch (profile.type) {
+                      GameType.lostArk => 'Lost Ark Open API',
+                      GameType.leagueOfLegends => 'Riot Games API',
+                      GameType.tft => 'Riot Games TFT API',
+                      GameType.eternalReturn => 'Eternal Return Open API',
+                      GameType.mapleStory => 'Data based on NEXON Open API',
+                    },
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF5F6E82),
+                      fontSize: 10,
+                    ),
                   ),
                 ),
               ],
@@ -536,6 +584,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.eternalReturn:
         return 'assets/game_icons/eternal_return.png';
+
+      case GameType.mapleStory:
+        return 'assets/game_icons/maplestory.png';
     }
   }
 
@@ -552,6 +603,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.eternalReturn:
         return Icons.diamond_rounded;
+
+      case GameType.mapleStory:
+        return Icons.park_rounded;
     }
   }
 
@@ -614,6 +668,8 @@ class GameCard extends StatelessWidget {
         return const Color(0xFFB66CFF);
       case GameType.eternalReturn:
         return const Color(0xFF6988FF);
+      case GameType.mapleStory:
+        return const Color(0xFFFF8A3D);
     }
   }
 }

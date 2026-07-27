@@ -24,3 +24,7 @@ app:
   eternal-return:
     base-url: https://open-api.bser.io
     production-api-key: ${ER_PRODUCTION_API_KEY:}
+  
+  maplestory:
+    base-url: https://open.api.nexon.com
+    production_api_key: ${NEXON_API_KEY:}

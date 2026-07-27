@@ -3,6 +3,7 @@ enum GameType {
   leagueOfLegends,
   tft,
   eternalReturn,
+  mapleStory,
 }
 
 extension GameTypeX on GameType {
@@ -10,12 +11,18 @@ extension GameTypeX on GameType {
     switch (this) {
       case GameType.lostArk:
         return 'LOST ARK';
+
       case GameType.leagueOfLegends:
         return 'LEAGUE OF LEGENDS';
+
       case GameType.tft:
         return 'TEAMFIGHT TACTICS';
+
       case GameType.eternalReturn:
         return 'ETERNAL RETURN';
+
+      case GameType.mapleStory:
+        return 'MAPLESTORY';
     }
   }
 
@@ -23,12 +30,18 @@ extension GameTypeX on GameType {
     switch (this) {
       case GameType.lostArk:
         return 'LOST_ARK';
+
       case GameType.leagueOfLegends:
         return 'LEAGUE_OF_LEGENDS';
+
       case GameType.tft:
         return 'TFT';
+
       case GameType.eternalReturn:
         return 'ETERNAL_RETURN';
+
+      case GameType.mapleStory:
+        return 'MAPLE_STORY';
     }
   }
 
@@ -36,14 +49,23 @@ extension GameTypeX on GameType {
     switch (value) {
       case 'LOST_ARK':
         return GameType.lostArk;
+
       case 'LEAGUE_OF_LEGENDS':
         return GameType.leagueOfLegends;
+
       case 'TFT':
         return GameType.tft;
+
       case 'ETERNAL_RETURN':
         return GameType.eternalReturn;
+
+      case 'MAPLE_STORY':
+        return GameType.mapleStory;
+
       default:
-        throw ArgumentError('Unknown game type: $value');
+        throw ArgumentError(
+          'Unknown game type: $value',
+        );
     }
   }
 
@@ -51,11 +73,16 @@ extension GameTypeX on GameType {
     switch (this) {
       case GameType.lostArk:
         return '캐릭터 이름';
+
       case GameType.leagueOfLegends:
       case GameType.tft:
         return 'Riot ID (게임이름#태그)';
+
       case GameType.eternalReturn:
         return '닉네임';
+
+      case GameType.mapleStory:
+        return '캐릭터 이름';
     }
   }
 }
@@ -73,7 +100,9 @@ class FavoriteCharacter {
   final int? totalGames;
   final double? averageRank;
 
-  factory FavoriteCharacter.fromJson(Map<String, dynamic> json) {
+  factory FavoriteCharacter.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return FavoriteCharacter(
       characterCode: (json['characterCode'] as num?)?.toInt(),
       name: json['name'] as String?,
@@ -94,6 +123,7 @@ class GameProfile {
     this.secondaryValue,
     this.tertiaryLabel,
     this.tertiaryValue,
+    this.characterImageUrl,
     this.updatedAt,
 
     // Eternal Return
@@ -116,19 +146,28 @@ class GameProfile {
 
   final String? tertiaryLabel;
   final String? tertiaryValue;
+
+  // 메이플스토리 캐릭터 이미지
+  final String? characterImageUrl;
+
   final DateTime? updatedAt;
 
   // Eternal Return 전용
   final int? totalGames;
   final double? averagePlacement;
+
   final FavoriteCharacter? favoriteCharacter1;
   final FavoriteCharacter? favoriteCharacter2;
   final FavoriteCharacter? favoriteCharacter3;
 
-  factory GameProfile.fromJson(Map<String, dynamic> json) {
+  factory GameProfile.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return GameProfile(
       id: (json['id'] as num).toInt(),
-      type: GameTypeX.fromApiValue(json['gameType'] as String),
+      type: GameTypeX.fromApiValue(
+        json['gameType'] as String,
+      ),
       accountName: json['accountName'] as String? ?? '',
       primaryLabel: json['primaryLabel'] as String? ?? '-',
       primaryValue: json['primaryValue'] as String? ?? '-',
@@ -136,11 +175,14 @@ class GameProfile {
       secondaryValue: json['secondaryValue'] as String?,
       tertiaryLabel: json['tertiaryLabel'] as String?,
       tertiaryValue: json['tertiaryValue'] as String?,
+      characterImageUrl: json['characterImageUrl'] as String?,
       totalGames: (json['totalGames'] as num?)?.toInt(),
       averagePlacement: (json['averagePlacement'] as num?)?.toDouble(),
       updatedAt: json['updatedAt'] == null
           ? null
-          : DateTime.tryParse(json['updatedAt'].toString()),
+          : DateTime.tryParse(
+              json['updatedAt'].toString(),
+            ),
       favoriteCharacter1: json['favoriteCharacter1'] == null
           ? null
           : FavoriteCharacter.fromJson(

@@ -14,6 +14,9 @@ import com.mygamehub.riot.RiotAccount;
 import com.mygamehub.riot.RiotApiClient;
 import com.mygamehub.riot.RiotLeagueEntry;
 import com.mygamehub.riot.TftLeagueEntry;
+import com.mygamehub.maplestory.MapleStoryBasicResponse;
+import com.mygamehub.maplestory.MapleStoryClient;
+import com.mygamehub.maplestory.MapleStoryStatResponse;
 import com.mygamehub.user.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,20 +33,23 @@ public class GameAccountService {
     private final RiotApiClient riotApiClient;
     private final EternalReturnApiClient eternalReturnApiClient;
     private final UserService userService;
+    private final MapleStoryClient mapleStoryClient;
 
     public GameAccountService(
-            GameAccountRepository repository,
-            LostArkClient lostArkClient,
-            RiotApiClient riotApiClient,
-            EternalReturnApiClient eternalReturnApiClient,
-            UserService userService
-    ) {
+        GameAccountRepository repository,
+        LostArkClient lostArkClient,
+        RiotApiClient riotApiClient,
+        EternalReturnApiClient eternalReturnApiClient,
+        MapleStoryClient mapleStoryClient,
+        UserService userService
+        ) {
         this.repository = repository;
         this.lostArkClient = lostArkClient;
         this.riotApiClient = riotApiClient;
         this.eternalReturnApiClient = eternalReturnApiClient;
+        this.mapleStoryClient = mapleStoryClient;
         this.userService = userService;
-    }
+        }
         @Transactional
         public void reorderGames(
                 String firebaseUid,
@@ -213,6 +219,9 @@ public class GameAccountService {
 
             case ETERNAL_RETURN ->
                     refreshEternalReturn(account);
+                    
+            case MAPLE_STORY ->
+                refreshMapleStory(account);
         }
     }
 
@@ -587,7 +596,61 @@ EternalReturnCharacterStat third =
                 character
         );
     }
+// =========================================================
+// MapleStory
+// =========================================================
 
+     private void refreshMapleStory(
+                GameAccount account
+        ) {
+        // 1. 캐릭터명 → OCID
+        String ocid =
+                mapleStoryClient.getOcid(
+                        account.getAccountName()
+                );
+
+        // 2. 기본 정보
+        MapleStoryBasicResponse profile =
+                mapleStoryClient.getBasicProfile(ocid);
+
+        // 3. 종합 스탯
+        MapleStoryStatResponse stat =
+                mapleStoryClient.getStat(ocid);
+
+        if (profile == null) {
+                throw new IllegalArgumentException(
+                        "메이플스토리 프로필 응답이 비어 있습니다."
+                );
+        }
+
+        String character = String.format(
+                "Lv.%s %s",
+                profile.characterLevel() == null
+                        ? "-"
+                        : profile.characterLevel(),
+                nullToDash(profile.characterClass())
+        );
+
+        String combatPower =
+                stat == null
+                        ? null
+                        : stat.findStatValue("전투력");
+
+        account.updateStats(
+                "레벨 / 직업",
+                character,
+
+                "전투력",
+                nullToDash(combatPower),
+
+                "월드",
+                nullToDash(profile.worldName())
+        );
+
+        account.setCharacterImageUrl(
+                profile.characterImage()
+        );
+        }
     private String nullToDash(
             String value
     ) {
