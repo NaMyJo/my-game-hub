@@ -236,7 +236,7 @@ class GameCard extends StatelessWidget {
               GameType.leagueOfLegends => 260,
               GameType.tft => 260,
               GameType.eternalReturn => 330,
-              GameType.mapleStory => 300,
+              GameType.mapleStory => 320,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,

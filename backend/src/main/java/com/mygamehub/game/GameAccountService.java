@@ -649,7 +649,7 @@ EternalReturnCharacterStat third =
                 character,
 
                 "전투력",
-                nullToDash(combatPower),
+                formatNumber(combatPower),
 
                 "월드",
                 nullToDash(profile.worldName())
@@ -697,6 +697,18 @@ EternalReturnCharacterStat third =
                 }
         }
         }
+    private String formatNumber(String value) {
+        if (value == null || value.isBlank()) {
+                return "-";
+        }
+
+        try {
+                long number = Long.parseLong(value.replace(",", ""));
+                return String.format("%,d", number);
+        } catch (NumberFormatException e) {
+                return value;
+        }
+        }    
     private String nullToDash(
             String value
     ) {
