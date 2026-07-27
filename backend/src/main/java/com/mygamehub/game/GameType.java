@@ -5,5 +5,6 @@ public enum GameType {
     LEAGUE_OF_LEGENDS,
     TFT,
     ETERNAL_RETURN,
-    MAPLE_STORY
+    MAPLE_STORY,
+    DUNGEON_FIGHTER
 }

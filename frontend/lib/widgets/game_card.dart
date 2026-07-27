@@ -133,6 +133,14 @@ class GameCard extends StatelessWidget {
     );
   }
 
+  Future<void> _openDundam() async {
+    final characterName = Uri.encodeComponent(profile.accountName.trim());
+
+    await _openExternalUrl(
+      'https://dundam.xyz/search?server=all&name=$characterName',
+    );
+  }
+
   void _showMapleCharacterImage(BuildContext context) {
     final imageUrl = profile.characterImageUrl;
 
@@ -237,6 +245,7 @@ class GameCard extends StatelessWidget {
               GameType.tft => 260,
               GameType.eternalReturn => 330,
               GameType.mapleStory => 320,
+              GameType.dungeonFighter => 320,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,
@@ -244,6 +253,7 @@ class GameCard extends StatelessWidget {
               GameType.tft => 360,
               GameType.eternalReturn => 480,
               GameType.mapleStory => 340,
+              GameType.dungeonFighter => 340,
             },
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
@@ -346,6 +356,17 @@ class GameCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            )
+          else if (profile.type == GameType.dungeonFighter)
+            Text(
+              profile.accountName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: const Color(0xFFE7ECF4),
+                fontSize: mobile ? 15 : 18,
+                fontWeight: FontWeight.w800,
               ),
             )
           else
@@ -607,7 +628,7 @@ class GameCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          // ====================
+// ====================
 // MAPLESTORY
 // ====================
           if (profile.type == GameType.mapleStory) ...[
@@ -630,6 +651,30 @@ class GameCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+// ====================
+// DUNGEON & FIGHTER
+// ====================
+            if (profile.type == GameType.dungeonFighter) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openDundam,
+                  icon: const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 15,
+                  ),
+                  label: Text(
+                    mobile ? '던담' : '던담 캐릭터 검색',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: mobile ? 11 : 14,
+                    ),
+                  ),
+                  style: _externalButtonStyle(),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
           ],
 
 // ====================
@@ -652,6 +697,7 @@ class GameCard extends StatelessWidget {
                       GameType.tft => 'Riot Games TFT API',
                       GameType.eternalReturn => 'Eternal Return Open API',
                       GameType.mapleStory => 'Data based on NEXON Open API',
+                      GameType.dungeonFighter => 'Neople Open API',
                     },
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -685,6 +731,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.mapleStory:
         return 'assets/game_icons/maplestory.png';
+
+      case GameType.dungeonFighter:
+        return 'assets/game_icons/dungeon_fighter.png';
     }
   }
 
@@ -704,6 +753,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.mapleStory:
         return Icons.park_rounded;
+
+      case GameType.dungeonFighter:
+        return Icons.sports_martial_arts_rounded;
     }
   }
 
@@ -768,6 +820,8 @@ class GameCard extends StatelessWidget {
         return const Color(0xFF6988FF);
       case GameType.mapleStory:
         return const Color(0xFFFF8A3D);
+      case GameType.dungeonFighter:
+        return const Color(0xFFE05252);
     }
   }
 }

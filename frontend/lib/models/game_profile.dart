@@ -4,6 +4,7 @@ enum GameType {
   tft,
   eternalReturn,
   mapleStory,
+  dungeonFighter,
 }
 
 extension GameTypeX on GameType {
@@ -23,6 +24,9 @@ extension GameTypeX on GameType {
 
       case GameType.mapleStory:
         return 'MAPLESTORY';
+
+      case GameType.dungeonFighter:
+        return 'DUNGEON & FIGHTER';
     }
   }
 
@@ -42,6 +46,9 @@ extension GameTypeX on GameType {
 
       case GameType.mapleStory:
         return 'MAPLE_STORY';
+
+      case GameType.dungeonFighter:
+        return 'DUNGEON_FIGHTER';
     }
   }
 
@@ -61,6 +68,9 @@ extension GameTypeX on GameType {
 
       case 'MAPLE_STORY':
         return GameType.mapleStory;
+
+      case 'DUNGEON_FIGHTER':
+        return GameType.dungeonFighter;
 
       default:
         throw ArgumentError(
@@ -82,6 +92,9 @@ extension GameTypeX on GameType {
         return '닉네임';
 
       case GameType.mapleStory:
+        return '캐릭터 이름';
+
+      case GameType.dungeonFighter:
         return '캐릭터 이름';
     }
   }

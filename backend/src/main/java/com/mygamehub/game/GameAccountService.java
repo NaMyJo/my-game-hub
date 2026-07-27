@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import com.mygamehub.dungeonfighter.DungeonFighterCharacter;
+import com.mygamehub.dungeonfighter.DungeonFighterClient;
 
 @Service
 public class GameAccountService {
@@ -36,6 +38,8 @@ public class GameAccountService {
     private final EternalReturnApiClient eternalReturnApiClient;
     private final UserService userService;
     private final MapleStoryClient mapleStoryClient;
+    private final DungeonFighterClient dungeonFighterClient;
+    
 
     public GameAccountService(
         GameAccountRepository repository,
@@ -43,7 +47,8 @@ public class GameAccountService {
         RiotApiClient riotApiClient,
         EternalReturnApiClient eternalReturnApiClient,
         MapleStoryClient mapleStoryClient,
-        UserService userService
+        UserService userService,
+        DungeonFighterClient dungeonFighterClient
         ) {
         this.repository = repository;
         this.lostArkClient = lostArkClient;
@@ -51,6 +56,7 @@ public class GameAccountService {
         this.eternalReturnApiClient = eternalReturnApiClient;
         this.mapleStoryClient = mapleStoryClient;
         this.userService = userService;
+        this.dungeonFighterClient = dungeonFighterClient;
         }
         @Transactional
         public void reorderGames(
@@ -161,7 +167,14 @@ public class GameAccountService {
         account.setDisplayOrder(existingAccounts.size());
 
         // 5. 게임 API 호출
+        if (request.gameType() == GameType.DUNGEON_FIGHTER) {
+        registerDungeonFighter(
+                account,
+                request.serverId()
+        );
+        } else {
         refreshStats(account);
+        }
 
         // 6. DB 저장
         return GameAccountResponse.from(
@@ -230,8 +243,23 @@ public class GameAccountService {
                     
             case MAPLE_STORY ->
                 refreshMapleStory(account);
+            case DUNGEON_FIGHTER -> refreshDungeonFighter(account);
         }
     }
+        private void registerDungeonFighter(
+                GameAccount account,
+                String serverId
+        ) {
+        if (serverId == null || serverId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "던전앤파이터 서버를 선택해주세요."
+                );
+        }
+
+        account.setServerId(serverId);
+
+        refreshDungeonFighter(account);
+        }
 
     // =========================================================
     // League of Legends
@@ -697,6 +725,53 @@ EternalReturnCharacterStat third =
                 }
         }
         }
+
+// =========================================================
+// DnF
+// =========================================================        
+        private void refreshDungeonFighter(
+                GameAccount account
+        ) {
+        String serverId = account.getServerId();
+
+        if (serverId == null || serverId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "던전앤파이터 서버 정보가 없습니다."
+                );
+        }
+
+        DungeonFighterCharacter character =
+                dungeonFighterClient.findCharacter(
+                        serverId,
+                        account.getAccountName()
+                );
+
+        account.updateStats(
+                "모험가 명성",
+                formatNumber(character.fame()),
+
+                "직업",
+                nullToDash(character.jobGrowName()),
+
+                "서버",
+                dungeonFighterServerName(serverId)
+        );
+        }
+        private String dungeonFighterServerName(
+                String serverId
+        ) {
+        return switch (serverId) {
+                case "cain" -> "카인";
+                case "diregie" -> "디레지에";
+                case "siroco" -> "시로코";
+                case "prey" -> "프레이";
+                case "casillas" -> "카시야스";
+                case "hilder" -> "힐더";
+                case "anton" -> "안톤";
+                case "bakal" -> "바칼";
+                default -> serverId;
+        };
+        }
     private String formatNumber(String value) {
         if (value == null || value.isBlank()) {
                 return "-";
@@ -708,7 +783,15 @@ EternalReturnCharacterStat third =
         } catch (NumberFormatException e) {
                 return value;
         }
-        }    
+        }
+
+        private String formatNumber(Integer value) {
+        if (value == null) {
+                return "-";
+        }
+
+        return String.format("%,d", value);
+        }
     private String nullToDash(
             String value
     ) {

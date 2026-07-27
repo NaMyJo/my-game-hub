@@ -79,6 +79,9 @@ public class GameAccount {
 
     @Column
     private String favoriteCharacter3Name;
+    
+    @Column(length = 40)
+    private String serverId;
 
     @Column(name = "display_order")
     private Integer displayOrder;
@@ -113,6 +116,10 @@ public class GameAccount {
 
     public void setAccountName(String accountName) {
         this.accountName = accountName;
+        touch();
+    }
+    public void setServerId(String serverId) {
+        this.serverId = serverId;
         touch();
     }
 
@@ -260,5 +267,8 @@ public class GameAccount {
     }
     public String getCharacterImageUrl() {
         return characterImageUrl;
+    }
+    public String getServerId() {
+        return serverId;
     }
 }

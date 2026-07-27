@@ -37,12 +37,14 @@ class GameRepository {
   Future<GameProfile> registerGame({
     required GameType type,
     required String accountName,
+    String? serverId,
   }) async {
     final json = await ApiClient.instance.post(
       '/api/me/games',
       body: {
         'gameType': type.apiValue,
         'accountName': accountName,
+        if (serverId != null && serverId.isNotEmpty) 'serverId': serverId,
       },
     );
 

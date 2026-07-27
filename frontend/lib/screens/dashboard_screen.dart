@@ -334,6 +334,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final profile = await GameRepository.instance.registerGame(
         type: result.type,
         accountName: result.accountName,
+        serverId: result.serverId,
       );
 
       if (!mounted) return;

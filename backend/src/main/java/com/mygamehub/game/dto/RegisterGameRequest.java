@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record RegisterGameRequest(
         @NotNull GameType gameType,
-        @NotBlank String accountName
+        @NotBlank String accountName,
+        String serverId
 ) {
 }

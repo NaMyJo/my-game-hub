@@ -6,10 +6,12 @@ class AddGameResult {
   const AddGameResult({
     required this.type,
     required this.accountName,
+    this.serverId,
   });
 
   final GameType type;
   final String accountName;
+  final String? serverId;
 }
 
 class AddGameDialog extends StatefulWidget {
@@ -21,8 +23,22 @@ class AddGameDialog extends StatefulWidget {
 
 class _AddGameDialogState extends State<AddGameDialog> {
   GameType _type = GameType.lostArk;
+
   final _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  String _dungeonFighterServerId = 'cain';
+
+  static const Map<String, String> _dungeonFighterServers = {
+    '카인': 'cain',
+    '디레지에': 'diregie',
+    '시로코': 'siroco',
+    '프레이': 'prey',
+    '카시야스': 'casillas',
+    '힐더': 'hilder',
+    '안톤': 'anton',
+    '바칼': 'bakal',
+  };
 
   @override
   void dispose() {
@@ -37,6 +53,8 @@ class _AddGameDialogState extends State<AddGameDialog> {
       AddGameResult(
         type: _type,
         accountName: _controller.text.trim(),
+        serverId:
+            _type == GameType.dungeonFighter ? _dungeonFighterServerId : null,
       ),
     );
   }
@@ -51,7 +69,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
       ),
       title: const Text(
         '게임 추가',
-        style: TextStyle(fontWeight: FontWeight.w800),
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+        ),
       ),
       content: SizedBox(
         width: 460,
@@ -69,6 +89,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 ),
               ),
               const SizedBox(height: 8),
+
               DropdownButtonFormField<GameType>(
                 initialValue: _type,
                 decoration: const InputDecoration(
@@ -86,13 +107,58 @@ class _AddGameDialogState extends State<AddGameDialog> {
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
+
                   setState(() {
                     _type = value;
                     _controller.clear();
+
+                    if (_type == GameType.dungeonFighter) {
+                      _dungeonFighterServerId = 'cain';
+                    }
                   });
                 },
               ),
+
+              // ============================
+              // 던전앤파이터 서버
+              // ============================
+              if (_type == GameType.dungeonFighter) ...[
+                const SizedBox(height: 18),
+                const Text(
+                  '서버',
+                  style: TextStyle(
+                    color: Color(0xFF8F9CB0),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _dungeonFighterServerId,
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Color(0xFF101C2C),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _dungeonFighterServers.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.value,
+                          child: Text(entry.key),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+
+                    setState(() {
+                      _dungeonFighterServerId = value;
+                    });
+                  },
+                ),
+              ],
+
               const SizedBox(height: 18),
+
               Text(
                 _type.accountLabel,
                 style: const TextStyle(
@@ -101,6 +167,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 ),
               ),
               const SizedBox(height: 8),
+
               TextFormField(
                 controller: _controller,
                 autofocus: true,
@@ -125,6 +192,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 },
                 onFieldSubmitted: (_) => _submit(),
               ),
+
               const SizedBox(height: 13),
             ],
           ),
@@ -147,17 +215,20 @@ class _AddGameDialogState extends State<AddGameDialog> {
   String _hint(GameType type) {
     switch (type) {
       case GameType.lostArk:
-        return '예: 명종';
+        return '예: 필례';
 
       case GameType.leagueOfLegends:
       case GameType.tft:
         return '예: Hide on bush#KR1';
 
       case GameType.eternalReturn:
-        return '예: playerNickname';
+        return '예: 한동그라미';
 
       case GameType.mapleStory:
-        return '예: 메이플 캐릭터명';
+        return '예: 강은호';
+
+      case GameType.dungeonFighter:
+        return '예: 라독커';
     }
   }
 }
