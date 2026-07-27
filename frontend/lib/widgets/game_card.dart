@@ -227,12 +227,17 @@ class GameCard extends StatelessWidget {
             profile.accountName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFAEB9C8),
-              fontSize: 12,
+            style: TextStyle(
+              color: profile.type == GameType.mapleStory
+                  ? const Color(0xFFE7ECF4)
+                  : const Color(0xFFAEB9C8),
+              fontSize:
+                  profile.type == GameType.mapleStory ? (mobile ? 15 : 17) : 12,
+              fontWeight: profile.type == GameType.mapleStory
+                  ? FontWeight.w700
+                  : FontWeight.normal,
             ),
           ),
-
           const SizedBox(height: 12),
 
           if (profile.type == GameType.mapleStory &&
@@ -240,7 +245,7 @@ class GameCard extends StatelessWidget {
               profile.characterImageUrl!.isNotEmpty) ...[
             Center(
               child: SizedBox(
-                height: mobile ? 80 : 110,
+                height: mobile ? 130 : 180,
                 child: Image.network(
                   profile.characterImageUrl!,
                   fit: BoxFit.contain,

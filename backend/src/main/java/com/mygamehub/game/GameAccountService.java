@@ -24,6 +24,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class GameAccountService {
@@ -94,14 +96,20 @@ public class GameAccountService {
 
         repository.saveAll(accounts);
         }
-        @Transactional(readOnly = true)
-    public List<GameAccountResponse> list(String firebaseUid) {
-        return repository
-                .findAllByFirebaseUidOrderByDisplayOrderAscIdAsc(firebaseUid)
-                .stream()
+        @Transactional
+        public List<GameAccountResponse> list(String firebaseUid) {
+
+        List<GameAccount> accounts =
+                repository.findAllByFirebaseUidOrderByDisplayOrderAscIdAsc(
+                        firebaseUid
+                );
+
+        refreshExpiredMapleStoryAccounts(accounts);
+
+        return accounts.stream()
                 .map(GameAccountResponse::from)
                 .toList();
-    }
+        }
         @Transactional
         public GameAccountResponse register(
                 AuthenticatedUser authUser,
@@ -650,6 +658,44 @@ EternalReturnCharacterStat third =
         account.setCharacterImageUrl(
                 profile.characterImage()
         );
+        }
+     private boolean needsMapleStoryRefresh(GameAccount account) {
+
+        if (account.getGameType() != GameType.MAPLE_STORY) {
+                return false;
+        }
+
+        if (account.getUpdatedAt() == null) {
+                return true;
+        }
+
+        Instant refreshDeadline =
+                Instant.now().minus(14, ChronoUnit.DAYS);
+
+        return account.getUpdatedAt().isBefore(refreshDeadline);
+        }
+     private void refreshExpiredMapleStoryAccounts(
+                List<GameAccount> accounts
+        ) {
+        for (GameAccount account : accounts) {
+
+                if (!needsMapleStoryRefresh(account)) {
+                continue;
+                }
+
+                try {
+                refreshMapleStory(account);
+                repository.save(account);
+
+                } catch (Exception e) {
+                System.err.println(
+                        "메이플스토리 자동 갱신 실패: "
+                                + account.getAccountName()
+                                + " / "
+                                + e.getMessage()
+                );
+                }
+        }
         }
     private String nullToDash(
             String value
