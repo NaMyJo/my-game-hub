@@ -483,6 +483,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int tftCount,
     required int eternalReturnCount,
     required int mapleStoryCount,
+    required int dungeonFighterCount,
     required String lastSyncText,
   }) {
     return Scaffold(
@@ -543,6 +544,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         tftCount: tftCount,
                         eternalReturnCount: eternalReturnCount,
                         mapleStoryCount: mapleStoryCount,
+                        dungeonFighterCount: dungeonFighterCount,
                         lastSyncText: lastSyncText,
                       ),
                       const SizedBox(height: 14),
@@ -603,6 +605,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final mapleStoryCount =
         _games.where((game) => game.type == GameType.mapleStory).length;
+    final dungeonFighterCount =
+        _games.where((game) => game.type == GameType.dungeonFighter).length;
 
 // 가장 최근에 갱신된 게임
     GameProfile? latestGame;
@@ -644,6 +648,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         tftCount: tftCount,
         eternalReturnCount: eternalReturnCount,
         mapleStoryCount: mapleStoryCount,
+        dungeonFighterCount: dungeonFighterCount,
         lastSyncText: lastSyncText,
       );
     }
@@ -686,6 +691,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         tftCount: tftCount,
                                         eternalReturnCount: eternalReturnCount,
                                         mapleStoryCount: mapleStoryCount,
+                                        dungeonFighterCount:
+                                            dungeonFighterCount,
                                         lastSyncText: lastSyncText,
                                       ),
                                       const SizedBox(height: 18),
@@ -996,6 +1003,7 @@ class _SummaryRow extends StatelessWidget {
     required this.tftCount,
     required this.eternalReturnCount,
     required this.mapleStoryCount,
+    required this.dungeonFighterCount,
     required this.lastSyncText,
   });
 
@@ -1004,6 +1012,7 @@ class _SummaryRow extends StatelessWidget {
   final int tftCount;
   final int eternalReturnCount;
   final int mapleStoryCount;
+  final int dungeonFighterCount;
   final String lastSyncText;
 
   @override
@@ -1061,6 +1070,16 @@ class _SummaryRow extends StatelessWidget {
                 icon: Icons.park_rounded,
                 label: 'MAPLESTORY',
                 value: '$mapleStoryCount개',
+                caption: '등록 계정',
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: StatCard(
+                icon: Icons.sports_martial_arts_rounded,
+                imageAsset: 'assets/game_icons/dungeon_fighter.png',
+                label: 'DUNGEON & FIGHTER',
+                value: '$dungeonFighterCount개',
                 caption: '등록 계정',
               ),
             ),
@@ -1297,7 +1316,7 @@ class _ToolsPage extends StatelessWidget {
           title: '로스트아크',
           tools: const [
             _ToolData(
-              '로스트아크',
+              '공식홈페이지',
               'https://lostark.game.onstove.com',
             ),
             _ToolData(
@@ -1406,7 +1425,7 @@ class _ToolsPage extends StatelessWidget {
           title: '이터널 리턴',
           tools: const [
             _ToolData(
-              '이터널 리턴',
+              '공식홈페이지',
               'https://playeternalreturn.com/main?hl=ko-KR',
             ),
             _ToolData(
@@ -1429,7 +1448,7 @@ class _ToolsPage extends StatelessWidget {
           title: '메이플스토리',
           tools: const [
             _ToolData(
-              '메이플스토리',
+              '공식홈페이지',
               'https://maplestory.nexon.com',
             ),
             _ToolData(
@@ -1439,6 +1458,53 @@ class _ToolsPage extends StatelessWidget {
             _ToolData(
               '환산 주스탯',
               'https://maplescouter.com/ko',
+            ),
+            _ToolData(
+              '츄츄지지',
+              'https://chuchu.gg/',
+            ),
+            _ToolData(
+              '메이플도구(주간 결정석 계산)',
+              'https://maple.ygh.kr/crystal',
+            ),
+            _ToolData(
+              'MAPLEUTILTY(유니온배치)',
+              'https://maple-util.web.app/union-resolver',
+            ),
+          ],
+          onOpen: _open,
+        ),
+        const SizedBox(height: 20),
+        _ToolSection(
+          title: '던전앤파이터',
+          tools: const [
+            _ToolData(
+              '공식홈페이지',
+              'https://df.nexon.com/',
+            ),
+            _ToolData(
+              '던담',
+              'https://dundam.xyz/',
+            ),
+            _ToolData(
+              '던파맥스',
+              'http://dfmax.xyz/',
+            ),
+            _ToolData(
+              '던파나우(경매장)',
+              'http://dnfnow.xyz/',
+            ),
+            _ToolData(
+              '던파파워(통계)',
+              'https://dnf-power.com/',
+            ),
+            _ToolData(
+              '던파타임(캐릭조회)',
+              'https://dftime.co.kr/',
+            ),
+            _ToolData(
+              '던파일럿(스펙업)',
+              'https://www.dunpilot.com/',
             ),
           ],
           onOpen: _open,
@@ -1738,6 +1804,7 @@ class _MobileSummaryGrid extends StatelessWidget {
     required this.tftCount,
     required this.eternalReturnCount,
     required this.mapleStoryCount,
+    required this.dungeonFighterCount,
     required this.lastSyncText,
   });
 
@@ -1746,6 +1813,7 @@ class _MobileSummaryGrid extends StatelessWidget {
   final int tftCount;
   final int eternalReturnCount;
   final int mapleStoryCount;
+  final int dungeonFighterCount;
   final String lastSyncText;
 
   @override
@@ -1780,6 +1848,13 @@ class _MobileSummaryGrid extends StatelessWidget {
           icon: Icons.park_rounded,
           label: 'MAPLESTORY',
           value: '$mapleStoryCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.sports_martial_arts_rounded,
+          imageAsset: 'assets/game_icons/dungeon_fighter.png',
+          label: 'D&F',
+          value: '$dungeonFighterCount개',
           caption: '등록 계정',
         ),
         StatCard(

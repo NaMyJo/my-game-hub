@@ -651,30 +651,31 @@ class GameCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+          ],
+
 // ====================
 // DUNGEON & FIGHTER
 // ====================
-            if (profile.type == GameType.dungeonFighter) ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openDundam,
-                  icon: const Icon(
-                    Icons.open_in_new_rounded,
-                    size: 15,
-                  ),
-                  label: Text(
-                    mobile ? '던담' : '던담 캐릭터 검색',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: mobile ? 11 : 14,
-                    ),
-                  ),
-                  style: _externalButtonStyle(),
+          if (profile.type == GameType.dungeonFighter) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openDundam,
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 15,
                 ),
+                label: Text(
+                  mobile ? '던담' : '던담 캐릭터 검색',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: mobile ? 11 : 14,
+                  ),
+                ),
+                style: _externalButtonStyle(),
               ),
-              const SizedBox(height: 12),
-            ],
+            ),
+            const SizedBox(height: 12),
           ],
 
 // ====================
