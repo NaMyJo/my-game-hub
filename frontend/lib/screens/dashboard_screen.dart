@@ -26,6 +26,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int? _refreshingGameId;
   bool _isLoadingGames = true;
   bool _loadGamesTakingLong = false;
+  bool _dashboardMenuExpanded = true;
+  bool _deleteMode = false;
+  final Set<int> _selectedGameIds = {};
   String? _loadGamesError;
 
   DashboardPage _currentPage = DashboardPage.dashboard;
@@ -38,7 +41,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _openDashboard() {
     setState(() {
+      if (_currentPage == DashboardPage.dashboard) {
+        _dashboardMenuExpanded = !_dashboardMenuExpanded;
+      } else {
+        _currentPage = DashboardPage.dashboard;
+        _dashboardMenuExpanded = true;
+      }
+
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
+  void _openDeleteMode() {
+    setState(() {
       _currentPage = DashboardPage.dashboard;
+      _deleteMode = true;
+      _selectedGameIds.clear();
+    });
+  }
+
+  void _cancelDeleteMode() {
+    setState(() {
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
+  void _toggleGameSelection(GameProfile game) {
+    setState(() {
+      if (_selectedGameIds.contains(game.id)) {
+        _selectedGameIds.remove(game.id);
+      } else {
+        _selectedGameIds.add(game.id);
+      }
     });
   }
 
@@ -107,6 +143,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _loadGamesTakingLong = false;
       _loadGamesError = '게임 정보를 불러오지 못했습니다.';
     });
+  }
+
+  Future<void> _deleteSelectedGames() async {
+    if (_selectedGameIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('삭제할 게임 카드를 선택해주세요.'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0C1624),
+          title: const Text(
+            '게임 카드 삭제',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            '선택한 ${_selectedGameIds.length}개의 게임 카드를 삭제하시겠습니까?',
+            style: const TextStyle(
+              color: Color(0xFFAEB9C8),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final ids = _selectedGameIds.toList();
+
+      for (final id in ids) {
+        await GameRepository.instance.deleteGame(id);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _games.removeWhere(
+          (game) => _selectedGameIds.contains(game.id),
+        );
+
+        _selectedGameIds.clear();
+        _deleteMode = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      await _showApiError();
+    }
   }
 
   Widget _buildGameLoadingState() {
@@ -349,6 +451,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         type: result.type,
         accountName: result.accountName,
         serverId: result.serverId,
+        platformId: result.platformId,
       );
 
       if (!mounted) return;
@@ -499,6 +602,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int eternalReturnCount,
     required int mapleStoryCount,
     required int dungeonFighterCount,
+    required int battlegroundsCount,
     required String lastSyncText,
   }) {
     return Scaffold(
@@ -560,6 +664,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         eternalReturnCount: eternalReturnCount,
                         mapleStoryCount: mapleStoryCount,
                         dungeonFighterCount: dungeonFighterCount,
+                        battlegroundsCount: battlegroundsCount,
                         lastSyncText: lastSyncText,
                       ),
                       const SizedBox(height: 14),
@@ -620,8 +725,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final mapleStoryCount =
         _games.where((game) => game.type == GameType.mapleStory).length;
+
     final dungeonFighterCount =
         _games.where((game) => game.type == GameType.dungeonFighter).length;
+
+    final battlegroundsCount = _games
+        .where(
+          (game) => game.type == GameType.battlegrounds,
+        )
+        .length;
 
 // 가장 최근에 갱신된 게임
     GameProfile? latestGame;
@@ -664,6 +776,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         eternalReturnCount: eternalReturnCount,
         mapleStoryCount: mapleStoryCount,
         dungeonFighterCount: dungeonFighterCount,
+        battlegroundsCount: battlegroundsCount,
         lastSyncText: lastSyncText,
       );
     }
@@ -677,8 +790,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _Sidebar(
                 user: _user,
                 currentPage: _currentPage,
+                dashboardMenuExpanded: _dashboardMenuExpanded,
                 onDashboard: _openDashboard,
                 onAddGame: _openAddGame,
+                onDeleteGames: _openDeleteMode,
+                deleteMode: _deleteMode,
                 onTools: _openTools,
                 onSignOut: _confirmSignOut,
               ),
@@ -708,15 +824,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         mapleStoryCount: mapleStoryCount,
                                         dungeonFighterCount:
                                             dungeonFighterCount,
+                                        battlegroundsCount: battlegroundsCount,
                                         lastSyncText: lastSyncText,
                                       ),
                                       const SizedBox(height: 18),
+                                      if (_deleteMode) ...[
+                                        _DeleteModeBar(
+                                          selectedCount:
+                                              _selectedGameIds.length,
+                                          onCancel: _cancelDeleteMode,
+                                          onDelete: _deleteSelectedGames,
+                                        ),
+                                        const SizedBox(height: 18),
+                                      ],
                                       _GameGrid(
                                         games: _games,
                                         refreshingGameId: _refreshingGameId,
                                         onAddGame: _openAddGame,
                                         onRefresh: _refreshGame,
                                         onReorder: _reorderGame,
+                                        deleteMode: _deleteMode,
+                                        selectedGameIds: _selectedGameIds,
+                                        onToggleSelection: _toggleGameSelection,
                                         onRemove: (game) async {
                                           try {
                                             await GameRepository.instance
@@ -755,17 +884,24 @@ class _Sidebar extends StatelessWidget {
     required this.currentPage,
     required this.onDashboard,
     required this.onAddGame,
+    required this.onDeleteGames,
+    required this.dashboardMenuExpanded,
     required this.onTools,
     required this.onSignOut,
+    required this.deleteMode,
   });
 
   final User? user;
   final DashboardPage currentPage;
+
   final VoidCallback onDashboard;
   final VoidCallback onAddGame;
+  final VoidCallback onDeleteGames;
   final VoidCallback onTools;
   final VoidCallback onSignOut;
+  final bool deleteMode;
 
+  final bool dashboardMenuExpanded;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
@@ -815,6 +951,20 @@ class _Sidebar extends StatelessWidget {
                 selected: currentPage == DashboardPage.dashboard,
                 onTap: onDashboard,
               ),
+              if (dashboardMenuExpanded &&
+                  currentPage == DashboardPage.dashboard) ...[
+                _DashboardSubItem(
+                  icon: Icons.add_circle_outline_rounded,
+                  label: '게임 카드 추가',
+                  onTap: onAddGame,
+                ),
+                _DashboardSubItem(
+                  icon: Icons.delete_outline_rounded,
+                  label: '게임 카드 삭제',
+                  selected: deleteMode,
+                  onTap: onDeleteGames,
+                ),
+              ],
               _SideItem(
                 icon: Icons.build_circle_outlined,
                 label: '도구 모음',
@@ -926,6 +1076,63 @@ class _SideItem extends StatelessWidget {
   }
 }
 
+class _DashboardSubItem extends StatelessWidget {
+  const _DashboardSubItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: 18,
+        bottom: 6,
+      ),
+      child: Material(
+        color: selected ? const Color(0xFF302371) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 17,
+                  color: selected
+                      ? const Color(0xFFB6AAFF)
+                      : const Color(0xFF7F8CA0),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : const Color(0xFFAEB8C7),
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroProfile extends StatelessWidget {
   const _HeroProfile({required this.user});
 
@@ -1014,6 +1221,7 @@ class _SummaryRow extends StatelessWidget {
     required this.eternalReturnCount,
     required this.mapleStoryCount,
     required this.dungeonFighterCount,
+    required this.battlegroundsCount,
     required this.lastSyncText,
   });
 
@@ -1023,6 +1231,7 @@ class _SummaryRow extends StatelessWidget {
   final int eternalReturnCount;
   final int mapleStoryCount;
   final int dungeonFighterCount;
+  final int battlegroundsCount;
   final String lastSyncText;
 
   @override
@@ -1096,6 +1305,16 @@ class _SummaryRow extends StatelessWidget {
             SizedBox(
               width: cardWidth,
               child: StatCard(
+                icon: Icons.sports_esports_rounded,
+                imageAsset: 'assets/game_icons/pubg.png',
+                label: 'BATTLEGROUNDS',
+                value: '$battlegroundsCount개',
+                caption: '등록 계정',
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: StatCard(
                 icon: Icons.bolt_rounded,
                 label: '데이터 동기화',
                 value: lastSyncText,
@@ -1109,6 +1328,80 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+class _DeleteModeBar extends StatelessWidget {
+  const _DeleteModeBar({
+    required this.selectedCount,
+    required this.onCancel,
+    required this.onDelete,
+  });
+
+  final int selectedCount;
+  final VoidCallback onCancel;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 14,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131A27),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF49313A),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.delete_outline_rounded,
+            color: Colors.redAccent,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              '삭제할 게임 카드를 선택해주세요.',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '$selectedCount개 선택',
+            style: const TextStyle(
+              color: Color(0xFFAEB9C8),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 14),
+          OutlinedButton(
+            onPressed: onCancel,
+            child: const Text('취소'),
+          ),
+          const SizedBox(width: 8),
+          FilledButton.icon(
+            onPressed: selectedCount == 0 ? null : onDelete,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            icon: const Icon(
+              Icons.delete_rounded,
+              size: 18,
+            ),
+            label: Text(
+              selectedCount == 0 ? '삭제' : '$selectedCount개 삭제',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GameGrid extends StatelessWidget {
   const _GameGrid({
     required this.games,
@@ -1117,6 +1410,9 @@ class _GameGrid extends StatelessWidget {
     required this.onRefresh,
     required this.onRemove,
     required this.onReorder,
+    required this.deleteMode,
+    required this.selectedGameIds,
+    required this.onToggleSelection,
   });
 
   final List<GameProfile> games;
@@ -1124,11 +1420,13 @@ class _GameGrid extends StatelessWidget {
   final ValueChanged<GameProfile> onRemove;
   final ValueChanged<GameProfile> onRefresh;
   final int? refreshingGameId;
+  final bool deleteMode;
+  final Set<int> selectedGameIds;
+  final ValueChanged<GameProfile> onToggleSelection;
   final Future<void> Function(
     GameProfile draggedGame,
     GameProfile targetGame,
   ) onReorder;
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -1138,12 +1436,134 @@ class _GameGrid extends StatelessWidget {
             : constraints.maxWidth >= 820
                 ? 2
                 : 1;
+
         const gap = 14.0;
+
         final cardWidth =
             (constraints.maxWidth - gap * (columns - 1)) / columns;
 
-        final children = <Widget>[
-          for (final game in games)
+        final children = <Widget>[];
+
+        for (final game in games) {
+          final selected = selectedGameIds.contains(game.id);
+
+          // ============================
+          // 삭제 선택 모드
+          // ============================
+          if (deleteMode) {
+            children.add(
+              SizedBox(
+                width: cardWidth,
+                child: InkWell(
+                  onTap: () => onToggleSelection(game),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Stack(
+                    children: [
+                      // 기존 게임 카드
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: selected
+                                ? Colors.redAccent
+                                : const Color(0xFF27364A),
+                            width: selected ? 2.5 : 1,
+                          ),
+                        ),
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: selected ? 0.55 : 0.75,
+                            child: GameCard(
+                              profile: game,
+                              isRefreshing: false,
+                              onRefresh: () {},
+                              onRemove: () {},
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // 삭제 모드 오버레이
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            color: selected
+                                ? const Color(0x22000000)
+                                : const Color(0x11000000),
+                          ),
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: selected ? 18 : 0,
+                                vertical: selected ? 10 : 0,
+                              ),
+                              width: selected ? null : 46,
+                              height: selected ? null : 46,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? Colors.redAccent
+                                    : const Color(0xDD101B2B),
+                                borderRadius: BorderRadius.circular(
+                                  selected ? 24 : 23,
+                                ),
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.redAccent
+                                      : const Color(0xFFAAB5C5),
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x66000000),
+                                    blurRadius: 12,
+                                  ),
+                                ],
+                              ),
+                              child: selected
+                                  ? const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.check_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          '선택됨',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Icon(
+                                      Icons.check_rounded,
+                                      color: Color(0xFFD4DCE8),
+                                      size: 24,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+
+            continue;
+          }
+
+          // ============================
+          // 일반 모드
+          // ============================
+          children.add(
             SizedBox(
               width: cardWidth,
               child: DragTarget<GameProfile>(
@@ -1164,7 +1584,9 @@ class _GameGrid extends StatelessWidget {
                   final isTarget = candidateData.isNotEmpty;
 
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
+                    duration: const Duration(
+                      milliseconds: 150,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
                       border: isTarget
@@ -1211,13 +1633,20 @@ class _GameGrid extends StatelessWidget {
                 },
               ),
             ),
-          SizedBox(
-            width: cardWidth,
-            child: _AddGameCard(
-              onTap: onAddGame,
+          );
+        }
+
+        // 삭제 모드가 아닐 때만 게임 카드 추가 표시
+        if (!deleteMode && games.length < 20) {
+          children.add(
+            SizedBox(
+              width: cardWidth,
+              child: _AddGameCard(
+                onTap: onAddGame,
+              ),
             ),
-          ),
-        ];
+          );
+        }
 
         return Wrap(
           spacing: gap,
@@ -1815,6 +2244,7 @@ class _MobileSummaryGrid extends StatelessWidget {
     required this.eternalReturnCount,
     required this.mapleStoryCount,
     required this.dungeonFighterCount,
+    required this.battlegroundsCount,
     required this.lastSyncText,
   });
 
@@ -1824,6 +2254,7 @@ class _MobileSummaryGrid extends StatelessWidget {
   final int eternalReturnCount;
   final int mapleStoryCount;
   final int dungeonFighterCount;
+  final int battlegroundsCount;
   final String lastSyncText;
 
   @override
@@ -1865,6 +2296,13 @@ class _MobileSummaryGrid extends StatelessWidget {
           imageAsset: 'assets/game_icons/dungeon_fighter.png',
           label: 'D&F',
           value: '$dungeonFighterCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.sports_esports_rounded,
+          imageAsset: 'assets/game_icons/pubg.png',
+          label: 'PUBG',
+          value: '$battlegroundsCount개',
           caption: '등록 계정',
         ),
         StatCard(

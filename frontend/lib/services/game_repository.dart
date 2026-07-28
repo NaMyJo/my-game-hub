@@ -38,6 +38,7 @@ class GameRepository {
     required GameType type,
     required String accountName,
     String? serverId,
+    String? platformId,
   }) async {
     final json = await ApiClient.instance.post(
       '/api/me/games',
@@ -45,6 +46,7 @@ class GameRepository {
         'gameType': type.apiValue,
         'accountName': accountName,
         if (serverId != null && serverId.isNotEmpty) 'serverId': serverId,
+        if (platformId != null) 'platformId': platformId,
       },
     );
 

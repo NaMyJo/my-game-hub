@@ -246,6 +246,7 @@ class GameCard extends StatelessWidget {
               GameType.eternalReturn => 330,
               GameType.mapleStory => 320,
               GameType.dungeonFighter => 320,
+              GameType.battlegrounds => 340,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,
@@ -254,6 +255,7 @@ class GameCard extends StatelessWidget {
               GameType.eternalReturn => 480,
               GameType.mapleStory => 340,
               GameType.dungeonFighter => 340,
+              GameType.battlegrounds => 320,
             },
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
@@ -677,7 +679,30 @@ class GameCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-
+// ====================
+// BATTLEGROUNDS
+// ====================
+          if (profile.type == GameType.battlegrounds) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openPubgDakgg,
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 15,
+                ),
+                label: Text(
+                  mobile ? 'DAK.GG' : 'DAK.GG 전적 검색',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: mobile ? 11 : 14,
+                  ),
+                ),
+                style: _externalButtonStyle(),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 // ====================
 // API 출처
 // ====================
@@ -699,6 +724,7 @@ class GameCard extends StatelessWidget {
                       GameType.eternalReturn => 'Eternal Return Open API',
                       GameType.mapleStory => 'Data based on NEXON Open API',
                       GameType.dungeonFighter => 'Neople Open API',
+                      GameType.battlegrounds => 'PUBG Open API',
                     },
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -735,6 +761,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.dungeonFighter:
         return 'assets/game_icons/dungeon_fighter.png';
+
+      case GameType.battlegrounds:
+        return 'assets/game_icons/pubg.png';
     }
   }
 
@@ -757,6 +786,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.dungeonFighter:
         return Icons.sports_martial_arts_rounded;
+
+      case GameType.battlegrounds:
+        return Icons.sports_esports_rounded;
     }
   }
 
@@ -809,6 +841,20 @@ class GameCard extends StatelessWidget {
     }
   }
 
+  Future<void> _openPubgDakgg() async {
+    final nickname = Uri.encodeComponent(profile.accountName.trim());
+
+    final platform = profile.platformId?.trim().toLowerCase();
+
+    if (platform == null || platform.isEmpty) {
+      return;
+    }
+
+    await _openExternalUrl(
+      'https://dak.gg/pubg/profile/$platform/$nickname',
+    );
+  }
+
   Color _accent(GameType type) {
     switch (type) {
       case GameType.lostArk:
@@ -823,6 +869,8 @@ class GameCard extends StatelessWidget {
         return const Color(0xFFFF8A3D);
       case GameType.dungeonFighter:
         return const Color(0xFFE05252);
+      case GameType.battlegrounds:
+        return const Color(0xFFF2A900);
     }
   }
 }

@@ -7,11 +7,13 @@ class AddGameResult {
     required this.type,
     required this.accountName,
     this.serverId,
+    this.platformId,
   });
 
   final GameType type;
   final String accountName;
   final String? serverId;
+  final String? platformId;
 }
 
 class AddGameDialog extends StatefulWidget {
@@ -28,6 +30,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
   final _formKey = GlobalKey<FormState>();
 
   String _dungeonFighterServerId = 'cain';
+  String _pubgPlatform = 'steam';
 
   static const Map<String, String> _dungeonFighterServers = {
     '카인': 'cain',
@@ -55,6 +58,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
         accountName: _controller.text.trim(),
         serverId:
             _type == GameType.dungeonFighter ? _dungeonFighterServerId : null,
+        platformId: _type == GameType.battlegrounds ? _pubgPlatform : null,
       ),
     );
   }
@@ -115,6 +119,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
                     if (_type == GameType.dungeonFighter) {
                       _dungeonFighterServerId = 'cain';
                     }
+                    if (_type == GameType.battlegrounds) {
+                      _pubgPlatform = 'steam';
+                    }
                   });
                 },
               ),
@@ -152,6 +159,45 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
                     setState(() {
                       _dungeonFighterServerId = value;
+                    });
+                  },
+                ),
+              ],
+              // ============================
+              // 배틀그라운드 플랫폼
+              // ============================
+              if (_type == GameType.battlegrounds) ...[
+                const SizedBox(height: 18),
+                const Text(
+                  '플랫폼',
+                  style: TextStyle(
+                    color: Color(0xFF8F9CB0),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _pubgPlatform,
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Color(0xFF101C2C),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'steam',
+                      child: Text('Steam'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'kakao',
+                      child: Text('Kakao'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+
+                    setState(() {
+                      _pubgPlatform = value;
                     });
                   },
                 ),
@@ -229,6 +275,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
       case GameType.dungeonFighter:
         return '예: 라독커';
+
+      case GameType.battlegrounds:
+        return '예: PUBG 닉네임';
     }
   }
 }

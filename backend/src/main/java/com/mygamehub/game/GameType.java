@@ -6,5 +6,7 @@ public enum GameType {
     TFT,
     ETERNAL_RETURN,
     MAPLE_STORY,
-    DUNGEON_FIGHTER
+    DUNGEON_FIGHTER,  
+    BATTLEGROUNDS,
+    OVERWATCH_2
 }

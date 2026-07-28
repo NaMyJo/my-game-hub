@@ -83,6 +83,9 @@ public class GameAccount {
     @Column(length = 40)
     private String serverId;
 
+    @Column(length = 40)
+    private String platformId;  
+
     @Column(name = "display_order")
     private Integer displayOrder;
 
@@ -120,6 +123,10 @@ public class GameAccount {
     }
     public void setServerId(String serverId) {
         this.serverId = serverId;
+        touch();
+    }
+    public void setPlatformId(String platformId) {
+        this.platformId = platformId;
         touch();
     }
 
@@ -271,4 +278,8 @@ public class GameAccount {
     public String getServerId() {
         return serverId;
     }
+    public String getPlatformId() {
+        return platformId;
+    }
+
 }

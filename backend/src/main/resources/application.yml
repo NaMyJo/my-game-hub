@@ -28,7 +28,11 @@ app:
   maplestory:
     base-url: https://open.api.nexon.com
     api-key: ${NEXON_API_KEY:}
-    
+
   neople:
     base-url: https://api.neople.co.kr
     api-key: ${NEOPLE_API_KEY:}
+  
+  pubg:
+    base-url: https://api.pubg.com
+    api-key: ${PUBG_API_KEY:}

@@ -28,6 +28,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import com.mygamehub.dungeonfighter.DungeonFighterCharacter;
 import com.mygamehub.dungeonfighter.DungeonFighterClient;
+import com.mygamehub.pubg.PubgClient;
+import com.mygamehub.pubg.PubgPlayerData;
+import com.mygamehub.pubg.PubgRankedStats;
 
 @Service
 public class GameAccountService {
@@ -39,6 +42,7 @@ public class GameAccountService {
     private final UserService userService;
     private final MapleStoryClient mapleStoryClient;
     private final DungeonFighterClient dungeonFighterClient;
+    private final PubgClient pubgClient;
     
 
     public GameAccountService(
@@ -48,7 +52,9 @@ public class GameAccountService {
         EternalReturnApiClient eternalReturnApiClient,
         MapleStoryClient mapleStoryClient,
         UserService userService,
-        DungeonFighterClient dungeonFighterClient
+        DungeonFighterClient dungeonFighterClient,
+        PubgClient pubgClient
+
         ) {
         this.repository = repository;
         this.lostArkClient = lostArkClient;
@@ -57,6 +63,7 @@ public class GameAccountService {
         this.mapleStoryClient = mapleStoryClient;
         this.userService = userService;
         this.dungeonFighterClient = dungeonFighterClient;
+        this.pubgClient = pubgClient;
         }
         @Transactional
         public void reorderGames(
@@ -168,11 +175,21 @@ public class GameAccountService {
 
         // 5. 게임 API 호출
         if (request.gameType() == GameType.DUNGEON_FIGHTER) {
+
         registerDungeonFighter(
                 account,
                 request.serverId()
         );
+
+        } else if (request.gameType() == GameType.BATTLEGROUNDS) {
+
+        registerBattlegrounds(
+                account,
+                request.platformId()
+        );
+
         } else {
+
         refreshStats(account);
         }
 
@@ -243,22 +260,45 @@ public class GameAccountService {
                     
             case MAPLE_STORY ->
                 refreshMapleStory(account);
+                
             case DUNGEON_FIGHTER -> refreshDungeonFighter(account);
+
+            case BATTLEGROUNDS -> refreshBattlegrounds(account);
+
+            case OVERWATCH_2 ->
+                throw new UnsupportedOperationException(
+                        "오버워치 연동은 아직 준비 중입니다."
+    );
         }
     }
         private void registerDungeonFighter(
+                        GameAccount account,
+                        String serverId
+                ) {
+                if (serverId == null || serverId.isBlank()) {
+                        throw new IllegalArgumentException(
+                                "던전앤파이터 서버를 선택해주세요."
+                        );
+                }
+
+                account.setServerId(serverId);
+
+                refreshDungeonFighter(account);
+                }
+
+                private void registerBattlegrounds(
                 GameAccount account,
-                String serverId
+                String platformId
         ) {
-        if (serverId == null || serverId.isBlank()) {
+        if (platformId == null || platformId.isBlank()) {
                 throw new IllegalArgumentException(
-                        "던전앤파이터 서버를 선택해주세요."
+                        "배틀그라운드 플랫폼을 선택해주세요."
                 );
         }
 
-        account.setServerId(serverId);
+        account.setPlatformId(platformId);
 
-        refreshDungeonFighter(account);
+        refreshBattlegrounds(account);
         }
 
     // =========================================================
@@ -772,6 +812,54 @@ EternalReturnCharacterStat third =
                 default -> serverId;
         };
         }
+
+// =========================================================
+// battleground
+// =========================================================      
+        private void refreshBattlegrounds(GameAccount account) {
+        String platformId = account.getPlatformId();
+
+        if (platformId == null || platformId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "배틀그라운드 플랫폼 정보가 없습니다."
+                );
+        }
+
+        PubgPlayerData player =
+                pubgClient.findPlayer(
+                        platformId,
+                        account.getAccountName()
+                );
+
+        String seasonId =
+                pubgClient.findCurrentSeasonId(platformId);
+
+        PubgRankedStats stats =
+                pubgClient.getRankedStats(
+                        platformId,
+                        player.id(),
+                        seasonId
+                );
+
+        String tier = formatPubgTier(stats);
+
+        String rp =
+                String.format("%,d", stats.currentRankPoint());
+
+        String averageDamage =
+                String.format("%.1f", stats.averageDamage());
+
+        account.updateStats(
+                "랭크 티어",
+                tier,
+
+                "RP",
+                rp,
+
+                "평균 딜량",
+                averageDamage
+        );
+        }
     private String formatNumber(String value) {
         if (value == null || value.isBlank()) {
                 return "-";
@@ -792,6 +880,21 @@ EternalReturnCharacterStat third =
 
         return String.format("%,d", value);
         }
+        private String formatPubgTier(PubgRankedStats stats) {
+        String tier = stats.currentTier();
+        String subTier = stats.currentSubTier();
+
+        if (tier == null || tier.isBlank()) {
+                return "Unranked";
+        }
+
+        if (subTier == null || subTier.isBlank()) {
+                return tier;
+        }
+
+        return tier + " " + subTier;
+        }
+
     private String nullToDash(
             String value
     ) {

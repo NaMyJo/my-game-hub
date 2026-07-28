@@ -5,6 +5,7 @@ enum GameType {
   eternalReturn,
   mapleStory,
   dungeonFighter,
+  battlegrounds,
 }
 
 extension GameTypeX on GameType {
@@ -27,6 +28,9 @@ extension GameTypeX on GameType {
 
       case GameType.dungeonFighter:
         return 'DUNGEON & FIGHTER';
+
+      case GameType.battlegrounds:
+        return 'BATTLEGROUNDS';
     }
   }
 
@@ -49,6 +53,9 @@ extension GameTypeX on GameType {
 
       case GameType.dungeonFighter:
         return 'DUNGEON_FIGHTER';
+
+      case GameType.battlegrounds:
+        return 'BATTLEGROUNDS';
     }
   }
 
@@ -71,6 +78,9 @@ extension GameTypeX on GameType {
 
       case 'DUNGEON_FIGHTER':
         return GameType.dungeonFighter;
+
+      case 'BATTLEGROUNDS':
+        return GameType.battlegrounds;
 
       default:
         throw ArgumentError(
@@ -96,6 +106,9 @@ extension GameTypeX on GameType {
 
       case GameType.dungeonFighter:
         return '캐릭터 이름';
+
+      case GameType.battlegrounds:
+        return '닉네임';
     }
   }
 }
@@ -138,6 +151,7 @@ class GameProfile {
     this.tertiaryValue,
     this.characterImageUrl,
     this.updatedAt,
+    this.platformId,
 
     // Eternal Return
     this.totalGames,
@@ -172,6 +186,9 @@ class GameProfile {
   final FavoriteCharacter? favoriteCharacter1;
   final FavoriteCharacter? favoriteCharacter2;
   final FavoriteCharacter? favoriteCharacter3;
+
+  // battleground 전용
+  final String? platformId;
 
   factory GameProfile.fromJson(
     Map<String, dynamic> json,
@@ -211,6 +228,7 @@ class GameProfile {
           : FavoriteCharacter.fromJson(
               json['favoriteCharacter3'] as Map<String, dynamic>,
             ),
+      platformId: json['platformId'] as String?,
     );
   }
 }

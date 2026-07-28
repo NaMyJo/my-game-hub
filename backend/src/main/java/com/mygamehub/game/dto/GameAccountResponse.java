@@ -19,6 +19,10 @@ public record GameAccountResponse(
         String tertiaryLabel,
         String tertiaryValue,
 
+        String serverId,
+        String platformId,
+
+
         Integer totalGames,
         Double averagePlacement,
 
@@ -70,6 +74,9 @@ public record GameAccountResponse(
 
                 entity.getTertiaryLabel(),
                 entity.getTertiaryValue(),
+
+                entity.getServerId(),
+                entity.getPlatformId(),
 
                 entity.getTotalGames(),
                 entity.getAveragePlacement(),
