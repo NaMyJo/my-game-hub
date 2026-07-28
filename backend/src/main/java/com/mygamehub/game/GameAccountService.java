@@ -31,6 +31,7 @@ import com.mygamehub.dungeonfighter.DungeonFighterClient;
 import com.mygamehub.pubg.PubgClient;
 import com.mygamehub.pubg.PubgPlayerData;
 import com.mygamehub.pubg.PubgRankedStats;
+import com.mygamehub.pubg.PubgTier;
 
 @Service
 public class GameAccountService {
@@ -260,7 +261,7 @@ public class GameAccountService {
                     
             case MAPLE_STORY ->
                 refreshMapleStory(account);
-                
+
             case DUNGEON_FIGHTER -> refreshDungeonFighter(account);
 
             case BATTLEGROUNDS -> refreshBattlegrounds(account);
@@ -880,9 +881,15 @@ EternalReturnCharacterStat third =
 
         return String.format("%,d", value);
         }
-        private String formatPubgTier(PubgRankedStats stats) {
-        String tier = stats.currentTier();
-        String subTier = stats.currentSubTier();
+      private String formatPubgTier(PubgRankedStats stats) {
+        PubgTier currentTier = stats.currentTier();
+
+        if (currentTier == null) {
+                return "Unranked";
+        }
+
+        String tier = currentTier.tier();
+        String subTier = currentTier.subTier();
 
         if (tier == null || tier.isBlank()) {
                 return "Unranked";

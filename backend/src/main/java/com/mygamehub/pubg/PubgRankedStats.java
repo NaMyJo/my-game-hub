@@ -1,8 +1,7 @@
 package com.mygamehub.pubg;
 
 public record PubgRankedStats(
-        String currentTier,
-        String currentSubTier,
+        PubgTier currentTier,
         int currentRankPoint,
         int roundsPlayed,
         int kills,
