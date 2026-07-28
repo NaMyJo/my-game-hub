@@ -323,6 +323,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _openAddGame() async {
+    if (_games.length >= 20) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '게임 카드는 최대 20개까지 등록할 수 있습니다.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
     final result = await showDialog<AddGameResult>(
       context: context,
       builder: (_) => const AddGameDialog(),
@@ -346,6 +360,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       await _showApiError();
     }
+    return;
   }
 
   Future<void> _signOut() async {
