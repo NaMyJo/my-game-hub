@@ -801,11 +801,6 @@ class _Sidebar extends StatelessWidget {
                 onTap: onDashboard,
               ),
               _SideItem(
-                icon: Icons.add_circle_outline_rounded,
-                label: '게임 추가',
-                onTap: onAddGame,
-              ),
-              _SideItem(
                 icon: Icons.build_circle_outlined,
                 label: '도구 모음',
                 selected: currentPage == DashboardPage.tools,
@@ -1253,7 +1248,7 @@ class _AddGameCard extends StatelessWidget {
             ),
             SizedBox(height: 16),
             Text(
-              '게임 추가하기',
+              '게임 카드 추가',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,

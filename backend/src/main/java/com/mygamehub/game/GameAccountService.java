@@ -127,9 +127,9 @@ public class GameAccountService {
         long gameCount =
                 repository.countByFirebaseUid(authUser.uid());
 
-        if (gameCount >= 10) {
+        if (gameCount >= 20) {
                 throw new IllegalArgumentException(
-                        "게임 카드는 최대 10개까지 등록할 수 있습니다."
+                        "게임 카드는 최대 20개까지 등록할 수 있습니다."
                 );
         }
 
