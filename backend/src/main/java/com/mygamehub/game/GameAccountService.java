@@ -32,6 +32,8 @@ import com.mygamehub.pubg.PubgClient;
 import com.mygamehub.pubg.PubgPlayerData;
 import com.mygamehub.pubg.PubgRankedStats;
 import com.mygamehub.pubg.PubgTier;
+import com.mygamehub.overwatch.OverwatchClient;
+import com.mygamehub.overwatch.OverwatchProfile;
 
 @Service
 public class GameAccountService {
@@ -44,6 +46,7 @@ public class GameAccountService {
     private final MapleStoryClient mapleStoryClient;
     private final DungeonFighterClient dungeonFighterClient;
     private final PubgClient pubgClient;
+    private final OverwatchClient overwatchClient;
     
 
     public GameAccountService(
@@ -54,7 +57,9 @@ public class GameAccountService {
         MapleStoryClient mapleStoryClient,
         UserService userService,
         DungeonFighterClient dungeonFighterClient,
-        PubgClient pubgClient
+        PubgClient pubgClient,        
+        OverwatchClient overwatchClient
+
 
         ) {
         this.repository = repository;
@@ -65,6 +70,8 @@ public class GameAccountService {
         this.userService = userService;
         this.dungeonFighterClient = dungeonFighterClient;
         this.pubgClient = pubgClient;
+        this.overwatchClient = overwatchClient;
+
         }
         @Transactional
         public void reorderGames(
@@ -267,9 +274,7 @@ public class GameAccountService {
             case BATTLEGROUNDS -> refreshBattlegrounds(account);
 
             case OVERWATCH_2 ->
-                throw new UnsupportedOperationException(
-                        "오버워치 연동은 아직 준비 중입니다."
-    );
+                        refreshOverwatch(account);
         }
     }
         private void registerDungeonFighter(
@@ -861,6 +866,35 @@ EternalReturnCharacterStat third =
                 averageDamage
         );
         }
+
+// =========================================================
+// Overwatch 2
+// =========================================================
+
+        private void refreshOverwatch(GameAccount account) {
+
+        OverwatchProfile profile =
+                overwatchClient.findProfile(
+                        account.getAccountName()
+                );
+
+        if (profile == null) {
+                throw new IllegalArgumentException(
+                        "오버워치 프로필 응답이 비어 있습니다."
+                );
+        }
+
+        account.setAccountName(
+                profile.battleTag()
+        );
+
+        account.updateOverwatchStats(
+                profile.tankRank(),
+                profile.damageRank(),
+                profile.supportRank(),
+                profile.careerUrl()
+        );
+        }        
     private String formatNumber(String value) {
         if (value == null || value.isBlank()) {
                 return "-";

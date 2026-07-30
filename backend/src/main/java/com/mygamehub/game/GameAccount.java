@@ -95,6 +95,9 @@ public class GameAccount {
     @Column(length = 2048)
     private String characterImageUrl;
 
+    @Column(length = 2048)
+    private String externalUrl; 
+
     protected GameAccount() {
     }
 
@@ -151,60 +154,86 @@ public class GameAccount {
         this.updatedAt = Instant.now();
     }
     public void updateEternalReturnStats(
-        String tier,
-        String score,
-        Integer totalGames,
-        Double averagePlacement,
+            String tier,
+            String score,
+            Integer totalGames,
+            Double averagePlacement,
 
-        Integer favoriteCharacter1Code,
-        String favoriteCharacter1Name,
-        Integer favoriteCharacter1Games,
-        Double favoriteCharacter1AverageRank,
+            Integer favoriteCharacter1Code,
+            String favoriteCharacter1Name,
+            Integer favoriteCharacter1Games,
+            Double favoriteCharacter1AverageRank,
 
-        Integer favoriteCharacter2Code,
-        String favoriteCharacter2Name,
-        Integer favoriteCharacter2Games,
-        Double favoriteCharacter2AverageRank,
+            Integer favoriteCharacter2Code,
+            String favoriteCharacter2Name,
+            Integer favoriteCharacter2Games,
+            Double favoriteCharacter2AverageRank,
 
-        Integer favoriteCharacter3Code,
-        String favoriteCharacter3Name,
-        Integer favoriteCharacter3Games,
-        Double favoriteCharacter3AverageRank
-) {
-    this.primaryLabel = "티어";
-    this.primaryValue = tier;
+            Integer favoriteCharacter3Code,
+            String favoriteCharacter3Name,
+            Integer favoriteCharacter3Games,
+            Double favoriteCharacter3AverageRank
+    ) {
+        this.primaryLabel = "티어";
+        this.primaryValue = tier;
 
-    this.secondaryLabel = "점수";
-    this.secondaryValue = score;
+        this.secondaryLabel = "점수";
+        this.secondaryValue = score;
 
-    this.tertiaryLabel = "판수";
-    this.tertiaryValue = totalGames == null ? "-" : totalGames + "판";
+        this.tertiaryLabel = "판수";
+        this.tertiaryValue = totalGames == null ? "-" : totalGames + "판";
 
-    this.totalGames = totalGames;
-    this.averagePlacement = averagePlacement;
+        this.totalGames = totalGames;
+        this.averagePlacement = averagePlacement;
 
-    this.favoriteCharacter1Code = favoriteCharacter1Code;
-    this.favoriteCharacter1Name = favoriteCharacter1Name;
-    this.favoriteCharacter1Games = favoriteCharacter1Games;
-    this.favoriteCharacter1AverageRank = favoriteCharacter1AverageRank;
+        this.favoriteCharacter1Code = favoriteCharacter1Code;
+        this.favoriteCharacter1Name = favoriteCharacter1Name;
+        this.favoriteCharacter1Games = favoriteCharacter1Games;
+        this.favoriteCharacter1AverageRank = favoriteCharacter1AverageRank;
 
-    this.favoriteCharacter2Code = favoriteCharacter2Code;
-    this.favoriteCharacter2Name = favoriteCharacter2Name;
-    this.favoriteCharacter2Games = favoriteCharacter2Games;
-    this.favoriteCharacter2AverageRank = favoriteCharacter2AverageRank;
+        this.favoriteCharacter2Code = favoriteCharacter2Code;
+        this.favoriteCharacter2Name = favoriteCharacter2Name;
+        this.favoriteCharacter2Games = favoriteCharacter2Games;
+        this.favoriteCharacter2AverageRank = favoriteCharacter2AverageRank;
 
-    this.favoriteCharacter3Code = favoriteCharacter3Code;
-    this.favoriteCharacter3Name = favoriteCharacter3Name;
-    this.favoriteCharacter3Games = favoriteCharacter3Games;
-    this.favoriteCharacter3AverageRank = favoriteCharacter3AverageRank;
+        this.favoriteCharacter3Code = favoriteCharacter3Code;
+        this.favoriteCharacter3Name = favoriteCharacter3Name;
+        this.favoriteCharacter3Games = favoriteCharacter3Games;
+        this.favoriteCharacter3AverageRank = favoriteCharacter3AverageRank;
 
-    touch();
-}
+        touch();
+    }
+    public void updateOverwatchStats(
+            String tankRank,
+            String damageRank,
+            String supportRank,
+            String careerUrl
+    ) {
+        this.primaryLabel = "돌격";
+        this.primaryValue = normalizeOverwatchRank(tankRank);
+
+        this.secondaryLabel = "공격";
+        this.secondaryValue = normalizeOverwatchRank(damageRank);
+
+        this.tertiaryLabel = "지원";
+        this.tertiaryValue = normalizeOverwatchRank(supportRank);
+
+        this.externalUrl = careerUrl;
+
+        touch();
+    }
+
+    private String normalizeOverwatchRank(String rank) {
+        return rank == null || rank.isBlank() ? "배치 전" : rank;
+    }
     public void setCharacterImageUrl(String characterImageUrl) {
         this.characterImageUrl = characterImageUrl;
         touch();
     }
-
+    public void setExternalUrl(String externalUrl) {
+        this.externalUrl = externalUrl;
+        touch();
+    }
 
     public Long getId() { return id; }
     public String getFirebaseUid() { return firebaseUid; }
@@ -280,6 +309,9 @@ public class GameAccount {
     }
     public String getPlatformId() {
         return platformId;
+    }
+    public String getExternalUrl() {
+    return externalUrl;
     }
 
 }
