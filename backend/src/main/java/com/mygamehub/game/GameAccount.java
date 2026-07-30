@@ -95,8 +95,6 @@ public class GameAccount {
     @Column(length = 2048)
     private String characterImageUrl;
 
-    @Column(length = 2048)
-    private String externalUrl; 
 
     protected GameAccount() {
     }
@@ -203,35 +201,9 @@ public class GameAccount {
 
         touch();
     }
-    public void updateOverwatchStats(
-            String tankRank,
-            String damageRank,
-            String supportRank,
-            String careerUrl
-    ) {
-        this.primaryLabel = "돌격";
-        this.primaryValue = normalizeOverwatchRank(tankRank);
 
-        this.secondaryLabel = "공격";
-        this.secondaryValue = normalizeOverwatchRank(damageRank);
-
-        this.tertiaryLabel = "지원";
-        this.tertiaryValue = normalizeOverwatchRank(supportRank);
-
-        this.externalUrl = careerUrl;
-
-        touch();
-    }
-
-    private String normalizeOverwatchRank(String rank) {
-        return rank == null || rank.isBlank() ? "배치 전" : rank;
-    }
     public void setCharacterImageUrl(String characterImageUrl) {
         this.characterImageUrl = characterImageUrl;
-        touch();
-    }
-    public void setExternalUrl(String externalUrl) {
-        this.externalUrl = externalUrl;
         touch();
     }
 
@@ -309,9 +281,6 @@ public class GameAccount {
     }
     public String getPlatformId() {
         return platformId;
-    }
-    public String getExternalUrl() {
-    return externalUrl;
     }
 
 }
