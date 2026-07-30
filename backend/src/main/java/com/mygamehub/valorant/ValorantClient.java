@@ -1,0 +1,222 @@
+package com.mygamehub.valorant;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+@Component
+public class ValorantClient {
+
+    private static final String DEFAULT_REGION = "kr";
+    private static final String DEFAULT_PLATFORM = "pc";
+
+    private final RestClient restClient;
+
+    public ValorantClient(
+            RestClient.Builder restClientBuilder,
+            @Value("${henrik.api.base-url}") String baseUrl,
+            @Value("${henrik.api.key}") String apiKey
+    ) {
+        this.restClient = restClientBuilder
+                .baseUrl(baseUrl)
+                .defaultHeader("Authorization", apiKey)
+                .build();
+    }
+
+    public ValorantProfile getProfile(String riotId) {
+        RiotId parsedRiotId = parseRiotId(riotId);
+
+        ValorantAccountResponse accountResponse =
+                getAccount(
+                        parsedRiotId.name(),
+                        parsedRiotId.tag()
+                );
+
+        if (accountResponse == null ||
+                accountResponse.data() == null) {
+            throw new IllegalArgumentException(
+                    "발로란트 계정 정보를 찾을 수 없습니다."
+            );
+        }
+
+        ValorantAccountResponse.Data accountData =
+                accountResponse.data();
+
+        String region = normalizeRegion(
+                accountData.region()
+        );
+
+        ValorantMmrResponse mmrResponse =
+                getMmr(
+                        region,
+                        parsedRiotId.name(),
+                        parsedRiotId.tag()
+                );
+
+        String tier = "Unrated";
+        Integer rr = null;
+
+        if (mmrResponse != null &&
+                mmrResponse.data() != null &&
+                mmrResponse.data().current() != null) {
+
+            ValorantMmrResponse.Current current =
+                    mmrResponse.data().current();
+
+            if (current.tier() != null &&
+                    current.tier().name() != null &&
+                    !current.tier().name().isBlank()) {
+                tier = current.tier().name();
+            }
+
+            rr = current.rr();
+        }
+
+        String cardImageUrl = null;
+
+        if (accountData.card() != null) {
+            cardImageUrl = accountData.card().large();
+        }
+
+        return new ValorantProfile(
+                accountData.name(),
+                accountData.tag(),
+                region,
+                tier,
+                rr,
+                accountData.accountLevel(),
+                cardImageUrl
+        );
+    }
+
+    private ValorantAccountResponse getAccount(
+            String name,
+            String tag
+    ) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/valorant/v1/account/{name}/{tag}")
+                        .build(name, tag)
+                )
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (request, response) -> {
+                            throw new IllegalArgumentException(
+                                    "존재하지 않는 발로란트 Riot ID입니다."
+                            );
+                        }
+                )
+                .onStatus(
+                        status -> status.value() == 429,
+                        (request, response) -> {
+                            throw new IllegalStateException(
+                                    "발로란트 API 요청 한도를 초과했습니다."
+                            );
+                        }
+                )
+                .onStatus(
+                        HttpStatusCode::isError,
+                        (request, response) -> {
+                            throw new IllegalStateException(
+                                    "발로란트 계정 API 호출에 실패했습니다. 상태 코드: "
+                                            + response.getStatusCode()
+                            );
+                        }
+                )
+                .body(ValorantAccountResponse.class);
+    }
+
+    private ValorantMmrResponse getMmr(
+            String region,
+            String name,
+            String tag
+    ) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(
+                                "/valorant/v3/mmr/{region}/{platform}/{name}/{tag}"
+                        )
+                        .build(
+                                region,
+                                DEFAULT_PLATFORM,
+                                name,
+                                tag
+                        )
+                )
+                .retrieve()
+                .onStatus(
+                        status -> status.value() == 404,
+                        (request, response) -> {
+                            throw new IllegalArgumentException(
+                                    "발로란트 랭크 정보를 찾을 수 없습니다."
+                            );
+                        }
+                )
+                .onStatus(
+                        status -> status.value() == 429,
+                        (request, response) -> {
+                            throw new IllegalStateException(
+                                    "발로란트 API 요청 한도를 초과했습니다."
+                            );
+                        }
+                )
+                .onStatus(
+                        HttpStatusCode::isError,
+                        (request, response) -> {
+                            throw new IllegalStateException(
+                                    "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
+                                            + response.getStatusCode()
+                            );
+                        }
+                )
+                .body(ValorantMmrResponse.class);
+    }
+
+    private RiotId parseRiotId(String accountName) {
+        if (accountName == null || accountName.isBlank()) {
+            throw new IllegalArgumentException(
+                    "발로란트 Riot ID를 입력해주세요."
+            );
+        }
+
+        String[] parts =
+                accountName.trim().split("#", 2);
+
+        if (parts.length != 2 ||
+                parts[0].isBlank() ||
+                parts[1].isBlank()) {
+            throw new IllegalArgumentException(
+                    "Riot ID는 게임이름#태그 형식으로 입력해주세요."
+            );
+        }
+
+        return new RiotId(
+                parts[0].trim(),
+                parts[1].trim()
+        );
+    }
+
+    private String normalizeRegion(String region) {
+        if (region == null || region.isBlank()) {
+            return DEFAULT_REGION;
+        }
+
+        String normalized =
+                region.trim().toLowerCase();
+
+        return switch (normalized) {
+            case "kr", "ap", "eu", "na",
+                 "latam", "br" -> normalized;
+
+            default -> DEFAULT_REGION;
+        };
+    }
+
+    private record RiotId(
+            String name,
+            String tag
+    ) {
+    }
+}

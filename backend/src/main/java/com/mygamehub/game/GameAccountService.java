@@ -32,6 +32,8 @@ import com.mygamehub.pubg.PubgClient;
 import com.mygamehub.pubg.PubgPlayerData;
 import com.mygamehub.pubg.PubgRankedStats;
 import com.mygamehub.pubg.PubgTier;
+import com.mygamehub.valorant.ValorantClient;
+import com.mygamehub.valorant.ValorantProfile;
 
 @Service
 public class GameAccountService {
@@ -44,7 +46,7 @@ public class GameAccountService {
     private final MapleStoryClient mapleStoryClient;
     private final DungeonFighterClient dungeonFighterClient;
     private final PubgClient pubgClient;
-    
+    private final ValorantClient valorantClient;
 
     public GameAccountService(
         GameAccountRepository repository,
@@ -54,8 +56,8 @@ public class GameAccountService {
         MapleStoryClient mapleStoryClient,
         UserService userService,
         DungeonFighterClient dungeonFighterClient,
-        PubgClient pubgClient  
-
+        PubgClient pubgClient,
+        ValorantClient valorantClient  
 
         ) {
         this.repository = repository;
@@ -66,6 +68,7 @@ public class GameAccountService {
         this.userService = userService;
         this.dungeonFighterClient = dungeonFighterClient;
         this.pubgClient = pubgClient;
+        this.valorantClient = valorantClient;
 
         }
         @Transactional
@@ -267,6 +270,8 @@ public class GameAccountService {
             case DUNGEON_FIGHTER -> refreshDungeonFighter(account);
 
             case BATTLEGROUNDS -> refreshBattlegrounds(account);
+
+            case VALORANT -> refreshValorant(account);
 
         }
     }
@@ -859,6 +864,41 @@ EternalReturnCharacterStat third =
                 averageDamage
         );
         }
+
+/// =========================================================
+// valorant
+// =========================================================
+        private void refreshValorant(GameAccount account) {
+
+        ValorantProfile profile =
+                valorantClient.getProfile(
+                        account.getAccountName()
+                );
+
+        String tier = profile.tier();
+
+        String rr =
+                profile.rr() == null
+                        ? "-"
+                        : profile.rr() + " RR";
+
+        account.updateStats(
+                "경쟁전 티어",
+                tier,
+
+                "RR",
+                rr,
+
+                null,
+                null
+        );
+
+        account.setCharacterImageUrl(
+                profile.cardImageUrl()
+        );
+        }
+
+
 
     private String formatNumber(String value) {
         if (value == null || value.isBlank()) {

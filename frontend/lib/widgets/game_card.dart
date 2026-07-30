@@ -247,6 +247,7 @@ class GameCard extends StatelessWidget {
               GameType.mapleStory => 320,
               GameType.dungeonFighter => 320,
               GameType.battlegrounds => 340,
+              GameType.valorant => 320,
             }
           : switch (profile.type) {
               GameType.lostArk => 340,
@@ -256,6 +257,7 @@ class GameCard extends StatelessWidget {
               GameType.mapleStory => 340,
               GameType.dungeonFighter => 340,
               GameType.battlegrounds => 320,
+              GameType.valorant => 340,
             },
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
@@ -703,6 +705,30 @@ class GameCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
+          // ====================
+          // VALORANT
+          // ====================
+          if (profile.type == GameType.valorant) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openValorantDakgg,
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 15,
+                ),
+                label: Text(
+                  mobile ? 'DAK.GG' : 'DAK.GG 전적 검색',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: mobile ? 11 : 14,
+                  ),
+                ),
+                style: _externalButtonStyle(),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 // ====================
 // API 출처
 // ====================
@@ -725,6 +751,7 @@ class GameCard extends StatelessWidget {
                       GameType.mapleStory => 'Data based on NEXON Open API',
                       GameType.dungeonFighter => 'Neople Open API',
                       GameType.battlegrounds => 'PUBG Open API',
+                      GameType.valorant => 'HenrikDev Valorant API',
                     },
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -764,6 +791,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.battlegrounds:
         return 'assets/game_icons/pubg.png';
+
+      case GameType.valorant:
+        return 'assets/game_icons/valorant.png';
     }
   }
 
@@ -789,6 +819,9 @@ class GameCard extends StatelessWidget {
 
       case GameType.battlegrounds:
         return Icons.sports_esports_rounded;
+
+      case GameType.valorant:
+        return Icons.gps_fixed_rounded;
     }
   }
 
@@ -855,6 +888,21 @@ class GameCard extends StatelessWidget {
     );
   }
 
+  Future<void> _openValorantDakgg() async {
+    final riotId = _parseRiotId();
+
+    if (riotId == null) {
+      return;
+    }
+
+    final gameName = Uri.encodeComponent(riotId.gameName);
+    final tagLine = Uri.encodeComponent(riotId.tagLine);
+
+    await _openExternalUrl(
+      'https://dak.gg/valorant/profile/$gameName-$tagLine',
+    );
+  }
+
   Color _accent(GameType type) {
     switch (type) {
       case GameType.lostArk:
@@ -871,6 +919,8 @@ class GameCard extends StatelessWidget {
         return const Color(0xFFE05252);
       case GameType.battlegrounds:
         return const Color(0xFFF2A900);
+      case GameType.valorant:
+        return const Color(0xFFFF4655);
     }
   }
 }

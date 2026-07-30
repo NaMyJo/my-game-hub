@@ -36,3 +36,8 @@ app:
   pubg:
     base-url: https://api.pubg.com
     api-key: ${PUBG_API_KEY:}
+  
+  henrik:
+    api:
+      key: ${HENRIK_API_KEY}
+      base-url: https://api.henrikdev.xyz

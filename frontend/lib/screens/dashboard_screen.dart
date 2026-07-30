@@ -1948,6 +1948,44 @@ class _ToolsPage extends StatelessWidget {
           ],
           onOpen: _open,
         ),
+        const SizedBox(height: 20),
+        _ToolSection(
+          title: '배틀그라운드',
+          tools: const [
+            _ToolData(
+              'Dak.gg',
+              'https://dak.gg/pubg?hl=ko-KR',
+            ),
+            _ToolData(
+              'op.gg',
+              'https://op.gg/ko/pubg',
+            ),
+            _ToolData(
+              '배틀그라운드 인벤',
+              'https://pubg.inven.co.kr/',
+            ),
+          ],
+          onOpen: _open,
+        ),
+        const SizedBox(height: 20),
+        _ToolSection(
+          title: '발로란트',
+          tools: const [
+            _ToolData(
+              'Dak.gg',
+              'https://dak.gg/valorant?hl=ko',
+            ),
+            _ToolData(
+              'op.gg',
+              'https://op.gg/ko/valorant',
+            ),
+            _ToolData(
+              'blitz.gg',
+              'https://blitz.gg/valorant',
+            ),
+          ],
+          onOpen: _open,
+        ),
       ],
     );
   }

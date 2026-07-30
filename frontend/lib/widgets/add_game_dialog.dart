@@ -228,10 +228,17 @@ class _AddGameDialogState extends State<AddGameDialog> {
                     return '${_type.accountLabel}을 입력해주세요.';
                   }
 
-                  if ((_type == GameType.leagueOfLegends ||
-                          _type == GameType.tft) &&
-                      !value.contains('#')) {
-                    return 'Riot ID는 게임이름#태그 형식으로 입력해주세요.';
+                  if (_type == GameType.leagueOfLegends ||
+                      _type == GameType.tft ||
+                      _type == GameType.valorant) {
+                    final riotId = value.trim();
+                    final parts = riotId.split('#');
+
+                    if (parts.length != 2 ||
+                        parts[0].trim().isEmpty ||
+                        parts[1].trim().isEmpty) {
+                      return 'Riot ID는 게임이름#태그 형식으로 입력해주세요.';
+                    }
                   }
 
                   return null;
@@ -278,6 +285,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
       case GameType.battlegrounds:
         return '예: PUBG 닉네임';
+
+      case GameType.valorant:
+        return '예: PlayerName#KR1';
     }
   }
 }

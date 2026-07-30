@@ -6,6 +6,7 @@ enum GameType {
   mapleStory,
   dungeonFighter,
   battlegrounds,
+  valorant
 }
 
 extension GameTypeX on GameType {
@@ -31,6 +32,9 @@ extension GameTypeX on GameType {
 
       case GameType.battlegrounds:
         return 'BATTLEGROUNDS';
+
+      case GameType.valorant:
+        return 'VALORANT';
     }
   }
 
@@ -56,6 +60,9 @@ extension GameTypeX on GameType {
 
       case GameType.battlegrounds:
         return 'BATTLEGROUNDS';
+
+      case GameType.valorant:
+        return 'VALORANT';
     }
   }
 
@@ -82,6 +89,9 @@ extension GameTypeX on GameType {
       case 'BATTLEGROUNDS':
         return GameType.battlegrounds;
 
+      case 'VALORANT':
+        return GameType.valorant;
+
       default:
         throw ArgumentError(
           'Unknown game type: $value',
@@ -96,6 +106,7 @@ extension GameTypeX on GameType {
 
       case GameType.leagueOfLegends:
       case GameType.tft:
+      case GameType.valorant:
         return 'Riot ID (게임이름#태그)';
 
       case GameType.eternalReturn:

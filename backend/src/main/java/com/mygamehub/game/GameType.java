@@ -8,5 +8,5 @@ public enum GameType {
     MAPLE_STORY,
     DUNGEON_FIGHTER,  
     BATTLEGROUNDS,
-    OVERWATCH_2
+    VALORANT
 }
