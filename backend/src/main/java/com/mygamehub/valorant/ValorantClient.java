@@ -15,8 +15,8 @@ public class ValorantClient {
 
     public ValorantClient(
             RestClient.Builder restClientBuilder,
-            @Value("${henrik.api.base-url}") String baseUrl,
-            @Value("${henrik.api.key}") String apiKey
+            @Value("${app.henrik.api.base-url}") String baseUrl,
+            @Value("${app.henrik.api.key}") String apiKey
     ) {
         this.restClient = restClientBuilder
                 .baseUrl(baseUrl)
