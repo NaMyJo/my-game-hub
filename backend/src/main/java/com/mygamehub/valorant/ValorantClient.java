@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.HttpClientErrorException;
 
 @Component
 public class ValorantClient {
@@ -54,7 +55,7 @@ public class ValorantClient {
                         parsedRiotId.tag()
                 );
 
-        String tier = "Unrated";
+        String tier = "경쟁전 미진행";
         Integer rr = null;
 
         if (mmrResponse != null &&
@@ -64,13 +65,20 @@ public class ValorantClient {
             ValorantMmrResponse.Current current =
                     mmrResponse.data().current();
 
-            if (current.tier() != null &&
-                    current.tier().name() != null &&
-                    !current.tier().name().isBlank()) {
-                tier = current.tier().name();
-            }
+            String currentTierName =
+                    current.tier() == null
+                            ? null
+                            : current.tier().name();
 
-            rr = current.rr();
+            boolean hasCompetitiveRank =
+                    currentTierName != null &&
+                    !currentTierName.isBlank() &&
+                    !currentTierName.equalsIgnoreCase("Unrated");
+
+            if (hasCompetitiveRank) {
+                tier = currentTierName;
+                rr = current.rr();
+            }
         }
 
         String cardImageUrl = null;
@@ -91,87 +99,87 @@ public class ValorantClient {
     }
 
     private ValorantAccountResponse getAccount(
-            String name,
-            String tag
-    ) {
-        return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/valorant/v1/account/{name}/{tag}")
-                        .build(name, tag)
-                )
-                .retrieve()
-                .onStatus(
-                        status -> status.value() == 404,
-                        (request, response) -> {
-                            throw new IllegalArgumentException(
-                                    "존재하지 않는 발로란트 Riot ID입니다."
-                            );
-                        }
-                )
-                .onStatus(
-                        status -> status.value() == 429,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "발로란트 API 요청 한도를 초과했습니다."
-                            );
-                        }
-                )
-                .onStatus(
-                        HttpStatusCode::isError,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "발로란트 계정 API 호출에 실패했습니다. 상태 코드: "
-                                            + response.getStatusCode()
-                            );
-                        }
-                )
-                .body(ValorantAccountResponse.class);
-    }
+                String name,
+                String tag
+        ) {
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/valorant/v1/account/{name}/{tag}")
+                            .build(name, tag)
+                    )
+                    .retrieve()
+                    .onStatus(
+                            status -> status.value() == 404,
+                            (request, response) -> {
+                                throw new IllegalArgumentException(
+                                        "존재하지 않는 발로란트 Riot ID입니다."
+                                );
+                            }
+                    )
+                    .onStatus(
+                            status -> status.value() == 429,
+                            (request, response) -> {
+                                throw new IllegalStateException(
+                                        "발로란트 API 요청 한도를 초과했습니다."
+                                );
+                            }
+                    )
+                    .onStatus(
+                            HttpStatusCode::isError,
+                            (request, response) -> {
+                                throw new IllegalStateException(
+                                        "발로란트 계정 API 호출에 실패했습니다. 상태 코드: "
+                                                + response.getStatusCode()
+                                );
+                            }
+                    )
+                    .body(ValorantAccountResponse.class);
+        }
 
-    private ValorantMmrResponse getMmr(
+        private ValorantMmrResponse getMmr(
             String region,
             String name,
             String tag
     ) {
-        return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path(
-                                "/valorant/v3/mmr/{region}/{platform}/{name}/{tag}"
-                        )
-                        .build(
-                                region,
-                                DEFAULT_PLATFORM,
-                                name,
-                                tag
-                        )
-                )
-                .retrieve()
-                .onStatus(
-                        status -> status.value() == 404,
-                        (request, response) -> {
-                            throw new IllegalArgumentException(
-                                    "발로란트 랭크 정보를 찾을 수 없습니다."
-                            );
-                        }
-                )
-                .onStatus(
-                        status -> status.value() == 429,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "발로란트 API 요청 한도를 초과했습니다."
-                            );
-                        }
-                )
-                .onStatus(
-                        HttpStatusCode::isError,
-                        (request, response) -> {
-                            throw new IllegalStateException(
-                                    "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
-                                            + response.getStatusCode()
-                            );
-                        }
-                )
-                .body(ValorantMmrResponse.class);
+        try {
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path(
+                                    "/valorant/v3/mmr/{region}/{platform}/{name}/{tag}"
+                            )
+                            .build(
+                                    region,
+                                    DEFAULT_PLATFORM,
+                                    name,
+                                    tag
+                            )
+                    )
+                    .retrieve()
+                    .onStatus(
+                            status -> status.value() == 429,
+                            (request, response) -> {
+                                throw new IllegalStateException(
+                                        "발로란트 API 요청 한도를 초과했습니다."
+                                );
+                            }
+                    )
+                    .onStatus(
+                            status ->
+                                    status.isError() &&
+                                    status.value() != 404,
+                            (request, response) -> {
+                                throw new IllegalStateException(
+                                        "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
+                                                + response.getStatusCode()
+                                );
+                            }
+                    )
+                    .body(ValorantMmrResponse.class);
+
+        } catch (HttpClientErrorException.NotFound exception) {
+            // 계정은 존재하지만 현재 시즌 경쟁전 데이터가 없는 경우
+            return null;
+        }
     }
 
     private RiotId parseRiotId(String accountName) {

@@ -865,39 +865,46 @@ EternalReturnCharacterStat third =
         );
         }
 
-/// =========================================================
+// =========================================================
 // valorant
 // =========================================================
-        private void refreshValorant(GameAccount account) {
+private void refreshValorant(GameAccount account) {
 
-        ValorantProfile profile =
-                valorantClient.getProfile(
-                        account.getAccountName()
-                );
+    ValorantProfile profile =
+            valorantClient.getProfile(
+                    account.getAccountName()
+            );
 
-        String tier = profile.tier();
+    boolean competitiveNotPlayed =
+            profile.rr() == null ||
+            profile.tier() == null ||
+            profile.tier().isBlank() ||
+            profile.tier().equals("경쟁전 미진행") ||
+            profile.tier().equalsIgnoreCase("Unrated");
 
-        String rr =
-                profile.rr() == null
-                        ? "-"
-                        : profile.rr() + " RR";
+    String tier = competitiveNotPlayed
+            ? "경쟁전 미진행"
+            : profile.tier();
 
-        account.updateStats(
-                "경쟁전 티어",
-                tier,
+    String rr = competitiveNotPlayed
+            ? "-"
+            : profile.rr() + " RR";
 
-                "RR",
-                rr,
+    account.updateStats(
+            "경쟁전 티어",
+            tier,
 
-                null,
-                null
-        );
+            "RR",
+            rr,
 
-        account.setCharacterImageUrl(
-                profile.cardImageUrl()
-        );
-        }
+            null,
+            null
+    );
 
+    account.setCharacterImageUrl(
+            profile.cardImageUrl()
+    );
+}
 
 
     private String formatNumber(String value) {
