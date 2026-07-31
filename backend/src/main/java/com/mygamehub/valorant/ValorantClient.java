@@ -57,6 +57,15 @@ public class ValorantClient {
                         parsedRiotId.name(),
                         parsedRiotId.tag()
                 );
+                System.out.println("========== MMR RESULT ==========");
+
+                if (mmrResponse == null) {
+                    System.out.println("MMR RESPONSE IS NULL");
+                } else {
+                    System.out.println(mmrResponse);
+                }
+
+                System.out.println("===============================");
 
         // 현재 시즌 경쟁전 기록이 없을 때 기본값
         String tier = "경쟁전 미진행";
@@ -147,43 +156,45 @@ public class ValorantClient {
             String tag
     ) {
         try {
-            return restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path(
-                                    "/valorant/v3/mmr/{region}/{platform}/{name}/{tag}"
-                            )
-                            .build(
-                                    region,
-                                    DEFAULT_PLATFORM,
-                                    name,
-                                    tag
-                            )
-                    )
-                    .retrieve()
-                    .onStatus(
-                            status -> status.value() == 429,
-                            (request, response) -> {
-                                throw new IllegalStateException(
-                                        "발로란트 API 요청 한도를 초과했습니다."
-                                );
-                            }
-                    )
-                    .body(ValorantMmrResponse.class);
 
-        } catch (HttpClientErrorException exception) {
+            System.out.println("========== VALORANT MMR REQUEST ==========");
+            System.out.println("Region : " + region);
+            System.out.println("Name   : " + name);
+            System.out.println("Tag    : " + tag);
 
-            // 계정은 존재하지만 현재 시즌 경쟁전 정보가 없는 경우
-            if (exception.getStatusCode().value() == 404) {
+            ValorantMmrResponse response =
+                    restClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/valorant/v3/mmr/{region}/{platform}/{name}/{tag}")
+                                    .build(
+                                            region,
+                                            DEFAULT_PLATFORM,
+                                            name,
+                                            tag
+                                    )
+                            )
+                            .retrieve()
+                            .body(ValorantMmrResponse.class);
+
+            System.out.println("MMR Success");
+            return response;
+
+        } catch (HttpClientErrorException e) {
+
+            System.out.println("========== VALORANT MMR ERROR ==========");
+            System.out.println("Status : " + e.getStatusCode());
+            System.out.println("Body   : ");
+            System.out.println(e.getResponseBodyAsString());
+            System.out.println("========================================");
+
+            if (e.getStatusCode().value() == 404) {
                 return null;
             }
 
-            throw new IllegalStateException(
-                    "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
-                            + exception.getStatusCode(),
-                    exception
-            );
+            throw e;
         }
     }
+
     private RiotId parseRiotId(String accountName) {
         if (accountName == null || accountName.isBlank()) {
             throw new IllegalArgumentException(

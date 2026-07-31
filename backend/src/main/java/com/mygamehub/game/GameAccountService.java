@@ -869,6 +869,8 @@ EternalReturnCharacterStat third =
 // valorant
 // =========================================================
         private void refreshValorant(GameAccount account) {
+                System.out.println("========== REFRESH VALORANT ==========");
+                System.out.println(account.getAccountName());
 
         ValorantProfile profile =
                 valorantClient.getProfile(
@@ -889,7 +891,8 @@ EternalReturnCharacterStat third =
                 notPlayed || profile.rr() == null
                         ? " - "
                         : profile.rr() + " RR";
-
+        System.out.println("Tier : " + tier);
+        System.out.println("RR   : " + rr);
         account.updateStats(
                 "경쟁전 티어",
                 tier,
