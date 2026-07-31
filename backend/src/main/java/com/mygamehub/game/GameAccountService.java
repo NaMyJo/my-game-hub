@@ -868,43 +868,43 @@ EternalReturnCharacterStat third =
 // =========================================================
 // valorant
 // =========================================================
-private void refreshValorant(GameAccount account) {
+        private void refreshValorant(GameAccount account) {
 
-    ValorantProfile profile =
-            valorantClient.getProfile(
-                    account.getAccountName()
-            );
+        ValorantProfile profile =
+                valorantClient.getProfile(
+                        account.getAccountName()
+                );
 
-    boolean competitiveNotPlayed =
-            profile.rr() == null ||
-            profile.tier() == null ||
-            profile.tier().isBlank() ||
-            profile.tier().equals("경쟁전 미진행") ||
-            profile.tier().equalsIgnoreCase("Unrated");
+        boolean notPlayed =
+                profile.tier() == null ||
+                profile.tier().isBlank() ||
+                profile.tier().equalsIgnoreCase("Unrated") ||
+                profile.tier().equals("경쟁전 미진행");
 
-    String tier = competitiveNotPlayed
-            ? "경쟁전 미진행"
-            : profile.tier();
+        String tier = notPlayed
+                ? "경쟁전 미진행"
+                : profile.tier();
 
-    String rr = competitiveNotPlayed
-            ? "-"
-            : profile.rr() + " RR";
+        String rr =
+                notPlayed || profile.rr() == null
+                        ? " - "
+                        : profile.rr() + " RR";
 
-    account.updateStats(
-            "경쟁전 티어",
-            tier,
+        account.updateStats(
+                "경쟁전 티어",
+                tier,
 
-            "RR",
-            rr,
+                "RR",
+                rr,
 
-            null,
-            null
-    );
+                null,
+                null
+        );
 
-    account.setCharacterImageUrl(
-            profile.cardImageUrl()
-    );
-}
+        account.setCharacterImageUrl(
+                profile.cardImageUrl()
+        );
+        }
 
 
     private String formatNumber(String value) {

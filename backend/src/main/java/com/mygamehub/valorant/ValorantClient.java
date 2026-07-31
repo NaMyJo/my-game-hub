@@ -3,19 +3,21 @@ package com.mygamehub.valorant;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 @Component
 public class ValorantClient {
 
     private static final String DEFAULT_REGION = "kr";
     private static final String DEFAULT_PLATFORM = "pc";
-
     private final RestClient restClient;
 
     public ValorantClient(
             RestClient.Builder restClientBuilder,
+            ObjectMapper objectMapper,
             @Value("${app.henrik.api.base-url}") String baseUrl,
             @Value("${app.henrik.api.key}") String apiKey
     ) {
@@ -23,9 +25,11 @@ public class ValorantClient {
                 .baseUrl(baseUrl)
                 .defaultHeader("Authorization", apiKey)
                 .build();
+
     }
 
     public ValorantProfile getProfile(String riotId) {
+
         RiotId parsedRiotId = parseRiotId(riotId);
 
         ValorantAccountResponse accountResponse =
@@ -44,9 +48,8 @@ public class ValorantClient {
         ValorantAccountResponse.Data accountData =
                 accountResponse.data();
 
-        String region = normalizeRegion(
-                accountData.region()
-        );
+        String region =
+                normalizeRegion(accountData.region());
 
         ValorantMmrResponse mmrResponse =
                 getMmr(
@@ -55,6 +58,7 @@ public class ValorantClient {
                         parsedRiotId.tag()
                 );
 
+        // 현재 시즌 경쟁전 기록이 없을 때 기본값
         String tier = "경쟁전 미진행";
         Integer rr = null;
 
@@ -65,18 +69,18 @@ public class ValorantClient {
             ValorantMmrResponse.Current current =
                     mmrResponse.data().current();
 
-            String currentTierName =
+            String tierName =
                     current.tier() == null
                             ? null
                             : current.tier().name();
 
-            boolean hasCompetitiveRank =
-                    currentTierName != null &&
-                    !currentTierName.isBlank() &&
-                    !currentTierName.equalsIgnoreCase("Unrated");
+            boolean hasRank =
+                    tierName != null &&
+                    !tierName.isBlank() &&
+                    !tierName.equalsIgnoreCase("Unrated");
 
-            if (hasCompetitiveRank) {
-                tier = currentTierName;
+            if (hasRank) {
+                tier = tierName;
                 rr = current.rr();
             }
         }
@@ -87,6 +91,7 @@ public class ValorantClient {
             cardImageUrl = accountData.card().large();
         }
 
+        // 반드시 메서드 마지막에 반환
         return new ValorantProfile(
                 accountData.name(),
                 accountData.tag(),
@@ -97,7 +102,7 @@ public class ValorantClient {
                 cardImageUrl
         );
     }
-
+            
     private ValorantAccountResponse getAccount(
                 String name,
                 String tag
@@ -136,7 +141,7 @@ public class ValorantClient {
                     .body(ValorantAccountResponse.class);
         }
 
-        private ValorantMmrResponse getMmr(
+    private ValorantMmrResponse getMmr(
             String region,
             String name,
             String tag
@@ -163,25 +168,22 @@ public class ValorantClient {
                                 );
                             }
                     )
-                    .onStatus(
-                            status ->
-                                    status.isError() &&
-                                    status.value() != 404,
-                            (request, response) -> {
-                                throw new IllegalStateException(
-                                        "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
-                                                + response.getStatusCode()
-                                );
-                            }
-                    )
                     .body(ValorantMmrResponse.class);
 
-        } catch (HttpClientErrorException.NotFound exception) {
-            // 계정은 존재하지만 현재 시즌 경쟁전 데이터가 없는 경우
-            return null;
+        } catch (HttpClientErrorException exception) {
+
+            // 계정은 존재하지만 현재 시즌 경쟁전 정보가 없는 경우
+            if (exception.getStatusCode().value() == 404) {
+                return null;
+            }
+
+            throw new IllegalStateException(
+                    "발로란트 랭크 API 호출에 실패했습니다. 상태 코드: "
+                            + exception.getStatusCode(),
+                    exception
+            );
         }
     }
-
     private RiotId parseRiotId(String accountName) {
         if (accountName == null || accountName.isBlank()) {
             throw new IllegalArgumentException(
