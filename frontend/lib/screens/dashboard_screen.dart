@@ -609,6 +609,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int mapleStoryCount,
     required int dungeonFighterCount,
     required int battlegroundsCount,
+    required int valorantCount,
     required String lastSyncText,
   }) {
     return Scaffold(
@@ -671,6 +672,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         mapleStoryCount: mapleStoryCount,
                         dungeonFighterCount: dungeonFighterCount,
                         battlegroundsCount: battlegroundsCount,
+                        valorantCount: valorantCount,
                         lastSyncText: lastSyncText,
                       ),
                       const SizedBox(height: 14),
@@ -740,6 +742,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (game) => game.type == GameType.battlegrounds,
         )
         .length;
+    final valorantCount =
+        _games.where((game) => game.type == GameType.valorant).length;
 
 // 가장 최근에 갱신된 게임
     GameProfile? latestGame;
@@ -783,6 +787,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mapleStoryCount: mapleStoryCount,
         dungeonFighterCount: dungeonFighterCount,
         battlegroundsCount: battlegroundsCount,
+        valorantCount: valorantCount,
         lastSyncText: lastSyncText,
       );
     }
@@ -831,6 +836,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         dungeonFighterCount:
                                             dungeonFighterCount,
                                         battlegroundsCount: battlegroundsCount,
+                                        valorantCount: valorantCount,
                                         lastSyncText: lastSyncText,
                                       ),
                                       const SizedBox(height: 18),
@@ -1228,6 +1234,7 @@ class _SummaryRow extends StatelessWidget {
     required this.mapleStoryCount,
     required this.dungeonFighterCount,
     required this.battlegroundsCount,
+    required this.valorantCount,
     required this.lastSyncText,
   });
 
@@ -1238,6 +1245,7 @@ class _SummaryRow extends StatelessWidget {
   final int mapleStoryCount;
   final int dungeonFighterCount;
   final int battlegroundsCount;
+  final int valorantCount;
   final String lastSyncText;
 
   @override
@@ -1315,6 +1323,16 @@ class _SummaryRow extends StatelessWidget {
                 imageAsset: 'assets/game_icons/pubg.png',
                 label: 'BATTLEGROUNDS',
                 value: '$battlegroundsCount개',
+                caption: '등록 계정',
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: StatCard(
+                icon: Icons.local_fire_department_rounded,
+                imageAsset: 'assets/game_icons/valorant.png',
+                label: 'VALORANT',
+                value: '$valorantCount개',
                 caption: '등록 계정',
               ),
             ),
@@ -2289,6 +2307,7 @@ class _MobileSummaryGrid extends StatelessWidget {
     required this.mapleStoryCount,
     required this.dungeonFighterCount,
     required this.battlegroundsCount,
+    required this.valorantCount,
     required this.lastSyncText,
   });
 
@@ -2299,6 +2318,7 @@ class _MobileSummaryGrid extends StatelessWidget {
   final int mapleStoryCount;
   final int dungeonFighterCount;
   final int battlegroundsCount;
+  final int valorantCount;
   final String lastSyncText;
 
   @override
@@ -2347,6 +2367,13 @@ class _MobileSummaryGrid extends StatelessWidget {
           imageAsset: 'assets/game_icons/pubg.png',
           label: 'PUBG',
           value: '$battlegroundsCount개',
+          caption: '등록 계정',
+        ),
+        StatCard(
+          icon: Icons.sports_esports_rounded,
+          imageAsset: 'assets/game_icons/valorant.png',
+          label: 'Valorant',
+          value: '$valorantCount개',
           caption: '등록 계정',
         ),
         StatCard(

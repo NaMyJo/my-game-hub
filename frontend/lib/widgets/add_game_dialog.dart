@@ -217,6 +217,9 @@ class _AddGameDialogState extends State<AddGameDialog> {
               TextFormField(
                 controller: _controller,
                 autofocus: true,
+                style: const TextStyle(
+                  fontFamily: 'Malgun Gothic',
+                ),
                 decoration: InputDecoration(
                   hintText: _hint(_type),
                   filled: true,
