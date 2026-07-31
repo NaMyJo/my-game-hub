@@ -29,8 +29,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _loadGamesTakingLong = false;
   bool _dashboardMenuExpanded = true;
   bool _deleteMode = false;
+  bool _sidebarCollapsed = false;
   final Set<int> _selectedGameIds = {};
   String? _loadGamesError;
+  void _toggleSidebar() {
+    setState(() {
+      _sidebarCollapsed = !_sidebarCollapsed;
+    });
+  }
 
   DashboardPage _currentPage = DashboardPage.dashboard;
 
@@ -792,105 +798,103 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
     return Scaffold(
-      body: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: 1600,
-          child: Row(
-            children: [
-              _Sidebar(
-                user: _user,
-                currentPage: _currentPage,
-                dashboardMenuExpanded: _dashboardMenuExpanded,
-                onDashboard: _openDashboard,
-                onAddGame: _openAddGame,
-                onDeleteGames: _openDeleteMode,
-                deleteMode: _deleteMode,
-                onTools: _openTools,
-                onSignOut: _confirmSignOut,
-              ),
-              Expanded(
-                child: SafeArea(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(26),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1500),
-                        child: _currentPage == DashboardPage.dashboard
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                    _HeroProfile(user: _user),
-                                    const SizedBox(height: 18),
-                                    if (_isLoadingGames)
-                                      _buildGameLoadingState()
-                                    else if (_loadGamesError != null)
-                                      _buildGameLoadErrorState()
-                                    else ...[
-                                      _SummaryRow(
-                                        lostArkCount: lostArkCount,
-                                        lolCount: lolCount,
-                                        tftCount: tftCount,
-                                        eternalReturnCount: eternalReturnCount,
-                                        mapleStoryCount: mapleStoryCount,
-                                        dungeonFighterCount:
-                                            dungeonFighterCount,
-                                        battlegroundsCount: battlegroundsCount,
-                                        valorantCount: valorantCount,
-                                        lastSyncText: lastSyncText,
-                                      ),
-                                      const SizedBox(height: 18),
-                                      if (_deleteMode) ...[
-                                        _DeleteModeBar(
-                                          selectedCount:
-                                              _selectedGameIds.length,
-                                          onCancel: _cancelDeleteMode,
-                                          onDelete: _deleteSelectedGames,
-                                        ),
-                                        const SizedBox(height: 18),
-                                      ],
-                                      _GameGrid(
-                                        games: _games,
-                                        refreshingGameId: _refreshingGameId,
-                                        onAddGame: _openAddGame,
-                                        onRefresh: _refreshGame,
-                                        onReorder: _reorderGame,
-                                        deleteMode: _deleteMode,
-                                        selectedGameIds: _selectedGameIds,
-                                        onToggleSelection: _toggleGameSelection,
-                                        onRemove: (game) async {
-                                          try {
-                                            await GameRepository.instance
-                                                .deleteGame(game.id);
-
-                                            if (!mounted) return;
-
-                                            setState(() {
-                                              _games.remove(game);
-                                            });
-                                          } catch (error) {
-                                            if (!mounted) return;
-                                            await _showApiError();
-                                          }
-                                        },
-                                      ),
-                                    ],
-                                  ])
-                            : const _ToolsPage(),
-                      ),
+      backgroundColor: const Color(0xFF050C16),
+      body: Row(
+        children: [
+          _Sidebar(
+            user: _user,
+            currentPage: _currentPage,
+            dashboardMenuExpanded: _dashboardMenuExpanded,
+            onDashboard: _openDashboard,
+            onAddGame: _openAddGame,
+            onDeleteGames: _openDeleteMode,
+            deleteMode: _deleteMode,
+            onTools: _openTools,
+            onSignOut: _confirmSignOut,
+            collapsed: _sidebarCollapsed,
+            onToggleCollapsed: _toggleSidebar,
+          ),
+          Expanded(
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(26),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 1500,
                     ),
+                    child: _currentPage == DashboardPage.dashboard
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _HeroProfile(user: _user),
+                              const SizedBox(height: 18),
+                              if (_isLoadingGames)
+                                _buildGameLoadingState()
+                              else if (_loadGamesError != null)
+                                _buildGameLoadErrorState()
+                              else ...[
+                                _SummaryRow(
+                                  lostArkCount: lostArkCount,
+                                  lolCount: lolCount,
+                                  tftCount: tftCount,
+                                  eternalReturnCount: eternalReturnCount,
+                                  mapleStoryCount: mapleStoryCount,
+                                  dungeonFighterCount: dungeonFighterCount,
+                                  battlegroundsCount: battlegroundsCount,
+                                  valorantCount: valorantCount,
+                                  lastSyncText: lastSyncText,
+                                ),
+                                const SizedBox(height: 18),
+                                if (_deleteMode) ...[
+                                  _DeleteModeBar(
+                                    selectedCount: _selectedGameIds.length,
+                                    onCancel: _cancelDeleteMode,
+                                    onDelete: _deleteSelectedGames,
+                                  ),
+                                  const SizedBox(height: 18),
+                                ],
+                                _GameGrid(
+                                  games: _games,
+                                  refreshingGameId: _refreshingGameId,
+                                  onAddGame: _openAddGame,
+                                  onRefresh: _refreshGame,
+                                  onReorder: _reorderGame,
+                                  deleteMode: _deleteMode,
+                                  selectedGameIds: _selectedGameIds,
+                                  onToggleSelection: _toggleGameSelection,
+                                  onRemove: (game) async {
+                                    try {
+                                      await GameRepository.instance
+                                          .deleteGame(game.id);
+
+                                      if (!mounted) return;
+
+                                      setState(() {
+                                        _games.remove(game);
+                                      });
+                                    } catch (error) {
+                                      if (!mounted) return;
+                                      await _showApiError();
+                                    }
+                                  },
+                                ),
+                              ],
+                            ],
+                          )
+                        : const _ToolsPage(),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends StatefulWidget {
   const _Sidebar({
     required this.user,
     required this.currentPage,
@@ -901,6 +905,8 @@ class _Sidebar extends StatelessWidget {
     required this.onTools,
     required this.onSignOut,
     required this.deleteMode,
+    required this.collapsed,
+    required this.onToggleCollapsed,
   });
 
   final User? user;
@@ -911,47 +917,132 @@ class _Sidebar extends StatelessWidget {
   final VoidCallback onDeleteGames;
   final VoidCallback onTools;
   final VoidCallback onSignOut;
-  final bool deleteMode;
+  final VoidCallback onToggleCollapsed;
 
+  final bool deleteMode;
   final bool dashboardMenuExpanded;
+  final bool collapsed;
+
+  @override
+  State<_Sidebar> createState() => _SidebarState();
+}
+
+class _SidebarState extends State<_Sidebar> {
+  bool _showContent = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _showContent = !widget.collapsed;
+  }
+
+  @override
+  void didUpdateWidget(covariant _Sidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.collapsed == widget.collapsed) return;
+
+    if (widget.collapsed) {
+      // 접을 때는 글자를 먼저 숨긴다.
+      if (_showContent) {
+        setState(() {
+          _showContent = false;
+        });
+      }
+    } else {
+      // 펼칠 때는 사이드바 너비 애니메이션이 끝난 뒤 표시한다.
+      Future.delayed(const Duration(milliseconds: 220), () {
+        if (!mounted || widget.collapsed) return;
+
+        setState(() {
+          _showContent = true;
+        });
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isGuest = user?.isAnonymous == true;
+    final isGuest = widget.user?.isAnonymous == true;
 
-    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+    final displayName = isGuest ? '게스트' : (widget.user?.displayName ?? '게이머');
 
-    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
-    return Container(
-      width: 230,
+    final accountText = isGuest ? '로그인 없이 이용 중' : (widget.user?.email ?? '');
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      width: widget.collapsed ? 76 : 230,
+      clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: Color(0xFF07101C),
         border: Border(
-          right: BorderSide(color: Color(0xFF182334)),
+          right: BorderSide(
+            color: Color(0xFF182334),
+          ),
         ),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+          padding: EdgeInsets.fromLTRB(
+            widget.collapsed ? 10 : 16,
+            18,
+            widget.collapsed ? 10 : 16,
+            18,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                mainAxisAlignment: _showContent
+                    ? MainAxisAlignment.spaceBetween
+                    : MainAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.asset(
-                      'assets/app_icon/favicon.png',
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.cover,
+                  if (_showContent)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.asset(
+                              'assets/app_icon/favicon.png',
+                              width: 24,
+                              height: 24,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Flexible(
+                            child: Text(
+                              'MY GAME HUB',
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.clip,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 17,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    'MY GAME HUB',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 17,
+                  InkWell(
+                    onTap: widget.onToggleCollapsed,
+                    borderRadius: BorderRadius.circular(8),
+                    hoverColor: Colors.white10,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    child: SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Icon(
+                        widget.collapsed
+                            ? Icons.view_sidebar_outlined
+                            : Icons.menu_open_rounded,
+                        color: const Color(0xFF9AA8BA),
+                        size: 22,
+                      ),
                     ),
                   ),
                 ],
@@ -960,75 +1051,104 @@ class _Sidebar extends StatelessWidget {
               _SideItem(
                 icon: Icons.dashboard_rounded,
                 label: '대시보드',
-                selected: currentPage == DashboardPage.dashboard,
-                onTap: onDashboard,
+                selected: widget.currentPage == DashboardPage.dashboard,
+                onTap: widget.onDashboard,
+                collapsed: !_showContent,
               ),
-              if (dashboardMenuExpanded &&
-                  currentPage == DashboardPage.dashboard) ...[
+              if (_showContent &&
+                  widget.dashboardMenuExpanded &&
+                  widget.currentPage == DashboardPage.dashboard) ...[
                 _DashboardSubItem(
                   icon: Icons.add_circle_outline_rounded,
                   label: '게임 카드 추가',
-                  onTap: onAddGame,
+                  onTap: widget.onAddGame,
                 ),
                 _DashboardSubItem(
                   icon: Icons.delete_outline_rounded,
                   label: '게임 카드 삭제',
-                  selected: deleteMode,
-                  onTap: onDeleteGames,
+                  selected: widget.deleteMode,
+                  onTap: widget.onDeleteGames,
                 ),
               ],
               _SideItem(
                 icon: Icons.build_circle_outlined,
                 label: '도구 모음',
-                selected: currentPage == DashboardPage.tools,
-                onTap: onTools,
+                selected: widget.currentPage == DashboardPage.tools,
+                onTap: widget.onTools,
+                collapsed: !_showContent,
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
+              if (!_showContent)
+                Material(
                   color: const Color(0xFF0B1524),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF1C293B)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: widget.onSignOut,
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: 52,
+                      child: Icon(
+                        isGuest
+                            ? Icons.exit_to_app_rounded
+                            : Icons.logout_rounded,
+                        color: const Color(0xFFCFC6FF),
+                        size: 21,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      accountText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF77869A),
-                        fontSize: 11,
-                      ),
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0B1524),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF1C293B),
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: onSignOut,
-                        icon: Icon(
-                          isGuest
-                              ? Icons.exit_to_app_rounded
-                              : Icons.logout_rounded,
-                          size: 16,
-                        ),
-                        label: Text(
-                          isGuest ? '게스트 종료' : '로그아웃',
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    )
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        accountText,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF77869A),
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onSignOut,
+                          icon: Icon(
+                            isGuest
+                                ? Icons.exit_to_app_rounded
+                                : Icons.logout_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            isGuest ? '게스트 종료' : '로그아웃',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1041,49 +1161,71 @@ class _SideItem extends StatelessWidget {
   const _SideItem({
     required this.icon,
     required this.label,
+    required this.collapsed,
     this.selected = false,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
+  final bool collapsed;
   final bool selected;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected ? const Color(0xFF302371) : Colors.transparent,
+    final item = Material(
+      color: selected ? const Color(0xFF302371) : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: selected
-                      ? const Color(0xFFB6AAFF)
-                      : const Color(0xFF8592A6),
-                ),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: collapsed ? 0 : 14,
+            vertical: 13,
+          ),
+          child: Row(
+            mainAxisAlignment:
+                collapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected
+                    ? const Color(0xFFB6AAFF)
+                    : const Color(0xFF8592A6),
+              ),
+              if (!collapsed) ...[
                 const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: selected ? Colors.white : const Color(0xFFB0BAC8),
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFFB0BAC8),
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: collapsed
+          ? Tooltip(
+              message: label,
+              waitDuration: const Duration(milliseconds: 800),
+              child: item,
+            )
+          : item,
     );
   }
 }
@@ -2333,24 +2475,28 @@ class _MobileSummaryGrid extends StatelessWidget {
       children: [
         StatCard(
           icon: Icons.auto_awesome_rounded,
+          imageAsset: 'assets/game_icons/lostark.png',
           label: 'LOST ARK',
           value: '$lostArkCount개',
           caption: '등록 계정',
         ),
         StatCard(
           icon: Icons.shield_rounded,
+          imageAsset: 'assets/game_icons/lol.png',
           label: 'RIOT',
-          value: 'LoL $lolCount · TFT $tftCount',
+          value: 'LoL $lolCount개 \nTFT $tftCount개',
           caption: '등록 계정',
         ),
         StatCard(
           icon: Icons.diamond_rounded,
+          imageAsset: 'assets/game_icons/eternal_return.png',
           label: 'ETERNAL RETURN',
           value: '$eternalReturnCount개',
           caption: '등록 계정',
         ),
         StatCard(
           icon: Icons.park_rounded,
+          imageAsset: 'assets/game_icons/maplestory.png',
           label: 'MAPLESTORY',
           value: '$mapleStoryCount개',
           caption: '등록 계정',

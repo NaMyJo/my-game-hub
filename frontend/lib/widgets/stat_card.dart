@@ -77,12 +77,12 @@ class StatCard extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  overflow: TextOverflow.visible,
                   style: const TextStyle(
-                    color: Color(0xFFF1F4F8),
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
+                    height: 1.2,
                   ),
                 ),
                 const SizedBox(height: 3),
