@@ -29,8 +29,14 @@ public class ValorantClient {
     }
 
     public ValorantProfile getProfile(String riotId) {
+            System.out.println("========== GET PROFILE ==========");
+            System.out.println("RiotId : " + riotId);
+
 
         RiotId parsedRiotId = parseRiotId(riotId);
+
+        System.out.println("Name : " + parsedRiotId.name());
+        System.out.println("Tag  : " + parsedRiotId.tag());
 
         ValorantAccountResponse accountResponse =
                 getAccount(
@@ -113,43 +119,52 @@ public class ValorantClient {
     }
             
     private ValorantAccountResponse getAccount(
-                String name,
-                String tag
-        ) {
-            return restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/valorant/v1/account/{name}/{tag}")
-                            .build(name, tag)
-                    )
-                    .retrieve()
-                    .onStatus(
-                            status -> status.value() == 404,
-                            (request, response) -> {
-                                throw new IllegalArgumentException(
-                                        "존재하지 않는 발로란트 Riot ID입니다."
-                                );
-                            }
-                    )
-                    .onStatus(
-                            status -> status.value() == 429,
-                            (request, response) -> {
-                                throw new IllegalStateException(
-                                        "발로란트 API 요청 한도를 초과했습니다."
-                                );
-                            }
-                    )
-                    .onStatus(
-                            HttpStatusCode::isError,
-                            (request, response) -> {
-                                throw new IllegalStateException(
-                                        "발로란트 계정 API 호출에 실패했습니다. 상태 코드: "
-                                                + response.getStatusCode()
-                                );
-                            }
-                    )
-                    .body(ValorantAccountResponse.class);
-        }
+            String name,
+            String tag
+    ) {
 
+        try {
+
+            System.out.println("========== ACCOUNT REQUEST ==========");
+            System.out.println("Name : " + name);
+            System.out.println("Tag  : " + tag);
+
+            ValorantAccountResponse response =
+                    restClient.get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/valorant/v1/account/{name}/{tag}")
+                                    .build(name, tag)
+                            )
+                            .retrieve()
+                            .body(ValorantAccountResponse.class);
+
+            System.out.println("========== ACCOUNT SUCCESS ==========");
+            System.out.println(response);
+
+            return response;
+
+        } catch (HttpClientErrorException e) {
+
+            System.out.println("========== ACCOUNT ERROR ==========");
+            System.out.println("Name   : " + name);
+            System.out.println("Tag    : " + tag);
+            System.out.println("Status : " + e.getStatusCode());
+            System.out.println("Body   : " + e.getResponseBodyAsString());
+            System.out.println("===================================");
+
+            throw e;
+
+        } catch (Exception e) {
+
+            System.out.println("========== ACCOUNT EXCEPTION ==========");
+            System.out.println("Name : " + name);
+            System.out.println("Tag  : " + tag);
+            e.printStackTrace();
+            System.out.println("=======================================");
+
+            throw e;
+        }
+    }
     private ValorantMmrResponse getMmr(
             String region,
             String name,
