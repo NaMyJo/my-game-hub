@@ -1,7 +1,6 @@
 package com.mygamehub.valorant;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
@@ -29,14 +28,10 @@ public class ValorantClient {
     }
 
         public ValorantProfile getProfile(String riotId) {
-                System.out.println("========== GET PROFILE ==========");
-                System.out.println("RiotId : " + riotId);
 
 
             RiotId parsedRiotId = parseRiotId(riotId);
 
-            System.out.println("Name : " + parsedRiotId.name());
-            System.out.println("Tag  : " + parsedRiotId.tag());
 
             ValorantAccountResponse accountResponse =
                     getAccount(
@@ -70,15 +65,7 @@ public class ValorantClient {
                             parsedRiotId.name(),
                             parsedRiotId.tag()
                     );
-                    System.out.println("========== MMR RESULT ==========");
-
-                    if (mmrResponse == null) {
-                        System.out.println("MMR RESPONSE IS NULL");
-                    } else {
-                        System.out.println(mmrResponse);
-                    }
-
-                    System.out.println("===============================");
+                
 
             // 현재 시즌 경쟁전 기록이 없을 때 기본값
             String tier = "경쟁전 미진행";
@@ -161,11 +148,6 @@ public class ValorantClient {
     ) {
         try {
 
-            System.out.println("========== VALORANT MMR REQUEST ==========");
-            System.out.println("Region : " + region);
-            System.out.println("Name   : " + name);
-            System.out.println("Tag    : " + tag);
-
             ValorantMmrResponse response =
                     restClient.get()
                             .uri(uriBuilder -> uriBuilder
@@ -180,17 +162,12 @@ public class ValorantClient {
                             .retrieve()
                             .body(ValorantMmrResponse.class);
 
-            System.out.println("MMR Success");
+    
             return response;
 
         } catch (HttpClientErrorException e) {
 
-            System.out.println("========== VALORANT MMR ERROR ==========");
-            System.out.println("Status : " + e.getStatusCode());
-            System.out.println("Body   : ");
-            System.out.println(e.getResponseBodyAsString());
-            System.out.println("========================================");
-
+          
             if (e.getStatusCode().value() == 404) {
                 return null;
             }

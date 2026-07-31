@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_profile.dart';
+import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/game_repository.dart';
 import '../widgets/add_game_dialog.dart';
@@ -461,7 +462,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      await _showApiError();
+
+      if (error is ApiException) {
+        await _showApiError(error.message);
+      } else {
+        await _showApiError();
+      }
     }
     return;
   }
@@ -470,7 +476,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await AuthService.instance.signOut();
   }
 
-  Future<void> _showApiError() async {
+  Future<void> _showApiError([String? message]) async {
     if (!mounted) return;
 
     await showDialog<void>(
@@ -498,9 +504,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          content: const Text(
-            '잠시 후 다시 시도해주세요.',
-            style: TextStyle(
+          content: Text(
+            message ?? '잠시 후 다시 시도해주세요.',
+            style: const TextStyle(
               color: Color(0xFFAEB9C8),
               fontSize: 13,
             ),

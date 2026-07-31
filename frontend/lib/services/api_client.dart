@@ -96,12 +96,9 @@ class ApiClient {
     final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
 
     if (!isSuccess) {
-      throw ApiException(
-        '서버 요청에 실패했습니다. (${response.statusCode})',
-      );
+      _throwApiError(response);
     }
 
-    // 204 No Content 등의 빈 응답 처리
     if (response.body.trim().isEmpty) {
       return null;
     }
