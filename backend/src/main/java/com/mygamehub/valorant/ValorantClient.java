@@ -28,96 +28,102 @@ public class ValorantClient {
 
     }
 
-    public ValorantProfile getProfile(String riotId) {
-            System.out.println("========== GET PROFILE ==========");
-            System.out.println("RiotId : " + riotId);
+        public ValorantProfile getProfile(String riotId) {
+                System.out.println("========== GET PROFILE ==========");
+                System.out.println("RiotId : " + riotId);
 
 
-        RiotId parsedRiotId = parseRiotId(riotId);
+            RiotId parsedRiotId = parseRiotId(riotId);
 
-        System.out.println("Name : " + parsedRiotId.name());
-        System.out.println("Tag  : " + parsedRiotId.tag());
+            System.out.println("Name : " + parsedRiotId.name());
+            System.out.println("Tag  : " + parsedRiotId.tag());
 
-        ValorantAccountResponse accountResponse =
-                getAccount(
-                        parsedRiotId.name(),
-                        parsedRiotId.tag()
-                );
+            ValorantAccountResponse accountResponse =
+                    getAccount(
+                            parsedRiotId.name(),
+                            parsedRiotId.tag()
+                    );
 
         if (accountResponse == null ||
-                accountResponse.data() == null) {
-            throw new IllegalArgumentException(
-                    "발로란트 계정 정보를 찾을 수 없습니다."
+            accountResponse.data() == null) {
+
+            return new ValorantProfile(
+                    parsedRiotId.name(),
+                    parsedRiotId.tag(),
+                    "kr",
+                    "데이터 없음",
+                    null,
+                    null,
+                    null
             );
         }
 
-        ValorantAccountResponse.Data accountData =
-                accountResponse.data();
+            ValorantAccountResponse.Data accountData =
+                    accountResponse.data();
 
-        String region =
-                normalizeRegion(accountData.region());
+            String region =
+                    normalizeRegion(accountData.region());
 
-        ValorantMmrResponse mmrResponse =
-                getMmr(
-                        region,
-                        parsedRiotId.name(),
-                        parsedRiotId.tag()
-                );
-                System.out.println("========== MMR RESULT ==========");
+            ValorantMmrResponse mmrResponse =
+                    getMmr(
+                            region,
+                            parsedRiotId.name(),
+                            parsedRiotId.tag()
+                    );
+                    System.out.println("========== MMR RESULT ==========");
 
-                if (mmrResponse == null) {
-                    System.out.println("MMR RESPONSE IS NULL");
-                } else {
-                    System.out.println(mmrResponse);
+                    if (mmrResponse == null) {
+                        System.out.println("MMR RESPONSE IS NULL");
+                    } else {
+                        System.out.println(mmrResponse);
+                    }
+
+                    System.out.println("===============================");
+
+            // 현재 시즌 경쟁전 기록이 없을 때 기본값
+            String tier = "경쟁전 미진행";
+            Integer rr = null;
+
+            if (mmrResponse != null &&
+                    mmrResponse.data() != null &&
+                    mmrResponse.data().current() != null) {
+
+                ValorantMmrResponse.Current current =
+                        mmrResponse.data().current();
+
+                String tierName =
+                        current.tier() == null
+                                ? null
+                                : current.tier().name();
+
+                boolean hasRank =
+                        tierName != null &&
+                        !tierName.isBlank() &&
+                        !tierName.equalsIgnoreCase("Unrated");
+
+                if (hasRank) {
+                    tier = tierName;
+                    rr = current.rr();
                 }
-
-                System.out.println("===============================");
-
-        // 현재 시즌 경쟁전 기록이 없을 때 기본값
-        String tier = "경쟁전 미진행";
-        Integer rr = null;
-
-        if (mmrResponse != null &&
-                mmrResponse.data() != null &&
-                mmrResponse.data().current() != null) {
-
-            ValorantMmrResponse.Current current =
-                    mmrResponse.data().current();
-
-            String tierName =
-                    current.tier() == null
-                            ? null
-                            : current.tier().name();
-
-            boolean hasRank =
-                    tierName != null &&
-                    !tierName.isBlank() &&
-                    !tierName.equalsIgnoreCase("Unrated");
-
-            if (hasRank) {
-                tier = tierName;
-                rr = current.rr();
             }
+
+            String cardImageUrl = null;
+
+            if (accountData.card() != null) {
+                cardImageUrl = accountData.card().large();
+            }
+
+            // 반드시 메서드 마지막에 반환
+            return new ValorantProfile(
+                    accountData.name(),
+                    accountData.tag(),
+                    region,
+                    tier,
+                    rr,
+                    accountData.accountLevel(),
+                    cardImageUrl
+            );
         }
-
-        String cardImageUrl = null;
-
-        if (accountData.card() != null) {
-            cardImageUrl = accountData.card().large();
-        }
-
-        // 반드시 메서드 마지막에 반환
-        return new ValorantProfile(
-                accountData.name(),
-                accountData.tag(),
-                region,
-                tier,
-                rr,
-                accountData.accountLevel(),
-                cardImageUrl
-        );
-    }
-            
     private ValorantAccountResponse getAccount(
             String name,
             String tag
@@ -125,46 +131,29 @@ public class ValorantClient {
 
         try {
 
-            System.out.println("========== ACCOUNT REQUEST ==========");
-            System.out.println("Name : " + name);
-            System.out.println("Tag  : " + tag);
+            return restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/valorant/v1/account/{name}/{tag}")
+                            .build(name, tag)
+                    )
+                    .retrieve()
+                    .body(ValorantAccountResponse.class);
 
-            ValorantAccountResponse response =
-                    restClient.get()
-                            .uri(uriBuilder -> uriBuilder
-                                    .path("/valorant/v1/account/{name}/{tag}")
-                                    .build(name, tag)
-                            )
-                            .retrieve()
-                            .body(ValorantAccountResponse.class);
+        } catch (HttpClientErrorException.NotFound e) {
 
-            System.out.println("========== ACCOUNT SUCCESS ==========");
-            System.out.println(response);
+            String body = e.getResponseBodyAsString();
 
-            return response;
+            System.out.println(body);
 
-        } catch (HttpClientErrorException e) {
+            // Henrik code 24
+            if (body.contains("\"code\":24")) {
+                return null;
+            }
 
-            System.out.println("========== ACCOUNT ERROR ==========");
-            System.out.println("Name   : " + name);
-            System.out.println("Tag    : " + tag);
-            System.out.println("Status : " + e.getStatusCode());
-            System.out.println("Body   : " + e.getResponseBodyAsString());
-            System.out.println("===================================");
-
-            throw e;
-
-        } catch (Exception e) {
-
-            System.out.println("========== ACCOUNT EXCEPTION ==========");
-            System.out.println("Name : " + name);
-            System.out.println("Tag  : " + tag);
-            e.printStackTrace();
-            System.out.println("=======================================");
-
-            throw e;
+            throw new IllegalArgumentException("존재하지 않는 Riot ID입니다.");
         }
     }
+
     private ValorantMmrResponse getMmr(
             String region,
             String name,

@@ -881,7 +881,8 @@ EternalReturnCharacterStat third =
                 profile.tier() == null ||
                 profile.tier().isBlank() ||
                 profile.tier().equalsIgnoreCase("Unrated") ||
-                profile.tier().equals("경쟁전 미진행");
+                profile.tier().equals("경쟁전 미진행") ||
+                profile.tier().equals("데이터 없음");
 
         String tier = notPlayed
                 ? "경쟁전 미진행"
