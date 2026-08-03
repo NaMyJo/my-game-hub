@@ -1,0 +1,240 @@
+{
+  "version": "2026-08",
+  "games": {
+    "ETERNAL_RETURN": {
+      "season": "CURRENT",
+      "region": "ASIA",
+      "estimated": false,
+      "tiers": {
+        "ETERNITY": {
+          "DEFAULT": 0.14
+        },
+        "DEMIGOD": {
+          "DEFAULT": 0.47
+        },
+        "MITHRIL": {
+          "DEFAULT": 4.72
+        },
+        "METEORITE": {
+          "I": 5.27,
+          "II": 6.19,
+          "III": 7.53,
+          "IV": 11.61
+        },
+        "DIAMOND": {
+          "I": 14.12,
+          "II": 17.15,
+          "III": 20.93,
+          "IV": 28.29
+        },
+        "PLATINUM": {
+          "I": 31.16,
+          "II": 34.55,
+          "III": 38.65,
+          "IV": 44.49
+        },
+        "GOLD": {
+          "I": 47.62,
+          "II": 51.84,
+          "III": 56.49,
+          "IV": 64.06
+        },
+        "SILVER": {
+          "I": 67.03,
+          "II": 69.73,
+          "III": 72.95,
+          "IV": 76.77
+        },
+        "BRONZE": {
+          "I": 78.74,
+          "II": 81.07,
+          "III": 84.36,
+          "IV": 86.23
+        },
+        "IRON": {
+          "I": 88.22,
+          "II": 90.69,
+          "III": 94.5,
+          "IV": 100.0
+        }
+      }
+    },
+
+    "LEAGUE_OF_LEGENDS": {
+      "season": "CURRENT",
+      "region": "KR",
+      "estimated": false,
+      "tiers": {
+        "CHALLENGER": {
+          "DEFAULT": 0.02
+        },
+        "GRANDMASTER": {
+          "DEFAULT": 0.07
+        },
+        "MASTER": {
+          "DEFAULT": 0.86
+        },
+        "DIAMOND": {
+          "I": 1.38,
+          "II": 2.36,
+          "III": 2.97,
+          "IV": 4.49
+        },
+        "EMERALD": {
+          "I": 6.99,
+          "II": 8.79,
+          "III": 11.3,
+          "IV": 16.2
+        },
+        "PLATINUM": {
+          "I": 18.6,
+          "II": 22.1,
+          "III": 26.5,
+          "IV": 34.0
+        },
+        "GOLD": {
+          "I": 38.0,
+          "II": 43.0,
+          "III": 49.0,
+          "IV": 58.0
+        },
+        "SILVER": {
+          "I": 62.0,
+          "II": 68.0,
+          "III": 73.0,
+          "IV": 80.0
+        },
+        "BRONZE": {
+          "I": 83.0,
+          "II": 87.0,
+          "III": 91.0,
+          "IV": 96.0
+        },
+        "IRON": {
+          "I": 98.0,
+          "II": 99.0,
+          "III": 100.0,
+          "IV": 100.0
+        }
+      }
+    },
+
+    "TFT": {
+      "season": "CURRENT_SET",
+      "region": "KR",
+      "estimated": true,
+      "tiers": {
+        "CHALLENGER": {
+          "DEFAULT": 0.36
+        },
+        "GRANDMASTER": {
+          "DEFAULT": 0.36
+        },
+        "MASTER": {
+          "DEFAULT": 0.36
+        },
+        "DIAMOND": {
+          "DEFAULT": 6.26
+        },
+        "EMERALD": {
+          "DEFAULT": 19.26
+        },
+        "PLATINUM": {
+          "DEFAULT": 43.26
+        },
+        "GOLD": {
+          "DEFAULT": 68.26
+        },
+        "SILVER": {
+          "DEFAULT": 87.26
+        },
+        "BRONZE": {
+          "DEFAULT": 95.86
+        },
+        "IRON": {
+          "DEFAULT": 100.0
+        }
+      }
+    },
+
+    "VALORANT": {
+      "season": "CURRENT_ACT",
+      "region": "KR",
+      "estimated": true,
+      "tiers": {
+        "RADIANT": {
+          "DEFAULT": 0.03
+        },
+        "IMMORTAL": {
+          "III": 0.1,
+          "II": 0.2,
+          "I": 0.4
+        },
+        "ASCENDANT": {
+          "III": 0.9,
+          "II": 1.8,
+          "I": 3.7
+        },
+        "DIAMOND": {
+          "III": 5.8,
+          "II": 8.8,
+          "I": 12.7
+        },
+        "PLATINUM": {
+          "III": 16.2,
+          "II": 20.9,
+          "I": 27.0
+        },
+        "GOLD": {
+          "III": 32.6,
+          "II": 39.7,
+          "I": 48.5
+        },
+        "SILVER": {
+          "III": 55.4,
+          "II": 62.8,
+          "I": 71.1
+        },
+        "BRONZE": {
+          "III": 77.7,
+          "II": 85.8,
+          "I": 92.5
+        },
+        "IRON": {
+          "III": 96.9,
+          "II": 99.1,
+          "I": 99.9
+        }
+      }
+    },
+
+    "BATTLEGROUNDS": {
+      "season": "CURRENT",
+      "region": "AS",
+      "estimated": true,
+      "tiers": {
+        "SURVIVOR": {
+          "DEFAULT": 0.1
+        },
+        "MASTER": {
+          "DEFAULT": 1.1
+        },
+        "DIAMOND": {
+          "DEFAULT": 9.6
+        },
+        "PLATINUM": {
+          "DEFAULT": 35.9
+        },
+        "GOLD": {
+          "DEFAULT": 72.1
+        },
+        "SILVER": {
+          "DEFAULT": 93.6
+        },
+        "BRONZE": {
+          "DEFAULT": 100.0
+        }
+      }
+    }
+  }
+}

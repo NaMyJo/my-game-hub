@@ -38,6 +38,62 @@ extension GameTypeX on GameType {
     }
   }
 
+  String get identityDisplayName {
+    switch (this) {
+      case GameType.lostArk:
+        return 'LOST ARK';
+
+      case GameType.leagueOfLegends:
+        return 'LEAGUE OF LEGENDS';
+
+      case GameType.tft:
+        return 'TFT';
+
+      case GameType.eternalReturn:
+        return 'ETERNAL RETURN';
+
+      case GameType.mapleStory:
+        return 'MAPLESTORY';
+
+      case GameType.dungeonFighter:
+        return 'DUNGEON & FIGHTER';
+
+      case GameType.battlegrounds:
+        return 'PUBG';
+
+      case GameType.valorant:
+        return 'VALORANT';
+    }
+  }
+
+  String get iconAsset {
+    switch (this) {
+      case GameType.lostArk:
+        return 'assets/game_icons/lostark.png';
+
+      case GameType.leagueOfLegends:
+        return 'assets/game_icons/lol.png';
+
+      case GameType.tft:
+        return 'assets/game_icons/tft.png';
+
+      case GameType.eternalReturn:
+        return 'assets/game_icons/eternal_return.png';
+
+      case GameType.mapleStory:
+        return 'assets/game_icons/maplestory.png';
+
+      case GameType.dungeonFighter:
+        return 'assets/game_icons/dungeon_fighter.png';
+
+      case GameType.battlegrounds:
+        return 'assets/game_icons/pubg.png';
+
+      case GameType.valorant:
+        return 'assets/game_icons/valorant.png';
+    }
+  }
+
   String get apiValue {
     switch (this) {
       case GameType.lostArk:

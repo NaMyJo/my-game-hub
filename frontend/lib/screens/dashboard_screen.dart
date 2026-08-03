@@ -9,10 +9,12 @@ import '../services/game_repository.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
+import 'game_identity_page.dart';
 
 enum DashboardPage {
   dashboard,
   tools,
+  gameIdentity,
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -35,6 +37,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _toggleSidebar() {
     setState(() {
       _sidebarCollapsed = !_sidebarCollapsed;
+    });
+  }
+
+  void _openGameIdentity() {
+    setState(() {
+      _currentPage = DashboardPage.gameIdentity;
+
+      // 게임 카드 삭제 모드가 켜져 있다면 해제
+      _deleteMode = false;
+      _selectedGameIds.clear();
     });
   }
 
@@ -478,6 +490,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return;
   }
 
+  Future<GameProfile?> _addGameForIdentity() async {
+    if (_games.length >= 20) {
+      throw const ApiException(
+        '게임 카드는 최대 20개까지 등록할 수 있습니다.',
+      );
+    }
+
+    final result = await showDialog<AddGameResult>(
+      context: context,
+      builder: (_) => const AddGameDialog(),
+    );
+
+    if (result == null || !mounted) {
+      return null;
+    }
+
+    final profile = await GameRepository.instance.registerGame(
+      type: result.type,
+      accountName: result.accountName,
+      serverId: result.serverId,
+      platformId: result.platformId,
+    );
+
+    if (!mounted) return null;
+
+    setState(() {
+      _games.add(profile);
+    });
+
+    return profile;
+  }
+
   Future<void> _signOut() async {
     await AuthService.instance.signOut();
   }
@@ -810,6 +854,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onDeleteGames: _openDeleteMode,
             deleteMode: _deleteMode,
             onTools: _openTools,
+            onGameIdentity: _openGameIdentity,
             onSignOut: _confirmSignOut,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
@@ -823,66 +868,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     constraints: const BoxConstraints(
                       maxWidth: 1500,
                     ),
-                    child: _currentPage == DashboardPage.dashboard
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _HeroProfile(user: _user),
+                    child: switch (_currentPage) {
+                      DashboardPage.dashboard => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _HeroProfile(user: _user),
+                            const SizedBox(height: 18),
+                            if (_isLoadingGames)
+                              _buildGameLoadingState()
+                            else if (_loadGamesError != null)
+                              _buildGameLoadErrorState()
+                            else ...[
+                              _SummaryRow(
+                                lostArkCount: lostArkCount,
+                                lolCount: lolCount,
+                                tftCount: tftCount,
+                                eternalReturnCount: eternalReturnCount,
+                                mapleStoryCount: mapleStoryCount,
+                                dungeonFighterCount: dungeonFighterCount,
+                                battlegroundsCount: battlegroundsCount,
+                                valorantCount: valorantCount,
+                                lastSyncText: lastSyncText,
+                              ),
                               const SizedBox(height: 18),
-                              if (_isLoadingGames)
-                                _buildGameLoadingState()
-                              else if (_loadGamesError != null)
-                                _buildGameLoadErrorState()
-                              else ...[
-                                _SummaryRow(
-                                  lostArkCount: lostArkCount,
-                                  lolCount: lolCount,
-                                  tftCount: tftCount,
-                                  eternalReturnCount: eternalReturnCount,
-                                  mapleStoryCount: mapleStoryCount,
-                                  dungeonFighterCount: dungeonFighterCount,
-                                  battlegroundsCount: battlegroundsCount,
-                                  valorantCount: valorantCount,
-                                  lastSyncText: lastSyncText,
+                              if (_deleteMode) ...[
+                                _DeleteModeBar(
+                                  selectedCount: _selectedGameIds.length,
+                                  onCancel: _cancelDeleteMode,
+                                  onDelete: _deleteSelectedGames,
                                 ),
                                 const SizedBox(height: 18),
-                                if (_deleteMode) ...[
-                                  _DeleteModeBar(
-                                    selectedCount: _selectedGameIds.length,
-                                    onCancel: _cancelDeleteMode,
-                                    onDelete: _deleteSelectedGames,
-                                  ),
-                                  const SizedBox(height: 18),
-                                ],
-                                _GameGrid(
-                                  games: _games,
-                                  refreshingGameId: _refreshingGameId,
-                                  onAddGame: _openAddGame,
-                                  onRefresh: _refreshGame,
-                                  onReorder: _reorderGame,
-                                  deleteMode: _deleteMode,
-                                  selectedGameIds: _selectedGameIds,
-                                  onToggleSelection: _toggleGameSelection,
-                                  onRemove: (game) async {
-                                    try {
-                                      await GameRepository.instance
-                                          .deleteGame(game.id);
-
-                                      if (!mounted) return;
-
-                                      setState(() {
-                                        _games.remove(game);
-                                      });
-                                    } catch (error) {
-                                      if (!mounted) return;
-                                      await _showApiError();
-                                    }
-                                  },
-                                ),
                               ],
+                              _GameGrid(
+                                games: _games,
+                                refreshingGameId: _refreshingGameId,
+                                onAddGame: _openAddGame,
+                                onRefresh: _refreshGame,
+                                onReorder: _reorderGame,
+                                deleteMode: _deleteMode,
+                                selectedGameIds: _selectedGameIds,
+                                onToggleSelection: _toggleGameSelection,
+                                onRemove: (game) async {
+                                  try {
+                                    await GameRepository.instance
+                                        .deleteGame(game.id);
+
+                                    if (!mounted) return;
+
+                                    setState(() {
+                                      _games.remove(game);
+                                    });
+                                  } catch (error) {
+                                    if (!mounted) return;
+                                    await _showApiError();
+                                  }
+                                },
+                              ),
                             ],
-                          )
-                        : const _ToolsPage(),
+                          ],
+                        ),
+                      DashboardPage.tools => const _ToolsPage(),
+                      DashboardPage.gameIdentity => GameIdentityPage(
+                          games: _games,
+                          onAddGame: _addGameForIdentity,
+                        ),
+                    },
                   ),
                 ),
               ),
@@ -907,6 +957,7 @@ class _Sidebar extends StatefulWidget {
     required this.deleteMode,
     required this.collapsed,
     required this.onToggleCollapsed,
+    required this.onGameIdentity,
   });
 
   final User? user;
@@ -918,6 +969,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onTools;
   final VoidCallback onSignOut;
   final VoidCallback onToggleCollapsed;
+  final VoidCallback onGameIdentity;
 
   final bool deleteMode;
   final bool dashboardMenuExpanded;
@@ -1075,6 +1127,13 @@ class _SidebarState extends State<_Sidebar> {
                 label: '도구 모음',
                 selected: widget.currentPage == DashboardPage.tools,
                 onTap: widget.onTools,
+                collapsed: !_showContent,
+              ),
+              _SideItem(
+                icon: Icons.badge_outlined,
+                label: '게임 신분증',
+                selected: widget.currentPage == DashboardPage.gameIdentity,
+                onTap: widget.onGameIdentity,
                 collapsed: !_showContent,
               ),
               const Spacer(),

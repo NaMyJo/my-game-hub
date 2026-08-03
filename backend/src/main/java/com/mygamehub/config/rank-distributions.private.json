@@ -1,0 +1,115 @@
+{
+  "version": "2026-08",
+  "games": {
+    "LEAGUE_OF_LEGENDS": {
+      "season": "2026-S2",
+      "region": "KR",
+      "tiers": {
+        "CHALLENGER": {
+          "DEFAULT": 0.02
+        },
+        "GRANDMASTER": {
+          "DEFAULT": 0.08
+        },
+        "MASTER": {
+          "DEFAULT": 0.6
+        },
+        "DIAMOND": {
+          "I": 1.5,
+          "II": 2.3,
+          "III": 3.4,
+          "IV": 4.8
+        },
+        "EMERALD": {
+          "I": 6.5,
+          "II": 8.3,
+          "III": 10.3,
+          "IV": 12.7
+        }
+      }
+    },
+
+    "TFT": {
+      "season": "CURRENT_SET",
+      "region": "KR",
+      "tiers": {
+        "CHALLENGER": {
+          "DEFAULT": 0.03
+        },
+        "GRANDMASTER": {
+          "DEFAULT": 0.1
+        },
+        "MASTER": {
+          "DEFAULT": 0.8
+        },
+        "DIAMOND": {
+          "I": 2.0,
+          "II": 3.0,
+          "III": 4.2,
+          "IV": 5.8
+        }
+      }
+    },
+
+    "VALORANT": {
+      "season": "CURRENT_ACT",
+      "region": "KR",
+      "tiers": {
+        "RADIANT": {
+          "DEFAULT": 0.03
+        },
+        "IMMORTAL": {
+          "III": 0.2,
+          "II": 0.4,
+          "I": 0.8
+        },
+        "ASCENDANT": {
+          "III": 1.5,
+          "II": 2.4,
+          "I": 3.5
+        },
+        "DIAMOND": {
+          "III": 5.0,
+          "II": 6.8,
+          "I": 8.8
+        }
+      }
+    },
+
+    "BATTLEGROUNDS": {
+      "season": "CURRENT",
+      "region": "AS",
+      "tiers": {
+        "MASTER": {
+          "DEFAULT": 1.0
+        },
+        "DIAMOND": {
+          "I": 2.5,
+          "II": 4.0,
+          "III": 6.0,
+          "IV": 8.0,
+          "V": 10.0
+        }
+      }
+    },
+
+    "ETERNAL_RETURN": {
+      "season": "CURRENT",
+      "region": "ASIA",
+      "tiers": {
+        "ETERNITY": {
+          "DEFAULT": 0.3
+        },
+        "TITAN": {
+          "DEFAULT": 1.0
+        },
+        "IMMORTAL": {
+          "DEFAULT": 3.0
+        },
+        "DIAMOND": {
+          "DEFAULT": 10.0
+        }
+      }
+    }
+  }
+}
