@@ -1093,7 +1093,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         ),
         _FinalInformationRow(
           label: '이미지 크기',
-          value: '1290 × 1950 PNG',
+          value: '1290 × 2070 PNG',
         ),
         _FinalInformationRow(
           label: '평균 게임력',
@@ -1467,7 +1467,7 @@ class _GameIdentityPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 650,
+      height: 690,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
@@ -1507,7 +1507,11 @@ class _GameIdentityPreview extends StatelessWidget {
           Expanded(
             child: _buildGameInformation(),
           ),
-          const SizedBox(height: 14),
+          if (previewResult?.averageTopPercent != null) ...[
+            const SizedBox(height: 10),
+            _buildGamePowerArea(),
+          ],
+          const SizedBox(height: 10),
           _buildEvaluationArea(),
         ],
       ),
@@ -1519,6 +1523,18 @@ class _GameIdentityPreview extends StatelessWidget {
       return '게임력을 계산하고 있습니다...';
     }
 
+    /*
+   * API 계산에 성공한 경우 가장 먼저 평가 문구를 사용한다.
+   */
+    final result = previewResult;
+
+    if (result != null && result.evaluationMessage.trim().isNotEmpty) {
+      return result.evaluationMessage;
+    }
+
+    /*
+   * API 계산에 실패했을 때만 대체 문구를 표시한다.
+   */
     if (previewError != null) {
       if (hasCompetitiveGame && hasRpgGame) {
         return '$displayName 님은\n'
@@ -1540,12 +1556,55 @@ class _GameIdentityPreview extends StatelessWidget {
             '게임 세계가 가득하군여!';
       }
     }
+
+    /*
+   * 아직 API를 호출하지 않은 초기 상태의 문구
+   */
+    if (!hasCompetitiveGame && hasRpgGame) {
+      return '$displayName 님은\n'
+          '세상을 지키는 모험가시군여!';
+    }
+
+    if (!hasCompetitiveGame && !hasRpgGame && customGames.isNotEmpty) {
+      return '$displayName 님만의\n'
+          '게임 세계가 가득하군여!';
+    }
+
     if (hasCompetitiveGame) {
       return '$displayName 님의 평균 게임력은\n'
           '최종 확인 단계에서 계산됩니다.';
     }
 
     return '게임 계정을 선택해주세요.';
+  }
+
+  String get _gamePowerText {
+    final percent = previewResult?.averageTopPercent;
+
+    if (percent == null) {
+      return '-';
+    }
+
+    final formatted = _formatPercent(percent);
+    final estimated = previewResult!.games.any(
+      (game) => game.includedInAverage && game.estimated,
+    );
+
+    return estimated ? '상위 약 $formatted%' : '상위 $formatted%';
+  }
+
+  String get _includedGameCountText {
+    final count = previewResult?.includedGameCount ?? 0;
+
+    return '평균 반영 게임 $count개';
+  }
+
+  String _formatPercent(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+
+    return value.toStringAsFixed(1);
   }
 
   Widget _buildCardHeader() {
@@ -1826,6 +1885,80 @@ class _GameIdentityPreview extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+
+  Widget _buildGamePowerArea() {
+    final hasGamePower = previewResult?.averageTopPercent != null;
+
+    if (!hasGamePower) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0x551B2447),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: const Color(0xFF3B4770),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF302B69),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.auto_graph_rounded,
+              color: Color(0xFFAA9DFF),
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'GAME POWER',
+                  style: TextStyle(
+                    color: Color(0xFF8794A9),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _gamePowerText,
+                  style: const TextStyle(
+                    color: Color(0xFFE2DDFF),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _includedGameCountText,
+            style: const TextStyle(
+              color: Color(0xFF8895A9),
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
