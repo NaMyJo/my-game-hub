@@ -1647,7 +1647,9 @@ class _GameIdentityPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 690,
+      constraints: const BoxConstraints(
+        minHeight: 690,
+      ),
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
@@ -1678,6 +1680,7 @@ class _GameIdentityPreview extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           _buildCardHeader(),
           const SizedBox(height: 20),
@@ -1688,14 +1691,10 @@ class _GameIdentityPreview extends StatelessWidget {
             color: Color(0xFF33405A),
           ),
           const SizedBox(height: 16),
-          Expanded(
-            child: _buildGameInformation(),
-          ),
-          if (previewResult?.averageTopPercent != null) ...[
-            const SizedBox(height: 10),
-            _buildGamePowerArea(),
-          ],
-          const SizedBox(height: 10),
+          _buildGameInformation(),
+          const SizedBox(height: 14),
+          _buildGamePowerArea(),
+          const SizedBox(height: 12),
           _buildEvaluationArea(),
         ],
       ),
