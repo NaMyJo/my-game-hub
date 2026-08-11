@@ -127,28 +127,38 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   ) {
     return showDialog<void>(
       context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Center(
-              child: SizedBox(
-                width: 430,
-                child: _GameIdentityPreview(
-                  displayName: identity.displayName,
-                  identityNumber: identity.identityNumber,
-                  issuedDate: identity.issuedDate,
-                  selectedGames: identity.selectedGames,
-                  customGames: identity.customGames,
-                  hasCompetitiveGame: identity.hasCompetitiveGame,
-                  hasRpgGame: identity.hasRpgGame,
-                  previewResult: identity.previewResult,
-                  isLoadingPreview: false,
-                  previewError: identity.previewError,
-
-                  // 다시보기에서는 상세보기 사용 가능
-                  showDetailActions: true,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(
+        alpha: 0.78,
+      ),
+      builder: (dialogContext) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Navigator.of(dialogContext).pop();
+          },
+          child: Center(
+            child: GestureDetector(
+              onTap: () {
+                // 카드 내부 클릭은 닫히지 않도록 막음
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: SizedBox(
+                  width: 430,
+                  child: _GameIdentityPreview(
+                    displayName: identity.displayName,
+                    identityNumber: identity.identityNumber,
+                    issuedDate: identity.issuedDate,
+                    selectedGames: identity.selectedGames,
+                    customGames: identity.customGames,
+                    hasCompetitiveGame: identity.hasCompetitiveGame,
+                    hasRpgGame: identity.hasRpgGame,
+                    previewResult: identity.previewResult,
+                    isLoadingPreview: false,
+                    previewError: identity.previewError,
+                    showDetailActions: true,
+                  ),
                 ),
               ),
             ),
