@@ -50,6 +50,10 @@ class ApiClient {
       headers: await _headers(),
     );
 
+    debugPrint('GET $path');
+    debugPrint('status = ${response.statusCode}');
+    debugPrint('body = ${response.body}');
+
     return _decode(response);
   }
 

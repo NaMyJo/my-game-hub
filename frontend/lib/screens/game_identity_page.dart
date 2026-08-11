@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 
 import '../models/game_identity_preview.dart';
 import '../models/game_profile.dart';
+import '../models/game_profile_summary.dart';
 import '../services/api_client.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../utils/image_download.dart';
@@ -46,10 +47,11 @@ class GameIdentityPage extends StatefulWidget {
   });
 
   final List<GameProfile> games;
-
   final Future<GameProfile?> Function() onAddGame;
 
-  final Future<void> Function() onProfileApplied;
+  final void Function(
+    GameProfileSummary profile,
+  ) onProfileApplied;
 
   @override
   State<GameIdentityPage> createState() => _GameIdentityPageState();
@@ -330,14 +332,15 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     }
 
     try {
-      await GameProfileSummaryRepository.instance.saveProfile(
+      final savedProfile =
+          await GameProfileSummaryRepository.instance.saveProfile(
         identityNickname: displayName,
         gamePowerPercent: gamePowerPercent,
         reflectedGameCount: reflectedGameCount,
         evaluationMessage: evaluationMessage,
       );
-      await widget.onProfileApplied();
 
+      widget.onProfileApplied(savedProfile);
       if (!mounted) return;
 
       _showMessageBubble(

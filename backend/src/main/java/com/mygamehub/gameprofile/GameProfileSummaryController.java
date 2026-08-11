@@ -1,7 +1,10 @@
 package com.mygamehub.gameprofile;
 
+import com.mygamehub.auth.AuthenticatedUser;
 import com.mygamehub.gameprofile.dto.GameProfileSummaryRequest;
 import com.mygamehub.gameprofile.dto.GameProfileSummaryResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +27,13 @@ public class GameProfileSummaryController {
 
     @GetMapping
     public ResponseEntity<GameProfileSummaryResponse> getProfile(
-            @RequestHeader("X-User-Uid") String userUid
+            HttpServletRequest request
     ) {
+        AuthenticatedUser user =
+                currentUser(request);
+
         return service
-                .get(userUid)
+                .get(user.uid())
                 .map(ResponseEntity::ok)
                 .orElseGet(
                         () -> ResponseEntity
@@ -42,15 +48,39 @@ public class GameProfileSummaryController {
 
     @PutMapping
     public ResponseEntity<GameProfileSummaryResponse> saveProfile(
-            @RequestHeader("X-User-Uid") String userUid,
-            @RequestBody GameProfileSummaryRequest request
+            HttpServletRequest request,
+            @RequestBody GameProfileSummaryRequest body
     ) {
+        AuthenticatedUser user =
+                currentUser(request);
+
         GameProfileSummaryResponse response =
                 service.save(
-                        userUid,
-                        request
+                        user.uid(),
+                        body
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    // ==============================
+    // 현재 로그인 사용자
+    // ==============================
+
+    private AuthenticatedUser currentUser(
+            HttpServletRequest request
+    ) {
+        Object value =
+                request.getAttribute(
+                        "authenticatedUser"
+                );
+
+        if (value instanceof AuthenticatedUser user) {
+            return user;
+        }
+
+        throw new IllegalStateException(
+                "인증된 사용자 정보가 없습니다."
+        );
     }
 }

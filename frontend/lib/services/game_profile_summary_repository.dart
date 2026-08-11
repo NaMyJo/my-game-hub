@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../models/game_profile_summary.dart';
 import 'api_client.dart';
 
@@ -39,14 +41,23 @@ class GameProfileSummaryRepository {
     required int reflectedGameCount,
     required String? evaluationMessage,
   }) async {
+    final body = {
+      'identityNickname': identityNickname,
+      'gamePowerPercent': gamePowerPercent,
+      'reflectedGameCount': reflectedGameCount,
+      'evaluationMessage': evaluationMessage,
+    };
+
+    debugPrint('===== SAVE GAME PROFILE =====');
+    debugPrint('identityNickname = $identityNickname');
+    debugPrint('gamePowerPercent = $gamePowerPercent');
+    debugPrint('reflectedGameCount = $reflectedGameCount');
+    debugPrint('evaluationMessage = $evaluationMessage');
+    debugPrint('body = $body');
+
     final json = await ApiClient.instance.put(
       '/api/me/game-profile',
-      body: {
-        'identityNickname': identityNickname,
-        'gamePowerPercent': gamePowerPercent,
-        'reflectedGameCount': reflectedGameCount,
-        'evaluationMessage': evaluationMessage,
-      },
+      body: body,
     );
 
     return GameProfileSummary.fromJson(

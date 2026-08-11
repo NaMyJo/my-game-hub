@@ -239,7 +239,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadGameProfileSummary() async {
     try {
+      debugPrint('===== GAME PROFILE LOAD START =====');
+
       final profile = await GameProfileSummaryRepository.instance.getProfile();
+
+      debugPrint('GAME PROFILE LOAD SUCCESS');
+      debugPrint('profile = $profile');
 
       if (!mounted) return;
 
@@ -247,19 +252,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _gameProfileSummary = profile;
         _isLoadingGameProfile = false;
       });
-    } catch (error, stackTrace) {
-      debugPrint(
-        '===== LOAD GAME PROFILE ERROR =====',
-      );
-      debugPrint('error: $error');
-      debugPrint('stackTrace: $stackTrace');
+    } on ApiException catch (error, stackTrace) {
+      debugPrint('===== GAME PROFILE API ERROR =====');
+      debugPrint('statusCode = ${error.statusCode}');
+      debugPrint('message = ${error.message}');
+      debugPrint('stackTrace = $stackTrace');
 
       if (!mounted) return;
 
       setState(() {
-        _gameProfileSummary = null;
         _isLoadingGameProfile = false;
       });
+
+      rethrow;
+    } catch (error, stackTrace) {
+      debugPrint('===== GAME PROFILE LOAD ERROR =====');
+      debugPrint('error = $error');
+      debugPrint('stackTrace = $stackTrace');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingGameProfile = false;
+      });
+
+      rethrow;
     }
   }
 
@@ -968,8 +985,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       DashboardPage.gameIdentity => GameIdentityPage(
                           games: _games,
                           onAddGame: _addGameForIdentity,
-                          onProfileApplied: () async {
-                            await _loadGameProfileSummary();
+                          onProfileApplied: (profile) {
+                            if (!mounted) return;
+
+                            setState(() {
+                              _gameProfileSummary = profile;
+                              _isLoadingGameProfile = false;
+                            });
                           },
                         ),
                     },
