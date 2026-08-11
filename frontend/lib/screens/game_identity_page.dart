@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -9,35 +10,9 @@ import '../models/game_identity_preview.dart';
 import '../models/game_profile.dart';
 import '../models/game_profile_summary.dart';
 import '../services/api_client.dart';
+import '../services/game_identity_repository.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../utils/image_download.dart';
-
-class GameIdentityRepository {
-  GameIdentityRepository._();
-
-  static final GameIdentityRepository instance = GameIdentityRepository._();
-
-  Future<GameIdentityPreviewResult> preview({
-    required String displayName,
-    required List<int> gameAccountIds,
-  }) async {
-    final json = await ApiClient.instance.post(
-      '/api/me/game-identities/preview',
-      body: {
-        'displayName': displayName,
-        'gameAccountIds': gameAccountIds,
-      },
-    );
-
-    if (json is! Map<String, dynamic>) {
-      throw const ApiException(
-        '게임 신분증 미리보기 응답 형식이 올바르지 않습니다.',
-      );
-    }
-
-    return GameIdentityPreviewResult.fromJson(json);
-  }
-}
 
 class GameIdentityPage extends StatefulWidget {
   const GameIdentityPage({
@@ -74,7 +49,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   GameIdentityPreviewResult? _previewResult;
-
+  GameIdentityHistory? _latestIdentity;
   bool _isLoadingPreview = false;
 
   String? _previewError;
@@ -147,6 +122,42 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     return byteData.buffer.asUint8List();
   }
 
+  Future<void> _openLatestIdentity(
+    GameIdentityHistory identity,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Center(
+              child: SizedBox(
+                width: 430,
+                child: _GameIdentityPreview(
+                  displayName: identity.displayName,
+                  identityNumber: identity.identityNumber,
+                  issuedDate: identity.issuedDate,
+                  selectedGames: identity.selectedGames,
+                  customGames: identity.customGames,
+                  hasCompetitiveGame: identity.hasCompetitiveGame,
+                  hasRpgGame: identity.hasRpgGame,
+                  previewResult: identity.previewResult,
+                  isLoadingPreview: false,
+                  previewError: identity.previewError,
+
+                  // 다시보기에서는 상세보기 사용 가능
+                  showDetailActions: true,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _generateIdentityCardImage() async {
     if (_isGeneratingImage) return;
 
@@ -209,6 +220,30 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         bytes: bytes,
         fileName: '게임신분증_$safeDisplayName.png',
       );
+
+      if (!mounted) return;
+
+// 현재 화면 즉시 반영
+      setState(() {
+        _latestIdentity = GameIdentityHistory(
+          displayName: displayName,
+          identityNumber: _identityNumber,
+          issuedDate: _issuedDateText,
+          selectedGames: List<GameProfile>.from(
+            _selectedGames,
+          ),
+          customGames: List<CustomGameEntry>.from(
+            _customGames,
+          ),
+          previewResult: _previewResult,
+          previewError: _previewError,
+          hasCompetitiveGame: _hasCompetitiveGame,
+          hasRpgGame: _hasRpgGame,
+        );
+      });
+
+// Neon 영구 저장
+      await _saveLatestIdentity();
 
       if (!mounted) return;
 
@@ -424,6 +459,43 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     }
   }
 
+  Future<void> _saveLatestIdentity() async {
+    final displayName = _displayNameController.text.trim();
+
+    if (displayName.isEmpty) {
+      return;
+    }
+
+    String evaluationMessage;
+
+    final apiMessage = _previewResult?.evaluationMessage.trim();
+
+    if (apiMessage != null && apiMessage.isNotEmpty) {
+      evaluationMessage = _extractEvaluationComment(
+        apiMessage,
+      );
+    } else if (!_hasCompetitiveGame && _hasRpgGame) {
+      evaluationMessage = '세상을 지키는 모험가시군여!';
+    } else if (!_hasCompetitiveGame &&
+        !_hasRpgGame &&
+        _customGames.isNotEmpty) {
+      evaluationMessage = '나만의 게임 세계가 가득하군여!';
+    } else {
+      evaluationMessage = '게임을 즐기는 멋진 게이머시군여!';
+    }
+
+    final snapshotJson = _buildIdentitySnapshotJson();
+
+    await GameIdentityRepository.instance.saveLatest(
+      identityNumber: _identityNumber,
+      displayName: displayName,
+      issuedDate: _issuedDateText,
+      gamePowerPercent: _previewResult?.averageTopPercent,
+      evaluationMessage: evaluationMessage,
+      snapshotJson: snapshotJson,
+    );
+  }
+
   Future<void> _loadIdentityPreview() async {
     final displayName = _displayNameController.text.trim();
 
@@ -505,10 +577,61 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     final value = _displayNameController.text.trim();
 
     if (value.isEmpty) {
-      return '게임 신분증 닉네임';
+      return '신분증 닉네임';
     }
 
     return value;
+  }
+
+  String _buildIdentitySnapshotJson() {
+    return jsonEncode({
+      'selectedGames': _selectedGames.map((game) {
+        final calculatedEntry = _findPreviewEntry(game.id);
+        return {
+          'id': game.id,
+          'gameType': game.type.name,
+          'accountName': game.accountName,
+          'primaryLabel': game.primaryLabel,
+          'primaryValue': game.primaryValue,
+          'secondaryLabel': game.secondaryLabel,
+          'secondaryValue': game.secondaryValue,
+          'metricLabel': calculatedEntry?.metricLabel,
+          'metricValue': calculatedEntry?.metricValue,
+          'topPercent': calculatedEntry?.topPercent,
+          'estimated': calculatedEntry?.estimated,
+        };
+      }).toList(),
+      'customGames': _customGames.map((game) {
+        return {
+          'id': game.id,
+          'gameName': game.gameName,
+          'playInfo': game.playInfo,
+        };
+      }).toList(),
+      'averageTopPercent': _previewResult?.averageTopPercent,
+      'includedGameCount': _previewResult?.includedGameCount,
+      'evaluationMessage': _previewResult?.evaluationMessage,
+      'hasCompetitiveGame': _hasCompetitiveGame,
+      'hasRpgGame': _hasRpgGame,
+    });
+  }
+
+  GameIdentityPreviewEntry? _findPreviewEntry(
+    int gameId,
+  ) {
+    final result = _previewResult;
+
+    if (result == null) {
+      return null;
+    }
+
+    for (final entry in result.games) {
+      if (entry.gameAccountId == gameId) {
+        return entry;
+      }
+    }
+
+    return null;
   }
 
   String _formatTopPercent(double value) {
@@ -529,6 +652,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         '${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}-'
         '${now.microsecondsSinceEpoch.toString().substring(8)}';
+
+    _loadLatestIdentity();
   }
 
   @override
@@ -622,6 +747,217 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         }
       },
     );
+  }
+
+  Future<void> _loadLatestIdentity() async {
+    try {
+      final json = await GameIdentityRepository.instance.getLatest();
+
+      if (json == null) {
+        return;
+      }
+
+      final snapshotRaw = json['snapshotJson'];
+
+      if (snapshotRaw is! String || snapshotRaw.trim().isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(snapshotRaw);
+
+      if (decoded is! Map<String, dynamic>) {
+        return;
+      }
+
+      // ==============================
+      // 1. 정식 지원 게임 복원
+      // ==============================
+
+      final restoredGames = <GameProfile>[];
+
+      final selectedGamesJson = decoded['selectedGames'];
+
+      if (selectedGamesJson is List) {
+        for (final item in selectedGamesJson) {
+          if (item is! Map) {
+            continue;
+          }
+
+          final id = item['id'];
+
+          if (id is! int) {
+            continue;
+          }
+
+          GameProfile? matchedGame;
+
+          for (final game in widget.games) {
+            if (game.id == id) {
+              matchedGame = game;
+              break;
+            }
+          }
+
+          if (matchedGame != null) {
+            restoredGames.add(
+              matchedGame,
+            );
+          }
+        }
+      }
+
+      // ==============================
+      // 2. 기타 게임 복원
+      // ==============================
+
+      final restoredCustomGames = <CustomGameEntry>[];
+
+      final customGamesJson = decoded['customGames'];
+
+      if (customGamesJson is List) {
+        for (final item in customGamesJson) {
+          if (item is! Map) {
+            continue;
+          }
+
+          final id = item['id']?.toString();
+
+          final gameName = item['gameName']?.toString();
+
+          final playInfo = item['playInfo']?.toString();
+
+          if (id == null || gameName == null || playInfo == null) {
+            continue;
+          }
+
+          restoredCustomGames.add(
+            CustomGameEntry(
+              id: id,
+              gameName: gameName,
+              playInfo: playInfo,
+            ),
+          );
+        }
+      }
+
+      // ==============================
+      // 3. Preview 결과 복원
+      // ==============================
+
+      final previewResult = _restorePreviewResult(
+        decoded,
+        restoredGames,
+      );
+
+      final hasCompetitiveGame =
+          decoded['hasCompetitiveGame'] as bool? ?? false;
+
+      final hasRpgGame = decoded['hasRpgGame'] as bool? ?? false;
+
+      final displayName = json['displayName']?.toString() ?? '';
+
+      final identityNumber = json['identityNumber']?.toString() ?? '';
+
+      final issuedDate = json['issuedDate']?.toString() ?? '';
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _latestIdentity = GameIdentityHistory(
+          displayName: displayName,
+          identityNumber: identityNumber,
+          issuedDate: issuedDate,
+          selectedGames: restoredGames,
+          customGames: restoredCustomGames,
+          previewResult: previewResult,
+          previewError: null,
+          hasCompetitiveGame: hasCompetitiveGame,
+          hasRpgGame: hasRpgGame,
+        );
+      });
+
+      debugPrint(
+        '최근 게임 신분증 복원 성공: '
+        '$displayName / '
+        '${restoredGames.length + restoredCustomGames.length}개 게임',
+      );
+    } on ApiException catch (error) {
+      debugPrint(
+        'LATEST IDENTITY LOAD API ERROR: '
+        '${error.statusCode} / '
+        '${error.message}',
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '===== LATEST IDENTITY LOAD ERROR =====',
+      );
+      debugPrint(
+        'error: $error',
+      );
+      debugPrint(
+        'stackTrace: $stackTrace',
+      );
+    }
+  }
+
+  GameIdentityPreviewResult? _restorePreviewResult(
+    Map<String, dynamic> snapshot,
+    List<GameProfile> restoredGames,
+  ) {
+    final averageTopPercent = snapshot['averageTopPercent'];
+
+    final includedGameCount = snapshot['includedGameCount'];
+
+    final evaluationMessage = snapshot['evaluationMessage'];
+
+    final selectedGamesJson = snapshot['selectedGames'];
+
+    if (selectedGamesJson is! List) {
+      return null;
+    }
+
+    final gamesJson = <Map<String, dynamic>>[];
+
+    for (final item in selectedGamesJson) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final id = item['id'];
+
+      if (id is! int) {
+        continue;
+      }
+
+      gamesJson.add({
+        'gameAccountId': id,
+        'metricLabel': item['metricLabel'],
+        'metricValue': item['metricValue'],
+        'topPercent': item['topPercent'],
+        'estimated': item['estimated'] ?? false,
+
+        // 계산 포함 여부
+        'includedInAverage': item['topPercent'] != null,
+      });
+    }
+
+    try {
+      return GameIdentityPreviewResult.fromJson({
+        'averageTopPercent': averageTopPercent,
+        'includedGameCount': includedGameCount ?? 0,
+        'evaluationMessage': evaluationMessage ?? '',
+        'games': gamesJson,
+      });
+    } catch (error) {
+      debugPrint(
+        '최근 신분증 Preview 복원 실패: '
+        '$error',
+      );
+
+      return null;
+    }
   }
 
   Future<void> _createIdentityCard() async {
@@ -749,7 +1085,14 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                 children: [
                   Expanded(
                     flex: 6,
-                    child: _buildWizard(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildWizard(),
+                        const SizedBox(height: 28),
+                        _buildLatestIdentitySection(),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 24),
                   Expanded(
@@ -760,8 +1103,11 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               )
             else
               Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildWizard(),
+                  const SizedBox(height: 28),
+                  _buildLatestIdentitySection(),
                   const SizedBox(height: 24),
                   _buildPreview(),
                 ],
@@ -769,6 +1115,164 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildLatestIdentitySection() {
+    final identity = _latestIdentity;
+
+    if (identity == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: const Color(0xFF081321),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: const Color(0xFF1D2A3D),
+          ),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.badge_outlined,
+              color: Color(0xFF67758A),
+            ),
+            SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '최근 생성한 게임 신분증',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '아직 생성한 게임 신분증이 없습니다.',
+                  style: TextStyle(
+                    color: Color(0xFF78869A),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final percent = identity.previewResult?.averageTopPercent;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081321),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFF24324A),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.history_rounded,
+                color: Color(0xFF9B8BFF),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                '최근 생성한 게임 신분증',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                identity.issuedDate,
+                style: const TextStyle(
+                  color: Color(0xFF748197),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF40398A),
+                      Color(0xFF232B5C),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: const Icon(
+                  Icons.badge_rounded,
+                  color: Color(0xFFC2B8FF),
+                  size: 31,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      identity.displayName,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '등록 게임 ${identity.gameCount}개',
+                      style: const TextStyle(
+                        color: Color(0xFF8996A9),
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      percent == null
+                          ? 'RPG / 기타 게임 프로필'
+                          : '게임력 상위 ${_formatTopPercent(percent)}%',
+                      style: const TextStyle(
+                        color: Color(0xFFA99DFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  _openLatestIdentity(identity);
+                },
+                icon: const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 14,
+                ),
+                label: const Text('다시보기'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -3066,6 +3570,35 @@ class _FinalInformationRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class GameIdentityHistory {
+  const GameIdentityHistory({
+    required this.displayName,
+    required this.identityNumber,
+    required this.issuedDate,
+    required this.selectedGames,
+    required this.customGames,
+    required this.previewResult,
+    required this.previewError,
+    required this.hasCompetitiveGame,
+    required this.hasRpgGame,
+  });
+
+  final String displayName;
+  final String identityNumber;
+  final String issuedDate;
+
+  final List<GameProfile> selectedGames;
+  final List<CustomGameEntry> customGames;
+
+  final GameIdentityPreviewResult? previewResult;
+  final String? previewError;
+
+  final bool hasCompetitiveGame;
+  final bool hasRpgGame;
+
+  int get gameCount => selectedGames.length + customGames.length;
 }
 
 class CustomGameEntry {
