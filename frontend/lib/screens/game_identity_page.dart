@@ -575,26 +575,57 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   void _showMessageBubble(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF172338),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(
-              color: ui.Color.fromARGB(255, 169, 195, 76),
+    final overlay = Overlay.of(context);
+
+    late OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (context) {
+        return Positioned.fill(
+          child: IgnorePointer(
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 420,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE61A2332),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          content: Text(
-            message,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      );
+        );
+      },
+    );
+
+    overlay.insert(entry);
+
+    Future.delayed(
+      const Duration(seconds: 2),
+      () {
+        if (entry.mounted) {
+          entry.remove();
+        }
+      },
+    );
   }
 
   Future<void> _createIdentityCard() async {

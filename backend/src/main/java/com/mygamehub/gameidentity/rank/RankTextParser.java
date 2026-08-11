@@ -81,7 +81,9 @@ public class RankTextParser {
 
                 .replace("이터니티", "ETERNITY")
                 .replace("데미갓", "DEMIGOD")
+                .replace("미스릴+", "MITHRIL")
                 .replace("미스릴", "MITHRIL")
+
                 .replace("메테오라이트", "METEORITE")
 
                 .replace("서바이버", "SURVIVOR")

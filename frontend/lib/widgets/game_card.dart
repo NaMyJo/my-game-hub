@@ -387,10 +387,15 @@ class GameCard extends StatelessWidget {
 
           if (profile.type == GameType.eternalReturn) ...[
             _Metric(
-              label: profile.primaryLabel,
-              value: profile.secondaryValue ?? '-',
+              label: '티어',
+              value: profile.primaryValue,
               color: accent,
               prominent: true,
+            ),
+            const SizedBox(height: 12),
+            _Metric(
+              label: 'RP',
+              value: profile.secondaryValue ?? '-',
             ),
             const SizedBox(height: 12),
             _Metric(

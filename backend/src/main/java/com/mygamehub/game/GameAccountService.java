@@ -625,13 +625,60 @@ EternalReturnCharacterStat third =
      * 실제 시즌별 티어 경계값은 API 응답 확인 후
      * 정확한 기준으로 교체하는 것이 안전합니다.
      */
-    private String tierFromMmr(Integer mmr) {
+        private String tierFromMmr(Integer mmr) {
         if (mmr == null) {
-            return "Unranked";
+                return "Unranked";
         }
 
-        return "랭크";
-    }
+        // 이터니티 / 데미갓은 RP만으로 정확한 구분이 어려우므로
+        // 7600 이상은 모두 미스릴+로 표시
+        if (mmr >= 7600) {
+                return "미스릴+";
+        }
+
+        // 메테오라이트
+        if (mmr >= 7300) return "메테오라이트 I";
+        if (mmr >= 7000) return "메테오라이트 II";
+        if (mmr >= 6700) return "메테오라이트 III";
+        if (mmr >= 6400) return "메테오라이트 IV";
+
+        // 다이아몬드
+        if (mmr >= 6050) return "다이아몬드 I";
+        if (mmr >= 5700) return "다이아몬드 II";
+        if (mmr >= 5350) return "다이아몬드 III";
+        if (mmr >= 5000) return "다이아몬드 IV";
+
+        // 플래티넘
+        if (mmr >= 4650) return "플래티넘 I";
+        if (mmr >= 4300) return "플래티넘 II";
+        if (mmr >= 3950) return "플래티넘 III";
+        if (mmr >= 3600) return "플래티넘 IV";
+
+        // 골드
+        if (mmr >= 3300) return "골드 I";
+        if (mmr >= 3000) return "골드 II";
+        if (mmr >= 2700) return "골드 III";
+        if (mmr >= 2400) return "골드 IV";
+
+        // 실버
+        if (mmr >= 2150) return "실버 I";
+        if (mmr >= 1900) return "실버 II";
+        if (mmr >= 1650) return "실버 III";
+        if (mmr >= 1400) return "실버 IV";
+
+        // 브론즈
+        if (mmr >= 1200) return "브론즈 I";
+        if (mmr >= 1000) return "브론즈 II";
+        if (mmr >= 800) return "브론즈 III";
+        if (mmr >= 600) return "브론즈 IV";
+
+        // 아이언
+        if (mmr >= 450) return "아이언 I";
+        if (mmr >= 300) return "아이언 II";
+        if (mmr >= 150) return "아이언 III";
+
+        return "아이언 IV";
+        }
 
     // =========================================================
     // Lost Ark
@@ -869,8 +916,6 @@ EternalReturnCharacterStat third =
 // valorant
 // =========================================================
         private void refreshValorant(GameAccount account) {
-                System.out.println("========== REFRESH VALORANT ==========");
-                System.out.println(account.getAccountName());
 
         ValorantProfile profile =
                 valorantClient.getProfile(
