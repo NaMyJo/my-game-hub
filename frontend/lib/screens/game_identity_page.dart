@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_identity_preview.dart';
 import '../models/game_profile.dart';
@@ -211,11 +212,6 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       if (!mounted) return;
 
-      _showMessageBubble(
-        _previewResult == null && _previewError != null
-            ? '게임력 계산을 제외하고 신분증 이미지를 생성했습니다.'
-            : '게임 신분증 이미지가 생성되었습니다.',
-      );
       final applyToProfile = await _askApplyToDashboardProfile();
 
       if (!mounted) return;
@@ -1343,6 +1339,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             previewResult: _previewResult,
             isLoadingPreview: _isLoadingPreview,
             previewError: _previewError,
+            showDetailActions: !_isGeneratingImage,
           ),
         ),
       ),
@@ -1629,6 +1626,7 @@ class _GameIdentityPreview extends StatelessWidget {
     required this.previewResult,
     required this.isLoadingPreview,
     required this.previewError,
+    required this.showDetailActions,
   });
 
   final String displayName;
@@ -1644,6 +1642,7 @@ class _GameIdentityPreview extends StatelessWidget {
   final GameIdentityPreviewResult? previewResult;
   final bool isLoadingPreview;
   final String? previewError;
+  final bool showDetailActions;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1653,8 +1652,8 @@ class _GameIdentityPreview extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-          color: const Color(0xFF6E5AE6),
-          width: 1.4,
+          color: const Color(0xFF6655D8),
+          width: 1.2,
         ),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -1667,9 +1666,13 @@ class _GameIdentityPreview extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x55000000),
-            blurRadius: 28,
+            color: Color(0x44000000),
+            blurRadius: 30,
             offset: Offset(0, 14),
+          ),
+          BoxShadow(
+            color: Color(0x222F28A0),
+            blurRadius: 22,
           ),
         ],
       ),
@@ -1789,70 +1792,120 @@ class _GameIdentityPreview extends StatelessWidget {
   }
 
   Widget _buildCardHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFF7965F2),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: const Icon(
-            Icons.badge_rounded,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 11),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'GAME ID CARD',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.7,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                '게임 신분증',
-                style: TextStyle(
-                  color: Color(0xFF9AA6B8),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Text(
-              'MY GAME HUB',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFA59BCF),
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'NO. $identityNumber',
-              style: const TextStyle(
-                fontSize: 8,
-                color: Color(0xFF758298),
-              ),
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(17),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0xAA211D4B),
+            Color(0x66131B34),
           ],
         ),
-      ],
+        border: Border.all(
+          color: const Color(0xFF3D416A),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF806BFF),
+                  Color(0xFF5140B9),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(13),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x553C2AA8),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.badge_rounded,
+              color: Colors.white,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'GAME ID CARD',
+                  style: TextStyle(
+                    color: Color(0xFFF0EDFF),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.7,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'MY GAME HUB · 게임 신분증',
+                  style: TextStyle(
+                    color: Color(0xFF8C96AD),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 7,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0x6612192E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF373E61),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'ID NUMBER',
+                  style: TextStyle(
+                    color: Color(0xFF777F98),
+                    fontSize: 6,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  identityNumber,
+                  style: const TextStyle(
+                    color: Color(0xFFB7B2D4),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1861,76 +1914,160 @@ class _GameIdentityPreview extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0x55101B2E),
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: const Color(0xFF303C57),
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xAA18213D),
+            Color(0xAA1D173A),
+          ],
         ),
+        border: Border.all(
+          color: const Color(0xFF394564),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
-              color: const Color(0xFF20294A),
-              borderRadius: BorderRadius.circular(17),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF40398A),
+                  Color(0xFF232B5C),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: const Color(0xFF5D55A8),
+              ),
             ),
             child: const Icon(
               Icons.person_rounded,
-              size: 31,
-              color: Color(0xFFA99DFF),
+              size: 33,
+              color: Color(0xFFC5BCFF),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'GAMER NAME',
-                  style: TextStyle(
-                    color: Color(0xFF7F8CA1),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'GAMER NAME',
+                      style: TextStyle(
+                        color: Color(0xFF858FA5),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x332F64FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'PLAYER',
+                        style: TextStyle(
+                          color: Color(0xFFAAA0FF),
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
                   displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 23,
+                    color: Color(0xFFF0EEFF),
+                    fontSize: 24,
                     fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'MY GAME HUB GAMER',
+                  style: TextStyle(
+                    color: Color(0xFF777F96),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
                   ),
                 ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Text(
-                'ISSUED',
-                style: TextStyle(
-                  color: Color(0xFF7F8CA1),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 11,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0x55121A30),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF34405D),
               ),
-              const SizedBox(height: 5),
-              Text(
-                issuedDate,
-                style: const TextStyle(
-                  color: Color(0xFFC1C9D6),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 10,
+                      color: Color(0xFF8F82E4),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'ISSUED',
+                      style: TextStyle(
+                        color: Color(0xFF858FA5),
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 5),
+                Text(
+                  issuedDate,
+                  style: const TextStyle(
+                    color: Color(0xFFD0D4E3),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1955,14 +2092,24 @@ class _GameIdentityPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'GAME RECORD',
-          style: TextStyle(
-            color: Color(0xFF8996AA),
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.3,
-          ),
+        const Row(
+          children: [
+            Icon(
+              Icons.sports_esports_rounded,
+              size: 16,
+              color: Color(0xFF8D7DFF),
+            ),
+            SizedBox(width: 7),
+            Text(
+              'GAME RECORD',
+              style: TextStyle(
+                color: Color(0xFF9B9FD0),
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.3,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         ...selectedGames.take(4).map(
@@ -1979,10 +2126,10 @@ class _GameIdentityPreview extends StatelessWidget {
                 }
               }
             }
-
             return _PreviewGameRow(
               game: game,
               calculatedEntry: calculatedEntry,
+              showDetailAction: showDetailActions,
             );
           },
         ),
@@ -2001,110 +2148,148 @@ class _GameIdentityPreview extends StatelessWidget {
             ),
           ),
         if (customGames.isNotEmpty) ...[
-          const SizedBox(height: 7),
-          const Divider(
-            height: 1,
-            color: Color(0xFF2A3650),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'OTHER GAMES',
-            style: TextStyle(
-              color: Color(0xFF7D899C),
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ...customGames.take(3).map(
-                (game) => Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.videogame_asset_rounded,
-                        size: 12,
-                        color: Color(0xFF8D7DDF),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          game.gameName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          game.playInfo,
-                          textAlign: TextAlign.right,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF8C98AA),
-                            fontSize: 8,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.extension_rounded,
+                size: 14,
+                color: Color(0xFF8B7BDF),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'OTHER GAMES',
+                style: TextStyle(
+                  color: Color(0xFF8E96B8),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.1,
                 ),
               ),
-          if (customGames.length > 3)
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: customGames
+                .take(3)
+                .map(
+                  (game) => Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 180,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x66141C31),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF313A56),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.videogame_asset_rounded,
+                          size: 12,
+                          color: Color(0xFF8F80E8),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            game.gameName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFD6D9E6),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            game.playInfo,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF7E8A9F),
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          if (customGames.length > 3) ...[
+            const SizedBox(height: 6),
             Text(
-              '외 ${customGames.length - 3}개',
+              '+ ${customGames.length - 3} more',
               style: const TextStyle(
-                color: Color(0xFF718096),
+                color: Color(0xFF69758A),
                 fontSize: 8,
+                fontWeight: FontWeight.w700,
               ),
             ),
+          ],
         ],
       ],
     );
   }
 
   Widget _buildGamePowerArea() {
-    final hasGamePower = previewResult?.averageTopPercent != null;
+    final percent = previewResult?.averageTopPercent;
 
-    if (!hasGamePower) {
+    // RPG 전용
+    if (percent == null && !hasCompetitiveGame && hasRpgGame) {
+      return _buildAdventurerProfile();
+    }
+
+    // 기타 게임만 있는 경우
+    if (percent == null) {
       return const SizedBox.shrink();
     }
 
+    final progress = (1.0 - (percent / 100.0)).clamp(0.0, 1.0);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0x551B2447),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFF3B4770),
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xCC17183D),
+            Color(0xCC111936),
+          ],
         ),
+        border: Border.all(
+          color: const Color(0xFF4C4A83),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x332F2B78),
+            blurRadius: 18,
+            offset: Offset(0, 7),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFF302B69),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(
-              Icons.auto_graph_rounded,
-              color: Color(0xFFAA9DFF),
-              size: 21,
-            ),
+          _GamePowerRing(
+            percent: percent,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2112,30 +2297,197 @@ class _GameIdentityPreview extends StatelessWidget {
                 const Text(
                   'GAME POWER',
                   style: TextStyle(
-                    color: Color(0xFF8794A9),
-                    fontSize: 8,
+                    color: Color(0xFF9589E7),
+                    fontSize: 9,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 1.1,
+                    letterSpacing: 1.4,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
                   _gamePowerText,
                   style: const TextStyle(
-                    color: Color(0xFFE2DDFF),
-                    fontSize: 17,
+                    color: Color(0xFFE9E5FF),
+                    fontSize: 21,
                     fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    minHeight: 7,
+                    value: progress,
+                    backgroundColor: const Color(0xFF202847),
+                    valueColor: const AlwaysStoppedAnimation(
+                      Color(0xFF8B7CFF),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            _includedGameCountText,
-            style: const TextStyle(
-              color: Color(0xFF8895A9),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+          const SizedBox(width: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0x551D2850),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF38456A),
+              ),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.bar_chart_rounded,
+                  color: Color(0xFF9C91FF),
+                  size: 19,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _includedGameCountText,
+                  style: const TextStyle(
+                    color: Color(0xFFB4B0D7),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdventurerProfile() {
+    final rpgCount = selectedGames
+        .where(
+          (game) =>
+              game.type == GameType.lostArk ||
+              game.type == GameType.mapleStory ||
+              game.type == GameType.dungeonFighter,
+        )
+        .length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xCC18233D),
+            Color(0xCC18203A),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFF405779),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x221C4A70),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF365A7C),
+                  Color(0xFF25345E),
+                ],
+              ),
+              border: Border.all(
+                color: const Color(0xFF55769B),
+                width: 2,
+              ),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              size: 31,
+              color: Color(0xFFB6D7FF),
+            ),
+          ),
+          const SizedBox(width: 17),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ADVENTURER PROFILE',
+                  style: TextStyle(
+                    color: Color(0xFF86A9CC),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'RPG ADVENTURER',
+                  style: TextStyle(
+                    color: Color(0xFFE5F1FF),
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '모험 기록 $rpgCount개',
+                  style: const TextStyle(
+                    color: Color(0xFF8799AD),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0x55162131),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: const Color(0xFF374B64),
+              ),
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.shield_rounded,
+                  color: Color(0xFFAEC9E8),
+                  size: 20,
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'RPG',
+                  style: TextStyle(
+                    color: Color(0xFF9EB3C9),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2147,23 +2499,32 @@ class _GameIdentityPreview extends StatelessWidget {
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(
-        minHeight: 76,
+        minHeight: 82,
       ),
       padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
+        horizontal: 18,
+        vertical: 15,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
           colors: [
-            Color(0xAA302668),
-            Color(0xAA1C294F),
+            Color(0xBB302468),
+            Color(0xAA1C294E),
           ],
         ),
         border: Border.all(
-          color: const Color(0xFF514788),
+          color: const Color(0xFF554A91),
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x222F2070),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: isLoadingPreview
           ? const Row(
@@ -2187,32 +2548,107 @@ class _GameIdentityPreview extends StatelessWidget {
                 ),
               ],
             )
-          : Center(
-              child: Text(
-                _previewMessage(),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFE3DFFF),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  height: 1.4,
+          : Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF302B69),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: Color(0xFFC0B4FF),
+                    size: 23,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    _previewMessage(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE7E3FF),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
+}
+
+class _GamePowerRing extends StatelessWidget {
+  const _GamePowerRing({
+    required this.percent,
+  });
+
+  final double percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (1.0 - (percent / 100.0)).clamp(0.0, 1.0);
+
+    final text = _formatGamePowerPercent(percent);
+
+    return SizedBox(
+      width: 78,
+      height: 78,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 72,
+            height: 72,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 7,
+              backgroundColor: const Color(0xFF252B4E),
+              valueColor: const AlwaysStoppedAnimation(
+                Color(0xFF8C7CFF),
+              ),
+              strokeCap: StrokeCap.round,
+            ),
+          ),
+          Text(
+            '$text%',
+            style: const TextStyle(
+              color: Color(0xFFE9E4FF),
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatGamePowerPercent(
+  double value,
+) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+
+  return value.toStringAsFixed(1);
 }
 
 class _PreviewGameRow extends StatelessWidget {
   const _PreviewGameRow({
     required this.game,
     required this.calculatedEntry,
+    required this.showDetailAction,
   });
 
   final GameProfile game;
   final GameIdentityPreviewEntry? calculatedEntry;
+  final bool showDetailAction;
 
   @override
   Widget build(BuildContext context) {
@@ -2226,93 +2662,277 @@ class _PreviewGameRow extends StatelessWidget {
     final topPercent = calculatedEntry?.topPercent;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF18253A),
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: const Color(0xFF2C3950),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xCC152039),
+              Color(0xAA171635),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF35405E),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF17253A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF394663),
+                ),
+              ),
+              child: Image.asset(
+                game.type.iconAsset,
+                fit: BoxFit.contain,
+                errorBuilder: (
+                  context,
+                  error,
+                  stackTrace,
+                ) {
+                  return const Icon(
+                    Icons.sports_esports_rounded,
+                    size: 19,
+                    color: Color(0xFFA495FF),
+                  );
+                },
               ),
             ),
-            child: Image.asset(
-              game.type.iconAsset,
-              fit: BoxFit.contain,
-              errorBuilder: (
-                context,
-                error,
-                stackTrace,
-              ) {
-                return const Icon(
-                  Icons.sports_esports_rounded,
-                  size: 18,
-                  color: Color(0xFFA495FF),
-                );
-              },
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    game.type.identityDisplayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF8997AD),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    game.accountName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE4E7F2),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (topPercent != null) ...[
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x332F64FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        calculatedEntry?.estimated == true
+                            ? '상위 약 ${_formatPercent(topPercent)}%'
+                            : '상위 ${_formatPercent(topPercent)}%',
+                        style: const TextStyle(
+                          color: Color(0xFFA99BFF),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  game.type.identityDisplayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  metricLabel,
                   style: const TextStyle(
-                    color: Color(0xFF8290A4),
-                    fontSize: 10,
+                    color: Color(0xFF8491A6),
+                    fontSize: 8,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  game.accountName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 125,
+                  ),
+                  child: Text(
+                    metricValue,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE3DEFF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-                if (topPercent != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    calculatedEntry?.estimated == true
-                        ? '상위 약 ${_formatPercent(topPercent)}%'
-                        : '상위 ${_formatPercent(topPercent)}%',
-                    style: const TextStyle(
-                      color: Color(0xFF9F91FF),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                if (showDetailAction && _detailUrl(game) != null) ...[
+                  const SizedBox(height: 5),
+                  InkWell(
+                    onTap: () => _openGameDetails(game),
+                    borderRadius: BorderRadius.circular(6),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 3,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '상세보기',
+                            style: TextStyle(
+                              color: Color(0xFF7D8AA0),
+                              fontSize: 7,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 1),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 11,
+                            color: Color(0xFF7D8AA0),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ],
             ),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              '$metricLabel\n$metricValue',
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFD2CCFF),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                height: 1.3,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _openGameDetails(
+    GameProfile game,
+  ) async {
+    final url = _detailUrl(game);
+
+    if (url == null) {
+      return;
+    }
+
+    final uri = Uri.parse(url);
+
+    await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+      webOnlyWindowName: '_blank',
+    );
+  }
+
+  String? _detailUrl(GameProfile game) {
+    switch (game.type) {
+      case GameType.lostArk:
+        final name = Uri.encodeComponent(game.accountName.trim());
+
+        return 'https://kloa.gg/characters/$name';
+
+      case GameType.eternalReturn:
+        final name = Uri.encodeComponent(game.accountName.trim());
+
+        return 'https://dak.gg/er/players/$name?hl=ko';
+
+      case GameType.mapleStory:
+        final name = Uri.encodeComponent(game.accountName.trim());
+
+        return 'https://maple.gg/u/$name';
+
+      case GameType.leagueOfLegends:
+        final riotId = _parseRiotId(
+          game.accountName,
+        );
+
+        if (riotId == null) return null;
+
+        final gameName = Uri.encodeComponent(riotId.$1);
+
+        final tagLine = Uri.encodeComponent(riotId.$2);
+
+        return 'https://op.gg/lol/summoners/kr/'
+            '$gameName-$tagLine';
+
+      case GameType.tft:
+        final riotId = _parseRiotId(
+          game.accountName,
+        );
+
+        if (riotId == null) return null;
+
+        final gameName = Uri.encodeComponent(riotId.$1);
+
+        final tagLine = Uri.encodeComponent(riotId.$2);
+
+        return 'https://lolchess.gg/profile/kr/'
+            '$gameName-$tagLine';
+
+      case GameType.valorant:
+        // 대시보드에서 사용 중인
+        // Valorant 전적 사이트 URL로 연결
+        return null;
+
+      case GameType.battlegrounds:
+        // 대시보드에서 사용 중인
+        // PUBG 전적 사이트 URL로 연결
+        return null;
+
+      case GameType.dungeonFighter:
+        // 대시보드에서 사용하는
+        // 던파 검색 주소가 있다면 연결
+        return null;
+    }
+  }
+
+  (String, String)? _parseRiotId(
+    String accountName,
+  ) {
+    final parts = accountName.split('#');
+
+    if (parts.length != 2) {
+      return null;
+    }
+
+    final gameName = parts[0].trim();
+    final tagLine = parts[1].trim();
+
+    if (gameName.isEmpty || tagLine.isEmpty) {
+      return null;
+    }
+
+    return (
+      gameName,
+      tagLine,
     );
   }
 
