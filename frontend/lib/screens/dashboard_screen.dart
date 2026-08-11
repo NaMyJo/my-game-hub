@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_profile.dart';
+import '../models/game_profile_summary.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
@@ -26,6 +28,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final List<GameProfile> _games = [];
+  GameProfileSummary? _gameProfileSummary;
+
+  bool _isLoadingGameProfile = true;
   int? _refreshingGameId;
   bool _isLoadingGames = true;
   bool _loadGamesTakingLong = false;
@@ -55,7 +60,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+
     _loadGames();
+    _loadGameProfileSummary();
   }
 
   void _openDashboard() {
@@ -227,6 +234,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (error) {
       if (!mounted) return;
       await _showApiError();
+    }
+  }
+
+  Future<void> _loadGameProfileSummary() async {
+    try {
+      final profile = await GameProfileSummaryRepository.instance.getProfile();
+
+      if (!mounted) return;
+
+      setState(() {
+        _gameProfileSummary = profile;
+        _isLoadingGameProfile = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        '===== LOAD GAME PROFILE ERROR =====',
+      );
+      debugPrint('error: $error');
+      debugPrint('stackTrace: $stackTrace');
+
+      if (!mounted) return;
+
+      setState(() {
+        _gameProfileSummary = null;
+        _isLoadingGameProfile = false;
+      });
     }
   }
 
@@ -872,7 +905,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       DashboardPage.dashboard => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _HeroProfile(user: _user),
+                            _HeroProfile(
+                              user: _user,
+                              gameProfileSummary: _gameProfileSummary,
+                              isLoadingGameProfile: _isLoadingGameProfile,
+                            ),
                             const SizedBox(height: 18),
                             if (_isLoadingGames)
                               _buildGameLoadingState()
@@ -931,6 +968,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       DashboardPage.gameIdentity => GameIdentityPage(
                           games: _games,
                           onAddGame: _addGameForIdentity,
+                          onProfileApplied: () async {
+                            await _loadGameProfileSummary();
+                          },
                         ),
                     },
                   ),
@@ -1347,81 +1387,128 @@ class _DashboardSubItem extends StatelessWidget {
 }
 
 class _HeroProfile extends StatelessWidget {
-  const _HeroProfile({required this.user});
+  const _HeroProfile({
+    required this.user,
+    required this.gameProfileSummary,
+    required this.isLoadingGameProfile,
+  });
 
   final User? user;
-
+  final GameProfileSummary? gameProfileSummary;
+  final bool isLoadingGameProfile;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
 
     final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
 
-    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 170),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF263348)),
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Color(0xFF101B32),
-            Color(0xFF17233D),
-            Color(0xFF0C1423),
+    final email = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 850;
+
+        final userInfo = Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFF172438),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                size: 34,
+                color: Color(0xFFA495FF),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    '게임을 사랑하는 게이머',
+                    style: TextStyle(
+                      color: Color(0xFF8996A9),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF6F7E92),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
-      ),
-      child: Wrap(
-        spacing: 22,
-        runSpacing: 18,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(
-              'assets/app_icon/favicon.png',
-              width: 104,
-              height: 104,
-              fit: BoxFit.cover,
+        );
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: const Color(0xFF081321),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFF1C293B),
             ),
           ),
-          SizedBox(
-            width: 540,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    userInfo,
+                    const SizedBox(height: 18),
+                    _GameProfileSummaryView(
+                      profile: gameProfileSummary,
+                      isLoading: isLoadingGameProfile,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: userInfo,
+                    ),
+                    const SizedBox(width: 24),
+                    Container(
+                      width: 1,
+                      height: 80,
+                      color: const Color(
+                        0xFF223148,
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 4,
+                      child: _GameProfileSummaryView(
+                        profile: gameProfileSummary,
+                        isLoading: isLoadingGameProfile,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 9),
-                const Text(
-                  '게임을 사랑하는 게이머',
-                  style: TextStyle(
-                    color: Color(0xFFB2BDCC),
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  accountText,
-                  style: const TextStyle(
-                    color: Color(0xFF7C899D),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1619,6 +1706,193 @@ class _DeleteModeBar extends StatelessWidget {
             ),
             label: Text(
               selectedCount == 0 ? '삭제' : '$selectedCount개 삭제',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameProfileSummaryView extends StatelessWidget {
+  const _GameProfileSummaryView({
+    required this.profile,
+    required this.isLoading,
+  });
+
+  final GameProfileSummary? profile;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const SizedBox(
+        height: 80,
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (profile == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1928),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFF223249),
+          ),
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.badge_outlined,
+              size: 22,
+              color: Color(0xFF7D8BA0),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '게임 신분증을 만들어\n'
+                '나의 게임 프로필을 등록해보세요.',
+                style: TextStyle(
+                  color: Color(0xFF8794A8),
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'GAME PROFILE',
+          style: TextStyle(
+            color: Color(0xFF8C98AB),
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          profile!.identityNickname,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _GameProfileStat(
+                label: '게임력',
+                value: _gamePowerText(profile!),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _GameProfileStat(
+                label: '등록 게임',
+                value: '${profile!.reflectedGameCount}개',
+              ),
+            ),
+          ],
+        ),
+        if (profile!.evaluationMessage?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 9),
+          Text(
+            profile!.evaluationMessage!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFB8B0F5),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _gamePowerText(
+    GameProfileSummary profile,
+  ) {
+    final percent = profile.gamePowerPercent;
+
+    if (percent == null) {
+      return 'RPG';
+    }
+
+    if (percent == percent.roundToDouble()) {
+      return '상위 ${percent.toStringAsFixed(0)}%';
+    }
+
+    return '상위 ${percent.toStringAsFixed(1)}%';
+  }
+}
+
+class _GameProfileStat extends StatelessWidget {
+  const _GameProfileStat({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 9,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1B2B),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF25344A),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF7E8B9F),
+              fontSize: 9,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
             ),
           ),
         ],

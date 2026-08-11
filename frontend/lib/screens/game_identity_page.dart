@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import '../models/game_identity_preview.dart';
 import '../models/game_profile.dart';
 import '../services/api_client.dart';
+import '../services/game_profile_summary_repository.dart';
 import '../utils/image_download.dart';
 
 class GameIdentityRepository {
@@ -41,11 +42,14 @@ class GameIdentityPage extends StatefulWidget {
     super.key,
     required this.games,
     required this.onAddGame,
+    required this.onProfileApplied,
   });
 
   final List<GameProfile> games;
 
   final Future<GameProfile?> Function() onAddGame;
+
+  final Future<void> Function() onProfileApplied;
 
   @override
   State<GameIdentityPage> createState() => _GameIdentityPageState();
@@ -210,6 +214,13 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             ? '게임력 계산을 제외하고 신분증 이미지를 생성했습니다.'
             : '게임 신분증 이미지가 생성되었습니다.',
       );
+      final applyToProfile = await _askApplyToDashboardProfile();
+
+      if (!mounted) return;
+
+      if (applyToProfile == true) {
+        await _applyIdentityToDashboardProfile();
+      }
     } catch (error, stackTrace) {
       debugPrint(
         '===== GAME IDENTITY IMAGE ERROR =====',
@@ -232,6 +243,142 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         });
       }
     }
+  }
+
+  Future<bool?> _askApplyToDashboardProfile() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0B1524),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.account_circle_outlined,
+                color: Color(0xFF9C8BFF),
+              ),
+              SizedBox(width: 9),
+              Text(
+                '게임 프로필 반영',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            '생성한 게임 신분증의 게임력을\n'
+            '대시보드 게임 프로필에 반영하시겠습니까?\n\n'
+            '반영한 정보는 다음 로그인에서도 유지됩니다.',
+            style: TextStyle(
+              color: Color(0xFFAEB9C8),
+              height: 1.6,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('아니요'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('반영하기'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _applyIdentityToDashboardProfile() async {
+    final displayName = _displayNameController.text.trim();
+
+    /*
+   * 경쟁 게임이 있으면 계산된 평균 게임력.
+   * RPG 전용이면 null.
+   */
+    final gamePowerPercent = _previewResult?.averageTopPercent;
+
+    /*
+   * 평균 게임력에 실제 반영된 경쟁 게임 수.
+   * RPG 전용이라면 경쟁게임 반영수는 0이 되는데,
+   * Dashboard에서는 전체 신분증 게임 수를 보여주는 게
+   * 더 자연스러우므로 전체 게임 개수를 저장한다.
+   */
+    final reflectedGameCount = _selectedGames.length + _customGames.length;
+
+    String evaluationMessage;
+
+    final apiMessage = _previewResult?.evaluationMessage.trim();
+
+    if (apiMessage != null && apiMessage.isNotEmpty) {
+      evaluationMessage = _extractEvaluationComment(
+        apiMessage,
+      );
+    } else if (!_hasCompetitiveGame && _hasRpgGame) {
+      evaluationMessage = '세상을 지키는 모험가시군여!';
+    } else if (!_hasCompetitiveGame &&
+        !_hasRpgGame &&
+        _customGames.isNotEmpty) {
+      evaluationMessage = '나만의 게임 세계가 가득하군여!';
+    } else {
+      evaluationMessage = '게임을 즐기는 멋진 게이머시군여!';
+    }
+
+    try {
+      await GameProfileSummaryRepository.instance.saveProfile(
+        identityNickname: displayName,
+        gamePowerPercent: gamePowerPercent,
+        reflectedGameCount: reflectedGameCount,
+        evaluationMessage: evaluationMessage,
+      );
+      await widget.onProfileApplied();
+
+      if (!mounted) return;
+
+      _showMessageBubble(
+        '대시보드 게임 프로필에 반영되었습니다.',
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      debugPrint(
+        'GAME PROFILE SAVE ERROR: '
+        '${error.statusCode} / ${error.message}',
+      );
+
+      _showSearchErrorBubble();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '===== GAME PROFILE SAVE ERROR =====',
+      );
+      debugPrint('error: $error');
+      debugPrint('stackTrace: $stackTrace');
+
+      if (!mounted) return;
+
+      _showSearchErrorBubble();
+    }
+  }
+
+  String _extractEvaluationComment(
+    String message,
+  ) {
+    final lines = message
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (lines.length >= 2) {
+      return lines.skip(1).join(' ');
+    }
+
+    return message;
   }
 
   Future<void> _addNewGameAccount() async {
@@ -434,7 +581,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: const BorderSide(
-              color: Color(0xFF344765),
+              color: ui.Color.fromARGB(255, 169, 195, 76),
             ),
           ),
           content: Text(
@@ -654,7 +801,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           maxLength: 12,
           decoration: const InputDecoration(
             labelText: '표시할 닉네임',
-            hintText: '예: 남명종',
+            hintText: '예: Faker',
             filled: true,
             fillColor: Color(0xFF0E1A2A),
             border: OutlineInputBorder(),
