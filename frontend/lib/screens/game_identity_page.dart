@@ -292,33 +292,38 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     return showDialog<bool>(
       context: context,
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF0B1524),
+          backgroundColor: isDark ? const Color(0xFF0B1524) : Colors.white,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.account_circle_outlined,
                 color: Color(0xFF9C8BFF),
               ),
-              SizedBox(width: 9),
+              const SizedBox(width: 9),
               Text(
                 '게임 프로필 반영',
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF202636),
                 ),
               ),
             ],
           ),
-          content: const Text(
+          content: Text(
             '생성한 게임 신분증의 게임력을\n'
             '대시보드 게임 프로필에 반영하시겠습니까?\n\n'
             '반영한 정보는 다음 로그인에서도 유지됩니다.',
             style: TextStyle(
-              color: Color(0xFFAEB9C8),
+              color: isDark
+                  ? const Color(0xFFAEB9C8)
+                  : const Color(0xFF596579),
               height: 1.6,
             ),
           ),
@@ -716,6 +721,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
     entry = OverlayEntry(
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Positioned.fill(
           child: IgnorePointer(
             child: Center(
@@ -730,14 +736,30 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     vertical: 14,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xE61A2332),
+                    color: isDark
+                        ? const Color(0xE61A2332)
+                        : const Color(0xF2FFFFFF),
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF364258)
+                          : const Color(0xFFD8DEE8),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.28 : 0.12,
+                        ),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF283142),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       height: 1.4,

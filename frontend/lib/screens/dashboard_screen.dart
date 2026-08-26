@@ -189,18 +189,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF0C1624),
-          title: const Text(
+          backgroundColor: isDark ? const Color(0xFF0C1624) : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: isDark
+                  ? const Color(0xFF28364A)
+                  : const Color(0xFFFFC9D0),
+            ),
+          ),
+          title: Text(
             '게임 카드 삭제',
             style: TextStyle(
               fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF3B2830),
             ),
           ),
           content: Text(
             '선택한 ${_selectedGameIds.length}개의 게임 카드를 삭제하시겠습니까?',
-            style: const TextStyle(
-              color: Color(0xFFAEB9C8),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFAEB9C8)
+                  : const Color(0xFF66545B),
             ),
           ),
           actions: [
@@ -819,32 +832,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF111C2B),
+          backgroundColor: isDark ? const Color(0xFF111C2B) : Colors.white,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: isDark
+                  ? const Color(0xFF293A51)
+                  : const Color(0xFFD8DEE8),
+            ),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.error_outline_rounded,
                 color: Colors.redAccent,
                 size: 22,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'API 연결 오류',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF202636),
                 ),
               ),
             ],
           ),
           content: Text(
             message ?? '잠시 후 다시 시도해주세요.',
-            style: const TextStyle(
-              color: Color(0xFFAEB9C8),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFAEB9C8)
+                  : const Color(0xFF596579),
               fontSize: 13,
             ),
           ),
