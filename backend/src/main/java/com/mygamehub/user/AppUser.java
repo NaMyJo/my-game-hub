@@ -21,6 +21,12 @@ public class AppUser {
     @Column(length = 1024)
     private String photoUrl;
 
+    @Column(name = "profile_nickname", length = 50)
+    private String profileNickname;
+
+    @Column(name = "profile_introduction", length = 120)
+    private String profileIntroduction;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -47,6 +53,12 @@ public class AppUser {
         this.updatedAt = Instant.now();
     }
 
+    public void updateProfile(String nickname, String introduction) {
+        this.profileNickname = nickname;
+        this.profileIntroduction = introduction;
+        this.updatedAt = Instant.now();
+    }
+
     public String getFirebaseUid() {
         return firebaseUid;
     }
@@ -61,5 +73,13 @@ public class AppUser {
 
     public String getPhotoUrl() {
         return photoUrl;
+    }
+
+    public String getProfileNickname() {
+        return profileNickname;
+    }
+
+    public String getProfileIntroduction() {
+        return profileIntroduction;
     }
 }

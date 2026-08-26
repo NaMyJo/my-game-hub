@@ -4,10 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_profile.dart';
 import '../models/game_profile_summary.dart';
+import '../models/user_profile.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
+import '../services/user_profile_repository.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
@@ -29,6 +31,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final List<GameProfile> _games = [];
   GameProfileSummary? _gameProfileSummary;
+  UserProfile? _userProfile;
 
   bool _isLoadingGameProfile = true;
   int? _refreshingGameId;
@@ -63,6 +66,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     _loadGames();
     _loadGameProfileSummary();
+    _loadUserProfile();
   }
 
   void _openDashboard() {
@@ -277,6 +281,124 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
 
       rethrow;
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await UserProfileRepository.instance.getProfile();
+
+      if (!mounted) return;
+
+      setState(() {
+        _userProfile = profile;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('USER PROFILE LOAD ERROR: $error');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  Future<void> _editUserProfile() async {
+    final isGuest = _user?.isAnonymous == true;
+    final defaultNickname = isGuest
+        ? '게스트'
+        : (_user?.displayName?.trim().isNotEmpty == true
+            ? _user!.displayName!.trim()
+            : '게이머');
+    final nicknameController = TextEditingController(
+      text: _userProfile?.nickname ?? defaultNickname,
+    );
+    final introductionController = TextEditingController(
+      text: _userProfile?.introduction ?? '게임을 사랑하는 게이머',
+    );
+
+    final values = await showDialog<(String, String)>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0B1524),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            '프로필 수정',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nicknameController,
+                  maxLength: 50,
+                  decoration: const InputDecoration(
+                    labelText: '닉네임',
+                    hintText: '대시보드에 표시할 닉네임',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: introductionController,
+                  maxLength: 120,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '소개 문구',
+                    hintText: '나를 표현하는 한마디',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final nickname = nicknameController.text.trim();
+
+                if (nickname.isEmpty) return;
+
+                Navigator.pop(
+                  dialogContext,
+                  (nickname, introductionController.text.trim()),
+                );
+              },
+              child: const Text('저장'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nicknameController.dispose();
+    introductionController.dispose();
+
+    if (values == null) return;
+
+    try {
+      final saved = await UserProfileRepository.instance.updateProfile(
+        nickname: values.$1,
+        introduction: values.$2,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _userProfile = saved;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프로필을 수정했습니다.')),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
     }
   }
 
@@ -759,6 +881,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 16),
                     _MobileHeroProfile(
                       user: _user,
+                      profile: _userProfile,
+                      onEdit: _editUserProfile,
                     ),
                     const SizedBox(height: 14),
                     if (_isLoadingGames)
@@ -928,6 +1052,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 10),
                             _HeroProfile(
                               user: _user,
+                              profile: _userProfile,
+                              onEdit: _editUserProfile,
                               gameProfileSummary: _gameProfileSummary,
                               isLoadingGameProfile: _isLoadingGameProfile,
                             ),
@@ -1457,18 +1583,26 @@ class _DashboardSubItem extends StatelessWidget {
 class _HeroProfile extends StatelessWidget {
   const _HeroProfile({
     required this.user,
+    required this.profile,
+    required this.onEdit,
     required this.gameProfileSummary,
     required this.isLoadingGameProfile,
   });
 
   final User? user;
+  final UserProfile? profile;
+  final VoidCallback onEdit;
   final GameProfileSummary? gameProfileSummary;
   final bool isLoadingGameProfile;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
 
-    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+    final displayName = profile?.nickname ??
+        (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
+
+    final introduction =
+        profile?.introduction ?? '게임을 사랑하는 게이머';
 
     final email = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
 
@@ -1506,9 +1640,11 @@ class _HeroProfile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 5),
-                  const Text(
-                    '게임을 사랑하는 게이머',
-                    style: TextStyle(
+                  Text(
+                    introduction,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       color: Color(0xFF8996A9),
                       fontSize: 12,
                     ),
@@ -1521,6 +1657,24 @@ class _HeroProfile extends StatelessWidget {
                     style: const TextStyle(
                       color: Color(0xFF6F7E92),
                       fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: const Color(0xFFA495FF),
+                    ),
+                    icon: const Icon(Icons.edit_rounded, size: 13),
+                    label: const Text(
+                      '수정',
+                      style: TextStyle(fontSize: 11),
                     ),
                   ),
                 ],
@@ -2983,14 +3137,22 @@ class _MobileHeader extends StatelessWidget {
 class _MobileHeroProfile extends StatelessWidget {
   const _MobileHeroProfile({
     required this.user,
+    required this.profile,
+    required this.onEdit,
   });
 
   final User? user;
+  final UserProfile? profile;
+  final VoidCallback onEdit;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
 
-    final displayName = isGuest ? '게스트' : (user?.displayName ?? '게이머');
+    final displayName = profile?.nickname ??
+        (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
+
+    final introduction =
+        profile?.introduction ?? '게임을 사랑하는 게이머';
 
     final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
 
@@ -3035,11 +3197,39 @@ class _MobileHeroProfile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
+                  introduction,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF9AA7B9),
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
                   accountText,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF8290A4),
                     fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                TextButton.icon(
+                  onPressed: onEdit,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: const Color(0xFFB2A7FF),
+                  ),
+                  icon: const Icon(Icons.edit_rounded, size: 12),
+                  label: const Text(
+                    '수정',
+                    style: TextStyle(fontSize: 10),
                   ),
                 ),
               ],
