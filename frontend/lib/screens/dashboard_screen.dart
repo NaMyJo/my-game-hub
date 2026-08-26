@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
 import '../services/user_profile_repository.dart';
+import '../theme/app_theme_controller.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
@@ -509,6 +510,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildGameLoadingState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -516,10 +518,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         vertical: 42,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF091322),
+        color: isDark ? const Color(0xFF091322) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFF1A293C),
+          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Column(
@@ -537,8 +539,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? '게임 정보를 불러오는 데 시간이 조금 걸리고 있습니다.\n잠시만 기다려주세요.'
                 : '게임 정보를 불러오는 중입니다...',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF7C899D),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFF7C899D)
+                  : const Color(0xFF596579),
               fontSize: 13,
               height: 1.5,
             ),
@@ -549,8 +553,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? '오랜만에 접속한 경우 최대 1분 정도 걸릴 수 있습니다.\n1분 이상 표시될 경우 새로고침해주세요.'
                 : '잠시만 기다려주세요.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF7C899D),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFF7C899D)
+                  : const Color(0xFF748094),
               fontSize: 12,
               height: 1.5,
             ),
@@ -561,6 +567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildGameLoadErrorState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -568,10 +575,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         vertical: 36,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF091322),
+        color: isDark ? const Color(0xFF091322) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFF1A293C),
+          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Column(
@@ -591,12 +598,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '서버 연결에 시간이 걸리고 있을 수 있습니다.\n'
             '잠시 후 다시 시도하거나 새로고침해주세요.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF7C899D),
+              color: isDark
+                  ? const Color(0xFF7C899D)
+                  : const Color(0xFF687386),
               fontSize: 12,
               height: 1.5,
             ),
@@ -1046,6 +1055,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < 700;
     // ============================
@@ -1124,7 +1134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF050C16),
+      backgroundColor: isDark ? const Color(0xFF050C16) : const Color(0xFFF4F6FA),
       body: Row(
         children: [
           _Sidebar(
@@ -1140,6 +1150,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onSignOut: _confirmSignOut,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
+            isDarkMode: isDark,
+            onToggleTheme: () {
+              appThemeMode.value = isDark ? ThemeMode.light : ThemeMode.dark;
+            },
           ),
           Expanded(
             child: SafeArea(
@@ -1381,6 +1395,8 @@ class _Sidebar extends StatefulWidget {
     required this.collapsed,
     required this.onToggleCollapsed,
     required this.onGameIdentity,
+    required this.isDarkMode,
+    required this.onToggleTheme,
   });
 
   final User? user;
@@ -1393,6 +1409,8 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onSignOut;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onGameIdentity;
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
 
   final bool deleteMode;
   final bool dashboardMenuExpanded;
@@ -1444,21 +1462,26 @@ class _SidebarState extends State<_Sidebar> {
 
     final accountText = isGuest ? '로그인 없이 이용 중' : (widget.user?.email ?? '');
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeInOut,
-      width: widget.collapsed ? 76 : 230,
-      clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(
-        color: Color(0xFF07101C),
-        border: Border(
-          right: BorderSide(
-            color: Color(0xFF182334),
+    return ClipRect(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
+        width: widget.collapsed ? 76 : 230,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: widget.isDarkMode
+                ? const Color(0xFF07101C)
+                : const Color(0xFFFFFFFF),
+            border: Border(
+              right: BorderSide(
+                color: widget.isDarkMode
+                    ? const Color(0xFF182334)
+                    : const Color(0xFFE0E5EC),
+              ),
+            ),
           ),
-        ),
-      ),
-      child: SafeArea(
-        child: Padding(
+          child: SafeArea(
+            child: Padding(
           padding: EdgeInsets.fromLTRB(
             widget.collapsed ? 10 : 16,
             18,
@@ -1560,9 +1583,17 @@ class _SidebarState extends State<_Sidebar> {
                 collapsed: !_showContent,
               ),
               const Spacer(),
+              _ThemeModeButton(
+                collapsed: !_showContent,
+                isDarkMode: widget.isDarkMode,
+                onTap: widget.onToggleTheme,
+              ),
+              const SizedBox(height: 10),
               if (!_showContent)
                 Material(
-                  color: const Color(0xFF0B1524),
+                  color: widget.isDarkMode
+                      ? const Color(0xFF0B1524)
+                      : const Color(0xFFF1F3F8),
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
                     onTap: widget.onSignOut,
@@ -1583,10 +1614,14 @@ class _SidebarState extends State<_Sidebar> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0B1524),
+                    color: widget.isDarkMode
+                        ? const Color(0xFF0B1524)
+                        : const Color(0xFFF7F8FB),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: const Color(0xFF1C293B),
+                      color: widget.isDarkMode
+                          ? const Color(0xFF1C293B)
+                          : const Color(0xFFDDE2EA),
                     ),
                   ),
                   child: Column(
@@ -1597,8 +1632,11 @@ class _SidebarState extends State<_Sidebar> {
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
+                          color: widget.isDarkMode
+                              ? Colors.white
+                              : const Color(0xFF202636),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1607,8 +1645,10 @@ class _SidebarState extends State<_Sidebar> {
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF77869A),
+                        style: TextStyle(
+                          color: widget.isDarkMode
+                              ? const Color(0xFF77869A)
+                              : const Color(0xFF687386),
                           fontSize: 11,
                         ),
                       ),
@@ -1633,9 +1673,146 @@ class _SidebarState extends State<_Sidebar> {
                 ),
             ],
           ),
+            ),
+          ),
         ),
       ),
     );
+  }
+}
+
+class _ThemeModeButton extends StatelessWidget {
+  const _ThemeModeButton({
+    required this.collapsed,
+    required this.isDarkMode,
+    required this.onTap,
+  });
+
+  final bool collapsed;
+  final bool isDarkMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = isDarkMode
+        ? const Color(0xFFCFC6FF)
+        : const Color(0xFF5547B8);
+    final background = isDarkMode
+        ? const Color(0xFF0B1524)
+        : const Color(0xFFF5F3FF);
+    final borderColor = isDarkMode
+        ? const Color(0xFF27284A)
+        : const Color(0xFFDDD7FF);
+    final targetLabel = isDarkMode ? '라이트 모드' : '다크 모드';
+    final targetIcon =
+        isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
+
+    final button = AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+      height: 52,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 10),
+            child: Row(
+              mainAxisAlignment: collapsed
+                  ? MainAxisAlignment.center
+                  : MainAxisAlignment.start,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF262449)
+                        : const Color(0xFFE8E3FF),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(targetIcon, size: 18, color: foreground),
+                ),
+                if (!collapsed) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          targetLabel,
+                          style: TextStyle(
+                            color: foreground,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '화면 테마 변경',
+                          style: TextStyle(
+                            color: isDarkMode
+                                ? const Color(0xFF737F93)
+                                : const Color(0xFF7B7791),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 38,
+                    height: 22,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? const Color(0xFF353159)
+                          : const Color(0xFF7062C8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 140),
+                      curve: Curves.easeOutCubic,
+                      alignment: isDarkMode
+                          ? Alignment.centerLeft
+                          : Alignment.centerRight,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.16),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return collapsed
+        ? Tooltip(message: targetLabel, child: button)
+        : button;
   }
 }
 
@@ -1656,8 +1833,11 @@ class _SideItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final item = Material(
-      color: selected ? const Color(0xFF302371) : Colors.transparent,
+      color: selected
+          ? (isDark ? const Color(0xFF302371) : const Color(0xFFE9E5FF))
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -1675,7 +1855,9 @@ class _SideItem extends StatelessWidget {
                 icon,
                 size: 20,
                 color: selected
-                    ? const Color(0xFFB6AAFF)
+                    ? (isDark
+                        ? const Color(0xFFB6AAFF)
+                        : const Color(0xFF6654D9))
                     : const Color(0xFF8592A6),
               ),
               if (!collapsed) ...[
@@ -1687,7 +1869,11 @@ class _SideItem extends StatelessWidget {
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFB0BAC8),
+                      color: selected
+                          ? (isDark ? Colors.white : const Color(0xFF403493))
+                          : (isDark
+                              ? const Color(0xFFB0BAC8)
+                              : const Color(0xFF4E596B)),
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
@@ -1726,13 +1912,16 @@ class _DashboardSubItem extends StatelessWidget {
   final bool selected;
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(
         left: 18,
         bottom: 6,
       ),
       child: Material(
-        color: selected ? const Color(0xFF302371) : Colors.transparent,
+        color: selected
+            ? (isDark ? const Color(0xFF302371) : const Color(0xFFE9E5FF))
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
@@ -1748,14 +1937,20 @@ class _DashboardSubItem extends StatelessWidget {
                   icon,
                   size: 17,
                   color: selected
-                      ? const Color(0xFFB6AAFF)
+                      ? (isDark
+                          ? const Color(0xFFB6AAFF)
+                          : const Color(0xFF6654D9))
                       : const Color(0xFF7F8CA0),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected ? Colors.white : const Color(0xFFAEB8C7),
+                    color: selected
+                        ? (isDark ? Colors.white : const Color(0xFF403493))
+                        : (isDark
+                            ? const Color(0xFFAEB8C7)
+                            : const Color(0xFF596579)),
                     fontSize: 13,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                   ),
@@ -1786,6 +1981,7 @@ class _HeroProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final displayName = profile?.nickname ??
         (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
@@ -1811,7 +2007,9 @@ class _HeroProfile extends StatelessWidget {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF172438),
+                        color: isDark
+                            ? const Color(0xFF172438)
+                            : const Color(0xFFECE9FF),
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: const Icon(
@@ -1830,7 +2028,7 @@ class _HeroProfile extends StatelessWidget {
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 21,
                               fontWeight: FontWeight.w900,
                             ),
@@ -1840,8 +2038,10 @@ class _HeroProfile extends StatelessWidget {
                             introduction,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF8996A9),
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF8996A9)
+                                  : const Color(0xFF596579),
                               fontSize: 14,
                             ),
                           ),
@@ -1850,8 +2050,10 @@ class _HeroProfile extends StatelessWidget {
                             email,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF6F7E92),
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFF6F7E92)
+                                  : const Color(0xFF778196),
                               fontSize: 11,
                             ),
                           ),
@@ -1868,7 +2070,9 @@ class _HeroProfile extends StatelessWidget {
                   onPressed: onEdit,
                   tooltip: '프로필 수정',
                   style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFF171F3B),
+                    backgroundColor: isDark
+                        ? const Color(0xFF171F3B)
+                        : const Color(0xFFECE9FF),
                     foregroundColor: const Color(0xFFA99DFF),
                     side: const BorderSide(color: Color(0xFF393568)),
                     minimumSize: const Size(34, 34),
@@ -1885,10 +2089,12 @@ class _HeroProfile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: const Color(0xFF081321),
+            color: isDark ? const Color(0xFF081321) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: const Color(0xFF1C293B),
+              color: isDark
+                  ? const Color(0xFF1C293B)
+                  : const Color(0xFFDDE3EC),
             ),
           ),
           child: compact
@@ -2074,6 +2280,7 @@ class _DeleteModeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -2081,10 +2288,10 @@ class _DeleteModeBar extends StatelessWidget {
         vertical: 14,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF131A27),
+        color: isDark ? const Color(0xFF131A27) : const Color(0xFFFFF5F6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF49313A),
+          color: isDark ? const Color(0xFF49313A) : const Color(0xFFFFC9D0),
         ),
       ),
       child: Row(
@@ -2095,18 +2302,21 @@ class _DeleteModeBar extends StatelessWidget {
             size: 22,
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               '삭제할 게임 카드를 선택해주세요.',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF3B2830),
               ),
             ),
           ),
           Text(
             '$selectedCount개 선택',
-            style: const TextStyle(
-              color: Color(0xFFAEB9C8),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFAEB9C8)
+                  : const Color(0xFF7C5962),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2146,6 +2356,7 @@ class _GameProfileSummaryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (isLoading) {
       return const SizedBox(
         height: 80,
@@ -2169,26 +2380,28 @@ class _GameProfileSummaryView extends StatelessWidget {
           vertical: 14,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D1928),
+          color: isDark ? const Color(0xFF0D1928) : const Color(0xFFF5F6FA),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(0xFF223249),
+            color: isDark ? const Color(0xFF223249) : const Color(0xFFDDE3EC),
           ),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.badge_outlined,
               size: 22,
               color: Color(0xFF7D8BA0),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 '게임 신분증을 만들어\n'
                 '나의 게임 프로필을 등록해보세요.',
                 style: TextStyle(
-                  color: Color(0xFF8794A8),
+                  color: isDark
+                      ? const Color(0xFF8794A8)
+                      : const Color(0xFF687386),
                   fontSize: 12,
                   height: 1.5,
                 ),
@@ -2349,6 +2562,7 @@ class _GameGrid extends StatelessWidget {
   ) onReorder;
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 1200
@@ -2387,7 +2601,9 @@ class _GameGrid extends StatelessWidget {
                           border: Border.all(
                             color: selected
                                 ? Colors.redAccent
-                                : const Color(0xFF27364A),
+                                : (isDark
+                                    ? const Color(0xFF27364A)
+                                    : const Color(0xFFD5DCE7)),
                             width: selected ? 2.5 : 1,
                           ),
                         ),
@@ -2411,7 +2627,9 @@ class _GameGrid extends StatelessWidget {
                             borderRadius: BorderRadius.circular(18),
                             color: selected
                                 ? const Color(0x22000000)
-                                : const Color(0x11000000),
+                                : (isDark
+                                    ? const Color(0x11000000)
+                                    : const Color(0x08FFFFFF)),
                           ),
                           child: Center(
                             child: AnimatedContainer(
@@ -2425,14 +2643,18 @@ class _GameGrid extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: selected
                                     ? Colors.redAccent
-                                    : const Color(0xDD101B2B),
+                                    : (isDark
+                                        ? const Color(0xDD101B2B)
+                                        : const Color(0xF2FFFFFF)),
                                 borderRadius: BorderRadius.circular(
                                   selected ? 24 : 23,
                                 ),
                                 border: Border.all(
                                   color: selected
                                       ? Colors.redAccent
-                                      : const Color(0xFFAAB5C5),
+                                      : (isDark
+                                          ? const Color(0xFFAAB5C5)
+                                          : const Color(0xFF7B8798)),
                                   width: 2,
                                 ),
                                 boxShadow: const [
@@ -2462,9 +2684,11 @@ class _GameGrid extends StatelessWidget {
                                         ),
                                       ],
                                     )
-                                  : const Icon(
+                                  : Icon(
                                       Icons.check_rounded,
-                                      color: Color(0xFFD4DCE8),
+                                      color: isDark
+                                          ? const Color(0xFFD4DCE8)
+                                          : const Color(0xFF596579),
                                       size: 24,
                                     ),
                             ),
@@ -2585,6 +2809,7 @@ class _AddGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
@@ -2592,9 +2817,9 @@ class _AddGameCard extends StatelessWidget {
         height: 310,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: const Color(0xFF091322),
+          color: isDark ? const Color(0xFF091322) : Colors.white,
           border: Border.all(
-            color: const Color(0xFF273957),
+            color: isDark ? const Color(0xFF273957) : const Color(0xFFD5DCE7),
             style: BorderStyle.solid,
           ),
         ),
@@ -2610,19 +2835,22 @@ class _AddGameCard extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               '게임 카드 추가',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : const Color(0xFF202636),
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
               '캐릭터 또는 계정을 등록하세요.',
               style: TextStyle(
-                color: Color(0xFF77869B),
+                color: isDark
+                    ? const Color(0xFF77869B)
+                    : const Color(0xFF687386),
                 fontSize: 12,
               ),
             ),
@@ -2934,14 +3162,15 @@ class _ToolSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF091322),
+        color: isDark ? const Color(0xFF091322) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFF1A293C),
+          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Column(
@@ -2949,9 +3178,10 @@ class _ToolSection extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF202636),
             ),
           ),
           const SizedBox(height: 18),
@@ -3003,6 +3233,7 @@ class _ToolCardState extends State<_ToolCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return MouseRegion(
       onEnter: (_) {
         setState(() {
@@ -3017,11 +3248,20 @@ class _ToolCardState extends State<_ToolCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: _hovering ? const Color(0xFF152238) : const Color(0xFF0E1929),
+          color: isDark
+              ? (_hovering
+                  ? const Color(0xFF152238)
+                  : const Color(0xFF0E1929))
+              : (_hovering
+                  ? const Color(0xFFF0EDFF)
+                  : const Color(0xFFF8F9FC)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color:
-                _hovering ? const Color(0xFF6959C8) : const Color(0xFF293A51),
+            color: _hovering
+                ? const Color(0xFF6959C8)
+                : (isDark
+                    ? const Color(0xFF293A51)
+                    : const Color(0xFFD9DFE9)),
           ),
         ),
         child: Material(
@@ -3041,8 +3281,10 @@ class _ToolCardState extends State<_ToolCard> {
                       widget.tool.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFD7DEE9),
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFFD7DEE9)
+                            : const Color(0xFF283142),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),

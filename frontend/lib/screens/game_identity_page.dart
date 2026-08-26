@@ -1164,40 +1164,43 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Widget _buildLatestIdentitySection() {
     final identity = _latestIdentity;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (identity == null) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: const Color(0xFF081321),
+          color: isDark ? const Color(0xFF081321) : Colors.white,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: const Color(0xFF1D2A3D),
+            color: isDark ? const Color(0xFF1D2A3D) : const Color(0xFFDDE3EC),
           ),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.badge_outlined,
               color: Color(0xFF67758A),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   '최근 생성한 게임 신분증',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   '아직 생성한 게임 신분증이 없습니다.',
                   style: TextStyle(
-                    color: Color(0xFF78869A),
+                    color: isDark
+                        ? const Color(0xFF78869A)
+                        : const Color(0xFF687386),
                     fontSize: 11,
                   ),
                 ),
@@ -1214,10 +1217,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF081321),
+        color: isDark ? const Color(0xFF081321) : Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF24324A),
+          color: isDark ? const Color(0xFF24324A) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Column(
@@ -1321,14 +1324,15 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Widget _buildWizard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF081321),
+        color: isDark ? const Color(0xFF081321) : Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: const Color(0xFF1D2A3D),
+          color: isDark ? const Color(0xFF1D2A3D) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Column(
@@ -1354,6 +1358,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Widget _buildNicknameStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       key: const ValueKey('nickname-step'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1377,12 +1382,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         TextField(
           controller: _displayNameController,
           maxLength: 12,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: '표시할 닉네임',
             hintText: '예: Faker',
             filled: true,
-            fillColor: Color(0xFF0E1A2A),
-            border: OutlineInputBorder(),
+            fillColor: isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
+            border: const OutlineInputBorder(),
           ),
           onChanged: (_) {
             setState(() {
@@ -1477,6 +1482,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Widget _buildNewGameStep() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       key: const ValueKey('new-game-step'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1508,7 +1514,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               vertical: 28,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFF0E1A2A),
+              color: isDark
+                  ? const Color(0xFF0E1A2A)
+                  : const Color(0xFFF7F8FB),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: const Color(0xFF5746A8),
@@ -1593,10 +1601,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: const Color(0xFF0E1A2A),
+            color: isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: const Color(0xFF2B3A50),
+              color: isDark ? const Color(0xFF2B3A50) : const Color(0xFFD8DEE8),
             ),
           ),
           child: Column(
@@ -1631,12 +1639,14 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               TextField(
                 controller: _customGameNameController,
                 maxLength: 30,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '게임명',
                   hintText: '예: Minecraft',
                   filled: true,
-                  fillColor: Color(0xFF101D2D),
-                  border: OutlineInputBorder(),
+                  fillColor: isDark
+                      ? const Color(0xFF101D2D)
+                      : Colors.white,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               if (_customGames.isNotEmpty) ...[
@@ -1649,10 +1659,14 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111F30),
+                      color: isDark
+                          ? const Color(0xFF111F30)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(13),
                       border: Border.all(
-                        color: const Color(0xFF2B3A50),
+                        color: isDark
+                            ? const Color(0xFF2B3A50)
+                            : const Color(0xFFD8DEE8),
                       ),
                     ),
                     child: Row(
@@ -1700,12 +1714,14 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               TextField(
                 controller: _customGameInfoController,
                 maxLength: 50,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '플레이 시간 및 티어',
                   hintText: '예: 1,240시간 · 다이아몬드',
                   filled: true,
-                  fillColor: Color(0xFF101D2D),
-                  border: OutlineInputBorder(),
+                  fillColor: isDark
+                      ? const Color(0xFF101D2D)
+                      : Colors.white,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1729,10 +1745,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF101A2B),
+              color: isDark ? const Color(0xFF101A2B) : const Color(0xFFF1FAF4),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: const Color(0xFF27364D),
+                color: isDark ? const Color(0xFF27364D) : const Color(0xFFCFE7D7),
               ),
             ),
             child: Row(
@@ -1747,8 +1763,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   child: Text(
                     '현재 신분증에 ${_selectedGames.length}개의 '
                     '게임 계정이 선택되어 있습니다.',
-                    style: const TextStyle(
-                      color: Color(0xFFAEB9C8),
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFFAEB9C8)
+                            : const Color(0xFF4F6758),
                       fontSize: 12,
                     ),
                   ),
@@ -1951,6 +1969,7 @@ class _GameIdentitySteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1971,13 +1990,19 @@ class _GameIdentitySteps extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xFF362A74)
-                    : const Color(0xFF0E1A2A),
+                    ? (isDark
+                        ? const Color(0xFF362A74)
+                        : const Color(0xFFE9E5FF))
+                    : (isDark
+                        ? const Color(0xFF0E1A2A)
+                        : const Color(0xFFF7F8FB)),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(
                   color: selected
                       ? const Color(0xFF826DFF)
-                      : const Color(0xFF24344A),
+                      : (isDark
+                          ? const Color(0xFF24344A)
+                          : const Color(0xFFD8DEE8)),
                 ),
               ),
               child: Row(
@@ -2007,7 +2032,11 @@ class _GameIdentitySteps extends StatelessWidget {
                   Text(
                     _labels[index],
                     style: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFFA5B0C0),
+                      color: selected
+                          ? (isDark ? Colors.white : const Color(0xFF403493))
+                          : (isDark
+                              ? const Color(0xFFA5B0C0)
+                              : const Color(0xFF596579)),
                       fontSize: 12,
                       fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                     ),
@@ -2035,8 +2064,11 @@ class _SelectableGameAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: selected ? const Color(0xFF241D4B) : const Color(0xFF0E1A2A),
+      color: selected
+          ? (isDark ? const Color(0xFF241D4B) : const Color(0xFFF0EDFF))
+          : (isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB)),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -2048,7 +2080,11 @@ class _SelectableGameAccountCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color:
-                  selected ? const Color(0xFF8069FF) : const Color(0xFF24344A),
+                  selected
+                      ? const Color(0xFF8069FF)
+                      : (isDark
+                          ? const Color(0xFF24344A)
+                          : const Color(0xFFD8DEE8)),
               width: selected ? 2 : 1,
             ),
           ),
@@ -2058,7 +2094,9 @@ class _SelectableGameAccountCard extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF172438),
+                  color: isDark
+                      ? const Color(0xFF172438)
+                      : const Color(0xFFECE9FF),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -2097,8 +2135,10 @@ class _SelectableGameAccountCard extends StatelessWidget {
                       '${game.primaryLabel} · ${game.primaryValue}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFA5B0C0),
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFFA5B0C0)
+                            : const Color(0xFF687386),
                         fontSize: 11,
                       ),
                     ),
@@ -2118,6 +2158,7 @@ class _EmptyGameAccountNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -2125,10 +2166,10 @@ class _EmptyGameAccountNotice extends StatelessWidget {
         vertical: 32,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1A2A),
+        color: isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF24344A),
+          color: isDark ? const Color(0xFF24344A) : const Color(0xFFD8DEE8),
         ),
       ),
       child: const Column(
@@ -3591,6 +3632,7 @@ class _FinalInformationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -3598,8 +3640,10 @@ class _FinalInformationRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF8290A4),
+              style: TextStyle(
+                color: isDark
+                    ? const Color(0xFF8290A4)
+                    : const Color(0xFF687386),
                 fontSize: 12,
               ),
             ),

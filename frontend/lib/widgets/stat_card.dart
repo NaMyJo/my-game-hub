@@ -19,13 +19,14 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF091322),
+        color: isDark ? const Color(0xFF091322) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFF1A293C),
+          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),
       ),
       child: Row(
@@ -68,8 +69,10 @@ class StatCard extends StatelessWidget {
                   label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF7B899D),
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFF7B899D)
+                        : const Color(0xFF687386),
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -79,10 +82,11 @@ class StatCard extends StatelessWidget {
                   value,
                   maxLines: 2,
                   overflow: TextOverflow.visible,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     height: 1.2,
+                    color: isDark ? Colors.white : const Color(0xFF202636),
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -90,8 +94,10 @@ class StatCard extends StatelessWidget {
                   caption,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF5F6E82),
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFF5F6E82)
+                        : const Color(0xFF7A8494),
                     fontSize: 11,
                   ),
                 ),

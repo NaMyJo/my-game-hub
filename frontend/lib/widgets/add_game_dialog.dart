@@ -65,16 +65,23 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fieldColor =
+        isDark ? const Color(0xFF101C2C) : const Color(0xFFF7F8FB);
+    final labelColor =
+        isDark ? const Color(0xFF8F9CB0) : const Color(0xFF5F6B7C);
+
     return AlertDialog(
-      backgroundColor: const Color(0xFF0B1524),
+      backgroundColor: isDark ? const Color(0xFF0B1524) : Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
-      title: const Text(
+      title: Text(
         '게임 추가',
         style: TextStyle(
           fontWeight: FontWeight.w800,
+          color: isDark ? Colors.white : const Color(0xFF202636),
         ),
       ),
       content: SizedBox(
@@ -85,10 +92,10 @@ class _AddGameDialogState extends State<AddGameDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 '게임',
                 style: TextStyle(
-                  color: Color(0xFF8F9CB0),
+                  color: labelColor,
                   fontSize: 12,
                 ),
               ),
@@ -96,10 +103,10 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
               DropdownButtonFormField<GameType>(
                 initialValue: _type,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   filled: true,
-                  fillColor: Color(0xFF101C2C),
-                  border: OutlineInputBorder(),
+                  fillColor: fieldColor,
+                  border: const OutlineInputBorder(),
                 ),
                 items: GameType.values
                     .map(
@@ -131,20 +138,20 @@ class _AddGameDialogState extends State<AddGameDialog> {
               // ============================
               if (_type == GameType.dungeonFighter) ...[
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   '서버',
                   style: TextStyle(
-                    color: Color(0xFF8F9CB0),
+                    color: labelColor,
                     fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _dungeonFighterServerId,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     filled: true,
-                    fillColor: Color(0xFF101C2C),
-                    border: OutlineInputBorder(),
+                    fillColor: fieldColor,
+                    border: const OutlineInputBorder(),
                   ),
                   items: _dungeonFighterServers.entries
                       .map(
@@ -168,20 +175,20 @@ class _AddGameDialogState extends State<AddGameDialog> {
               // ============================
               if (_type == GameType.battlegrounds) ...[
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   '플랫폼',
                   style: TextStyle(
-                    color: Color(0xFF8F9CB0),
+                    color: labelColor,
                     fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _pubgPlatform,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     filled: true,
-                    fillColor: Color(0xFF101C2C),
-                    border: OutlineInputBorder(),
+                    fillColor: fieldColor,
+                    border: const OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -207,8 +214,8 @@ class _AddGameDialogState extends State<AddGameDialog> {
 
               Text(
                 _type.accountLabel,
-                style: const TextStyle(
-                  color: Color(0xFF8F9CB0),
+                style: TextStyle(
+                  color: labelColor,
                   fontSize: 12,
                 ),
               ),
@@ -223,7 +230,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
                 decoration: InputDecoration(
                   hintText: _hint(_type),
                   filled: true,
-                  fillColor: const Color(0xFF101C2C),
+                  fillColor: fieldColor,
                   border: const OutlineInputBorder(),
                 ),
                 validator: (value) {

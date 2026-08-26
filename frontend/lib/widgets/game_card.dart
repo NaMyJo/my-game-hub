@@ -236,6 +236,7 @@ class GameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _accent(profile.type);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       height: mobile
@@ -262,8 +263,10 @@ class GameCard extends StatelessWidget {
       padding: EdgeInsets.all(mobile ? 12 : 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: const Color(0xFF091322),
-        border: Border.all(color: const Color(0xFF1A293C)),
+        color: isDark ? const Color(0xFF091322) : Colors.white,
+        border: Border.all(
+          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,9 +301,10 @@ class GameCard extends StatelessWidget {
                   profile.type.displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
+                    color: isDark ? Colors.white : const Color(0xFF202636),
                   ),
                 ),
               ),
@@ -346,7 +350,9 @@ class GameCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: const Color(0xFFE7ECF4),
+                          color: isDark
+                              ? const Color(0xFFE7ECF4)
+                              : const Color(0xFF202636),
                           fontSize: mobile ? 15 : 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -368,7 +374,9 @@ class GameCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: const Color(0xFFE7ECF4),
+                color: isDark
+                    ? const Color(0xFFE7ECF4)
+                    : const Color(0xFF202636),
                 fontSize: mobile ? 15 : 18,
                 fontWeight: FontWeight.w800,
               ),
@@ -378,8 +386,10 @@ class GameCard extends StatelessWidget {
               profile.accountName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFAEB9C8),
+              style: TextStyle(
+                color: isDark
+                    ? const Color(0xFFAEB9C8)
+                    : const Color(0xFF687386),
                 fontSize: 12,
               ),
             ),
@@ -945,6 +955,7 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -952,8 +963,10 @@ class _Metric extends StatelessWidget {
           width: 90,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF7B899D),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFF7B899D)
+                  : const Color(0xFF687386),
               fontSize: 11,
             ),
           ),
@@ -969,7 +982,10 @@ class _Metric extends StatelessWidget {
                 value,
                 maxLines: 1,
                 style: TextStyle(
-                  color: color ?? const Color(0xFFD2DBE7),
+                  color: color ??
+                      (isDark
+                          ? const Color(0xFFD2DBE7)
+                          : const Color(0xFF354052)),
                   fontSize: prominent ? 19 : 14,
                   fontWeight: prominent ? FontWeight.w800 : FontWeight.w700,
                 ),
@@ -993,6 +1009,7 @@ class _FavoriteCharacter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final medal = switch (rank) {
       1 => '🥇',
       2 => '🥈',
@@ -1010,10 +1027,10 @@ class _FavoriteCharacter extends StatelessWidget {
         vertical: 8,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C2B),
+        color: isDark ? const Color(0xFF111C2B) : const Color(0xFFF7F8FB),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFF26364B),
+          color: isDark ? const Color(0xFF26364B) : const Color(0xFFD8DEE8),
         ),
       ),
       child: Column(
@@ -1024,8 +1041,10 @@ class _FavoriteCharacter extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFFD2DBE7),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFD2DBE7)
+                  : const Color(0xFF354052),
               fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
