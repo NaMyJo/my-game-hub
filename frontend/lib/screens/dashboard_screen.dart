@@ -1801,74 +1801,82 @@ class _HeroProfile extends StatelessWidget {
 
         final userInfo = Transform.translate(
           offset: const Offset(0, 8),
-          child: Row(
+          child: Stack(
             children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFF172438),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.person_rounded,
-                size: 34,
-                color: Color(0xFFA495FF),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    introduction,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF8996A9),
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    email,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF6F7E92),
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: IconButton(
-                      onPressed: onEdit,
-                      tooltip: '프로필 수정',
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF171F3B),
-                        foregroundColor: const Color(0xFFA99DFF),
-                        side: const BorderSide(color: Color(0xFF393568)),
-                        minimumSize: const Size(34, 34),
-                        padding: EdgeInsets.zero,
+              Padding(
+                padding: const EdgeInsets.only(right: 46),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF172438),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                      icon: const Icon(Icons.edit_rounded, size: 15),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 34,
+                        color: Color(0xFFA495FF),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            introduction,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF8996A9),
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF6F7E92),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: IconButton(
+                  onPressed: onEdit,
+                  tooltip: '프로필 수정',
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF171F3B),
+                    foregroundColor: const Color(0xFFA99DFF),
+                    side: const BorderSide(color: Color(0xFF393568)),
+                    minimumSize: const Size(34, 34),
+                    padding: EdgeInsets.zero,
+                  ),
+                  icon: const Icon(Icons.edit_rounded, size: 15),
+                ),
+              ),
             ],
           ),
         );
@@ -2001,6 +2009,7 @@ class _SummaryRow extends StatelessWidget {
               width: cardWidth,
               child: StatCard(
                 icon: Icons.park_rounded,
+                imageAsset: 'assets/game_icons/maplestory.png',
                 label: 'MAPLESTORY',
                 value: '$mapleStoryCount개',
                 caption: '등록 계정',
