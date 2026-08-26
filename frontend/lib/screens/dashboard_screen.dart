@@ -316,60 +316,137 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final values = await showDialog<(String, String)>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF0B1524),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Text(
-            '프로필 수정',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          content: SizedBox(
-            width: 420,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            width: 440,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A1626),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFF263A55)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 36,
+                  offset: Offset(0, 18),
+                ),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: nicknameController,
-                  maxLength: 50,
-                  decoration: const InputDecoration(
-                    labelText: '닉네임',
-                    hintText: '대시보드에 표시할 닉네임',
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF282657),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        size: 18,
+                        color: Color(0xFFB8AEFF),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '프로필 수정',
+                            style: TextStyle(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            '대시보드에서 보여줄 나만의 프로필이에요.',
+                            style: TextStyle(
+                              color: Color(0xFF8291A6),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close_rounded),
+                      color: const Color(0xFF7F8CA0),
+                      tooltip: '닫기',
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
+                const SizedBox(height: 22),
+                _ProfileEditField(
+                  controller: nicknameController,
+                  label: '닉네임',
+                  hintText: '대시보드에 표시할 닉네임',
+                  icon: Icons.person_outline_rounded,
+                  maxLength: 50,
+                ),
+                const SizedBox(height: 14),
+                _ProfileEditField(
                   controller: introductionController,
+                  label: '소개 문구',
+                  hintText: '나를 표현하는 한마디',
+                  icon: Icons.notes_rounded,
                   maxLength: 120,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '소개 문구',
-                    hintText: '나를 표현하는 한마디',
-                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF9AA7B9),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('취소'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () {
+                        final nickname = nicknameController.text.trim();
+
+                        if (nickname.isEmpty) return;
+
+                        Navigator.pop(
+                          dialogContext,
+                          (nickname, introductionController.text.trim()),
+                        );
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF7565E8),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.check_rounded, size: 17),
+                      label: const Text('저장'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('취소'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final nickname = nicknameController.text.trim();
-
-                if (nickname.isEmpty) return;
-
-                Navigator.pop(
-                  dialogContext,
-                  (nickname, introductionController.text.trim()),
-                );
-              },
-              child: const Text('저장'),
-            ),
-          ],
         );
       },
     );
@@ -390,16 +467,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _userProfile = saved;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('프로필을 수정했습니다.')),
-      );
-    } on ApiException catch (error) {
+    } on ApiException {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      await _showProfileEditError();
+    } catch (_) {
+      if (!mounted) return;
+      await _showProfileEditError();
     }
+  }
+
+  Future<void> _showProfileEditError() {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0A1626),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFF51344A)),
+          ),
+          icon: const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFFF7E91),
+          ),
+          title: const Text('저장 실패'),
+          content: const Text(
+            '에러가 발생했습니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFFB8C2D1)),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildGameLoadingState() {
@@ -1136,6 +1242,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class _ProfileEditField extends StatelessWidget {
+  const _ProfileEditField({
+    required this.controller,
+    required this.label,
+    required this.hintText,
+    required this.icon,
+    required this.maxLength,
+    this.maxLines = 1,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hintText;
+  final IconData icon;
+  final int maxLength;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 7),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFB7C1D0),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextField(
+          controller: controller,
+          maxLength: maxLength,
+          minLines: 1,
+          maxLines: maxLines,
+          style: const TextStyle(
+            color: Color(0xFFE7EBF3),
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: const TextStyle(color: Color(0xFF66758B)),
+            prefixIcon: Icon(
+              icon,
+              size: 18,
+              color: const Color(0xFF8F82E8),
+            ),
+            filled: true,
+            fillColor: const Color(0xFF0E1C2E),
+            counterStyle: const TextStyle(
+              color: Color(0xFF69778B),
+              fontSize: 10,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF263A55)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF263A55)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFF8172F1),
+                width: 1.4,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TftConnectionNotice extends StatelessWidget {
   const _TftConnectionNotice();
 
@@ -1660,21 +1849,19 @@ class _HeroProfile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: onEdit,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: onEdit,
+                      tooltip: '프로필 수정',
+                      style: IconButton.styleFrom(
+                        backgroundColor: const Color(0xFF171F3B),
+                        foregroundColor: const Color(0xFFA99DFF),
+                        side: const BorderSide(color: Color(0xFF393568)),
+                        minimumSize: const Size(34, 34),
+                        padding: EdgeInsets.zero,
                       ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: const Color(0xFFA495FF),
-                    ),
-                    icon: const Icon(Icons.edit_rounded, size: 13),
-                    label: const Text(
-                      '수정',
-                      style: TextStyle(fontSize: 11),
+                      icon: const Icon(Icons.edit_rounded, size: 15),
                     ),
                   ),
                 ],
@@ -3215,21 +3402,18 @@ class _MobileHeroProfile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 7),
-                TextButton.icon(
-                  onPressed: onEdit,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    onPressed: onEdit,
+                    tooltip: '프로필 수정',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF24234C),
+                      foregroundColor: const Color(0xFFB8AEFF),
+                      minimumSize: const Size(32, 32),
+                      padding: EdgeInsets.zero,
                     ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: const Color(0xFFB2A7FF),
-                  ),
-                  icon: const Icon(Icons.edit_rounded, size: 12),
-                  label: const Text(
-                    '수정',
-                    style: TextStyle(fontSize: 10),
+                    icon: const Icon(Icons.edit_rounded, size: 14),
                   ),
                 ),
               ],
