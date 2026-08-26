@@ -599,7 +599,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         final calculatedEntry = _findPreviewEntry(game.id);
         return {
           'id': game.id,
-          'gameType': game.type.name,
+          'gameType': game.type.apiValue,
           'accountName': game.accountName,
           'primaryLabel': game.primaryLabel,
           'primaryValue': game.primaryValue,
@@ -608,6 +608,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           'metricLabel': calculatedEntry?.metricLabel,
           'metricValue': calculatedEntry?.metricValue,
           'topPercent': calculatedEntry?.topPercent,
+          'includedInAverage': calculatedEntry?.includedInAverage ?? false,
           'estimated': calculatedEntry?.estimated,
         };
       }).toList(),
@@ -619,6 +620,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         };
       }).toList(),
       'averageTopPercent': _previewResult?.averageTopPercent,
+      'displayName':
+          _previewResult?.displayName ?? _displayNameController.text.trim(),
+      'evaluationType': _previewResult?.evaluationType,
       'includedGameCount': _previewResult?.includedGameCount,
       'evaluationMessage': _previewResult?.evaluationMessage,
       'hasCompetitiveGame': _hasCompetitiveGame,
@@ -856,7 +860,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       final previewResult = _restorePreviewResult(
         decoded,
-        restoredGames,
+        fallbackDisplayName: json['displayName']?.toString() ?? '',
       );
 
       final hasCompetitiveGame =
@@ -913,9 +917,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   GameIdentityPreviewResult? _restorePreviewResult(
-    Map<String, dynamic> snapshot,
-    List<GameProfile> restoredGames,
-  ) {
+    Map<String, dynamic> snapshot, {
+    required String fallbackDisplayName,
+  }) {
     final averageTopPercent = snapshot['averageTopPercent'];
 
     final includedGameCount = snapshot['includedGameCount'];
@@ -937,25 +941,39 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       final id = item['id'];
 
-      if (id is! int) {
+      if (id is! num) {
+        continue;
+      }
+
+      final gameType = _restoreGameTypeApiValue(
+        item['gameType'],
+      );
+
+      if (gameType == null) {
         continue;
       }
 
       gamesJson.add({
-        'gameAccountId': id,
+        'gameAccountId': id.toInt(),
+        'gameType': gameType,
+        'accountName': item['accountName']?.toString() ?? '',
         'metricLabel': item['metricLabel'],
         'metricValue': item['metricValue'],
         'topPercent': item['topPercent'],
         'estimated': item['estimated'] ?? false,
 
         // 계산 포함 여부
-        'includedInAverage': item['topPercent'] != null,
+        'includedInAverage':
+            item['includedInAverage'] as bool? ?? item['topPercent'] != null,
       });
     }
 
     try {
       return GameIdentityPreviewResult.fromJson({
+        'displayName':
+            snapshot['displayName']?.toString() ?? fallbackDisplayName,
         'averageTopPercent': averageTopPercent,
+        'evaluationType': snapshot['evaluationType']?.toString() ?? 'RPG_ONLY',
         'includedGameCount': includedGameCount ?? 0,
         'evaluationMessage': evaluationMessage ?? '',
         'games': gamesJson,
@@ -968,6 +986,22 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       return null;
     }
+  }
+
+  String? _restoreGameTypeApiValue(Object? value) {
+    final rawValue = value?.toString();
+
+    if (rawValue == null || rawValue.isEmpty) {
+      return null;
+    }
+
+    for (final gameType in GameType.values) {
+      if (rawValue == gameType.apiValue || rawValue == gameType.name) {
+        return gameType.apiValue;
+      }
+    }
+
+    return null;
   }
 
   Future<void> _createIdentityCard() async {

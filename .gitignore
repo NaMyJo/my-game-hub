@@ -24,5 +24,11 @@ firebase-service-account.json
 # Logs
 *.log
 
+# Local Codex context
+AGENTS.md
+docs/DEVELOPMENT_CONTEXT.md
+.codex/
+**/.codex/
+
 
 **/.flutter-plugins-dependencies

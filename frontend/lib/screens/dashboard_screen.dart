@@ -750,6 +750,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const _TftConnectionNotice(),
+                    const SizedBox(height: 10),
                     _MobileHeader(
                       user: _user,
                       onSignOut: _confirmSignOut,
@@ -922,6 +924,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       DashboardPage.dashboard => Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            const _TftConnectionNotice(),
+                            const SizedBox(height: 10),
                             _HeroProfile(
                               user: _user,
                               gameProfileSummary: _gameProfileSummary,
@@ -997,6 +1001,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TftConnectionNotice extends StatelessWidget {
+  const _TftConnectionNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0x1AFFB74D),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0x55FFB74D),
+        ),
+      ),
+      child: const Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 14,
+            color: Color(0xFFFFC46B),
+          ),
+          SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '현재 TFT API가 연결되지 않아 TFT 정보를 불러올 수 없습니다.',
+              style: TextStyle(
+                color: Color(0xFFD8BE94),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
