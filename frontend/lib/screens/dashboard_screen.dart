@@ -2458,8 +2458,10 @@ class _GameProfileSummaryView extends StatelessWidget {
             profile!.evaluationMessage!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFB8B0F5),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFB8B0F5)
+                  : const Color(0xFF6556B8),
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -2497,16 +2499,17 @@ class _GameProfileStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 9,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0E1B2B),
+        color: isDark ? const Color(0xFF0E1B2B) : const Color(0xFFF7F8FB),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF25344A),
+          color: isDark ? const Color(0xFF25344A) : const Color(0xFFD8DEE8),
         ),
       ),
       child: Column(
@@ -2514,8 +2517,10 @@ class _GameProfileStat extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFF7E8B9F),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFF7E8B9F)
+                  : const Color(0xFF687386),
               fontSize: 9,
             ),
           ),
@@ -2524,9 +2529,10 @@ class _GameProfileStat extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 13,
+              color: isDark ? Colors.white : const Color(0xFF202636),
             ),
           ),
         ],
