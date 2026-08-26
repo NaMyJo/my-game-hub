@@ -1799,8 +1799,10 @@ class _HeroProfile extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 850;
 
-        final userInfo = Row(
-          children: [
+        final userInfo = Transform.translate(
+          offset: const Offset(0, 8),
+          child: Row(
+            children: [
             Container(
               width: 64,
               height: 64,
@@ -1835,7 +1837,7 @@ class _HeroProfile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF8996A9),
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -1867,7 +1869,8 @@ class _HeroProfile extends StatelessWidget {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         );
 
         return Container(
@@ -2228,7 +2231,7 @@ class _GameProfileSummaryView extends StatelessWidget {
           ],
         ),
         if (profile!.evaluationMessage?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 9),
+          const SizedBox(height: 18),
           Text(
             profile!.evaluationMessage!,
             maxLines: 1,
@@ -3389,7 +3392,7 @@ class _MobileHeroProfile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF9AA7B9),
-                    fontSize: 11,
+                    fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 4),
