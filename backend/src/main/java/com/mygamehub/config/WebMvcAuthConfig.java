@@ -17,6 +17,10 @@ public class WebMvcAuthConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(firebaseAuthInterceptor)
-                .addPathPatterns("/api/**");
+                .addPathPatterns("/api/**")
+                .excludePathPatterns(
+                        "/api/public/profiles/**",
+                        "/api/public/identities/**"
+                );
     }
 }

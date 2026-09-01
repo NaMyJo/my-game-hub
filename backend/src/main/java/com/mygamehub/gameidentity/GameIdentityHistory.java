@@ -70,6 +70,16 @@ public class GameIdentityHistory {
     )
     private Instant updatedAt;
 
+    @Column(name = "share_id", unique = true, length = 36)
+    private String shareId;
+
+    @Column(
+            name = "share_enabled",
+            nullable = false,
+            columnDefinition = "boolean default false"
+    )
+    private boolean shareEnabled;
+
     protected GameIdentityHistory() {
     }
 
@@ -144,4 +154,13 @@ public class GameIdentityHistory {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
+
+    public void updateShare(String shareId, boolean enabled) {
+        this.shareId = shareId;
+        this.shareEnabled = enabled;
+        this.updatedAt = Instant.now();
+    }
+
+    public String getShareId() { return shareId; }
+    public boolean isShareEnabled() { return shareEnabled; }
 }

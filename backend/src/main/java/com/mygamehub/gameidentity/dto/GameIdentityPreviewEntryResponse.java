@@ -10,6 +10,7 @@ public record GameIdentityPreviewEntryResponse(
         String metricValue,
         Double topPercent,
         boolean includedInAverage,
-        boolean estimated
+        boolean estimated,
+        String exclusionReason
 ) {
 }

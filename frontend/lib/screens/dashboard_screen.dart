@@ -9,12 +9,14 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
+import '../services/public_profile_repository.dart';
 import '../services/user_profile_repository.dart';
 import '../theme/app_theme_controller.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
 import 'game_identity_page.dart';
+import 'public_pages.dart';
 
 enum DashboardPage {
   dashboard,
@@ -196,9 +198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
             side: BorderSide(
-              color: isDark
-                  ? const Color(0xFF28364A)
-                  : const Color(0xFFFFC9D0),
+              color: isDark ? const Color(0xFF28364A) : const Color(0xFFFFC9D0),
             ),
           ),
           title: Text(
@@ -211,9 +211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           content: Text(
             '선택한 ${_selectedGameIds.length}개의 게임 카드를 삭제하시겠습니까?',
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFAEB9C8)
-                  : const Color(0xFF66545B),
+              color: isDark ? const Color(0xFFAEB9C8) : const Color(0xFF66545B),
             ),
           ),
           actions: [
@@ -310,6 +308,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (error, stackTrace) {
       debugPrint('USER PROFILE LOAD ERROR: $error');
       debugPrint('$stackTrace');
+    }
+  }
+
+  void _openGamePowerAnalysis() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const GamePowerAnalysisPage()),
+    );
+  }
+
+  Future<void> _openPublicProfileSettings() async {
+    try {
+      var settings = await PublicProfileRepository.instance.getSettings();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('공개 게임 프로필'),
+            content: SizedBox(
+              width: 420,
+              child: SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('프로필 공개'),
+                subtitle: const Text(
+                  '닉네임, 소개, 게임력 분석과 최근 게임 신분증을 공개합니다.',
+                ),
+                value: settings.isPublic,
+                onChanged: (value) async {
+                  try {
+                    final updated = await PublicProfileRepository.instance
+                        .updateSettings(value);
+                    setDialogState(() => settings = updated);
+                  } catch (_) {
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    if (mounted) await _showApiError();
+                  }
+                },
+              ),
+            ),
+            actions: [
+              if (settings.isPublic && settings.publicId != null)
+                TextButton.icon(
+                  onPressed: () async {
+                    await copyPublicLink('/profile/${settings.publicId!}');
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  },
+                  icon: const Icon(Icons.link_rounded),
+                  label: const Text('링크 복사'),
+                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) await _showApiError();
     }
   }
 
@@ -553,9 +610,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : '게임 정보를 불러오는 중입니다...',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFF7C899D)
-                  : const Color(0xFF596579),
+              color: isDark ? const Color(0xFF7C899D) : const Color(0xFF596579),
               fontSize: 13,
               height: 1.5,
             ),
@@ -567,9 +622,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 : '잠시만 기다려주세요.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFF7C899D)
-                  : const Color(0xFF748094),
+              color: isDark ? const Color(0xFF7C899D) : const Color(0xFF748094),
               fontSize: 12,
               height: 1.5,
             ),
@@ -616,9 +669,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             '잠시 후 다시 시도하거나 새로고침해주세요.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFF7C899D)
-                  : const Color(0xFF687386),
+              color: isDark ? const Color(0xFF7C899D) : const Color(0xFF687386),
               fontSize: 12,
               height: 1.5,
             ),
@@ -839,9 +890,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: isDark
-                  ? const Color(0xFF293A51)
-                  : const Color(0xFFD8DEE8),
+              color: isDark ? const Color(0xFF293A51) : const Color(0xFFD8DEE8),
             ),
           ),
           title: Row(
@@ -865,9 +914,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           content: Text(
             message ?? '잠시 후 다시 시도해주세요.',
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFAEB9C8)
-                  : const Color(0xFF596579),
+              color: isDark ? const Color(0xFFAEB9C8) : const Color(0xFF596579),
               fontSize: 13,
             ),
           ),
@@ -1157,7 +1204,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF050C16) : const Color(0xFFF4F6FA),
+      backgroundColor:
+          isDark ? const Color(0xFF050C16) : const Color(0xFFF4F6FA),
       body: Row(
         children: [
           _Sidebar(
@@ -1199,6 +1247,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               onEdit: _editUserProfile,
                               gameProfileSummary: _gameProfileSummary,
                               isLoadingGameProfile: _isLoadingGameProfile,
+                              onOpenAnalysis: _openGamePowerAnalysis,
+                              onPublicProfile: _openPublicProfileSettings,
                             ),
                             const SizedBox(height: 18),
                             if (_isLoadingGames)
@@ -1505,197 +1555,197 @@ class _SidebarState extends State<_Sidebar> {
           ),
           child: SafeArea(
             child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            widget.collapsed ? 10 : 16,
-            18,
-            widget.collapsed ? 10 : 16,
-            18,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: _showContent
-                    ? MainAxisAlignment.spaceBetween
-                    : MainAxisAlignment.center,
+              padding: EdgeInsets.fromLTRB(
+                widget.collapsed ? 10 : 16,
+                18,
+                widget.collapsed ? 10 : 16,
+                18,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_showContent)
-                    Expanded(
-                      child: Row(
+                  Row(
+                    mainAxisAlignment: _showContent
+                        ? MainAxisAlignment.spaceBetween
+                        : MainAxisAlignment.center,
+                    children: [
+                      if (_showContent)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.asset(
+                                  'assets/app_icon/favicon.png',
+                                  width: 24,
+                                  height: 24,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Flexible(
+                                child: Text(
+                                  'MY GAME HUB',
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.clip,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 17,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      InkWell(
+                        onTap: widget.onToggleCollapsed,
+                        borderRadius: BorderRadius.circular(8),
+                        hoverColor: Colors.white10,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(
+                            widget.collapsed
+                                ? Icons.view_sidebar_outlined
+                                : Icons.menu_open_rounded,
+                            color: const Color(0xFF9AA8BA),
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 38),
+                  _SideItem(
+                    icon: Icons.dashboard_rounded,
+                    label: '대시보드',
+                    selected: widget.currentPage == DashboardPage.dashboard,
+                    onTap: widget.onDashboard,
+                    collapsed: !_showContent,
+                  ),
+                  if (_showContent &&
+                      widget.dashboardMenuExpanded &&
+                      widget.currentPage == DashboardPage.dashboard) ...[
+                    _DashboardSubItem(
+                      icon: Icons.add_circle_outline_rounded,
+                      label: '게임 카드 추가',
+                      onTap: widget.onAddGame,
+                    ),
+                    _DashboardSubItem(
+                      icon: Icons.delete_outline_rounded,
+                      label: '게임 카드 삭제',
+                      selected: widget.deleteMode,
+                      onTap: widget.onDeleteGames,
+                    ),
+                  ],
+                  _SideItem(
+                    icon: Icons.build_circle_outlined,
+                    label: '도구 모음',
+                    selected: widget.currentPage == DashboardPage.tools,
+                    onTap: widget.onTools,
+                    collapsed: !_showContent,
+                  ),
+                  _SideItem(
+                    icon: Icons.badge_outlined,
+                    label: '게임 신분증',
+                    selected: widget.currentPage == DashboardPage.gameIdentity,
+                    onTap: widget.onGameIdentity,
+                    collapsed: !_showContent,
+                  ),
+                  const Spacer(),
+                  _ThemeModeButton(
+                    collapsed: !_showContent,
+                    isDarkMode: widget.isDarkMode,
+                    onTap: widget.onToggleTheme,
+                  ),
+                  const SizedBox(height: 10),
+                  if (!_showContent)
+                    Material(
+                      color: widget.isDarkMode
+                          ? const Color(0xFF0B1524)
+                          : const Color(0xFFF1F3F8),
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        onTap: widget.onSignOut,
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          height: 52,
+                          child: Icon(
+                            isGuest
+                                ? Icons.exit_to_app_rounded
+                                : Icons.logout_rounded,
+                            color: const Color(0xFFCFC6FF),
+                            size: 21,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: widget.isDarkMode
+                            ? const Color(0xFF0B1524)
+                            : const Color(0xFFF7F8FB),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: widget.isDarkMode
+                              ? const Color(0xFF1C293B)
+                              : const Color(0xFFDDE2EA),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.asset(
-                              'assets/app_icon/favicon.png',
-                              width: 24,
-                              height: 24,
-                              fit: BoxFit.cover,
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : const Color(0xFF202636),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          const Flexible(
-                            child: Text(
-                              'MY GAME HUB',
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.clip,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 17,
+                          const SizedBox(height: 4),
+                          Text(
+                            accountText,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: widget.isDarkMode
+                                  ? const Color(0xFF77869A)
+                                  : const Color(0xFF687386),
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: widget.onSignOut,
+                              icon: Icon(
+                                isGuest
+                                    ? Icons.exit_to_app_rounded
+                                    : Icons.logout_rounded,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isGuest ? '게스트 종료' : '로그아웃',
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  InkWell(
-                    onTap: widget.onToggleCollapsed,
-                    borderRadius: BorderRadius.circular(8),
-                    hoverColor: Colors.white10,
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    child: SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: Icon(
-                        widget.collapsed
-                            ? Icons.view_sidebar_outlined
-                            : Icons.menu_open_rounded,
-                        color: const Color(0xFF9AA8BA),
-                        size: 22,
-                      ),
-                    ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 38),
-              _SideItem(
-                icon: Icons.dashboard_rounded,
-                label: '대시보드',
-                selected: widget.currentPage == DashboardPage.dashboard,
-                onTap: widget.onDashboard,
-                collapsed: !_showContent,
-              ),
-              if (_showContent &&
-                  widget.dashboardMenuExpanded &&
-                  widget.currentPage == DashboardPage.dashboard) ...[
-                _DashboardSubItem(
-                  icon: Icons.add_circle_outline_rounded,
-                  label: '게임 카드 추가',
-                  onTap: widget.onAddGame,
-                ),
-                _DashboardSubItem(
-                  icon: Icons.delete_outline_rounded,
-                  label: '게임 카드 삭제',
-                  selected: widget.deleteMode,
-                  onTap: widget.onDeleteGames,
-                ),
-              ],
-              _SideItem(
-                icon: Icons.build_circle_outlined,
-                label: '도구 모음',
-                selected: widget.currentPage == DashboardPage.tools,
-                onTap: widget.onTools,
-                collapsed: !_showContent,
-              ),
-              _SideItem(
-                icon: Icons.badge_outlined,
-                label: '게임 신분증',
-                selected: widget.currentPage == DashboardPage.gameIdentity,
-                onTap: widget.onGameIdentity,
-                collapsed: !_showContent,
-              ),
-              const Spacer(),
-              _ThemeModeButton(
-                collapsed: !_showContent,
-                isDarkMode: widget.isDarkMode,
-                onTap: widget.onToggleTheme,
-              ),
-              const SizedBox(height: 10),
-              if (!_showContent)
-                Material(
-                  color: widget.isDarkMode
-                      ? const Color(0xFF0B1524)
-                      : const Color(0xFFF1F3F8),
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    onTap: widget.onSignOut,
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      height: 52,
-                      child: Icon(
-                        isGuest
-                            ? Icons.exit_to_app_rounded
-                            : Icons.logout_rounded,
-                        color: const Color(0xFFCFC6FF),
-                        size: 21,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: widget.isDarkMode
-                        ? const Color(0xFF0B1524)
-                        : const Color(0xFFF7F8FB),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: widget.isDarkMode
-                          ? const Color(0xFF1C293B)
-                          : const Color(0xFFDDE2EA),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: widget.isDarkMode
-                              ? Colors.white
-                              : const Color(0xFF202636),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        accountText,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: widget.isDarkMode
-                              ? const Color(0xFF77869A)
-                              : const Color(0xFF687386),
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: widget.onSignOut,
-                          icon: Icon(
-                            isGuest
-                                ? Icons.exit_to_app_rounded
-                                : Icons.logout_rounded,
-                            size: 16,
-                          ),
-                          label: Text(
-                            isGuest ? '게스트 종료' : '로그아웃',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
             ),
           ),
         ),
@@ -1717,15 +1767,12 @@ class _ThemeModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = isDarkMode
-        ? const Color(0xFFCFC6FF)
-        : const Color(0xFF5547B8);
-    final background = isDarkMode
-        ? const Color(0xFF0B1524)
-        : const Color(0xFFF5F3FF);
-    final borderColor = isDarkMode
-        ? const Color(0xFF27284A)
-        : const Color(0xFFDDD7FF);
+    final foreground =
+        isDarkMode ? const Color(0xFFCFC6FF) : const Color(0xFF5547B8);
+    final background =
+        isDarkMode ? const Color(0xFF0B1524) : const Color(0xFFF5F3FF);
+    final borderColor =
+        isDarkMode ? const Color(0xFF27284A) : const Color(0xFFDDD7FF);
     final targetLabel = isDarkMode ? '라이트 모드' : '다크 모드';
     final targetIcon =
         isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
@@ -1833,9 +1880,7 @@ class _ThemeModeButton extends StatelessWidget {
       ),
     );
 
-    return collapsed
-        ? Tooltip(message: targetLabel, child: button)
-        : button;
+    return collapsed ? Tooltip(message: targetLabel, child: button) : button;
   }
 }
 
@@ -1994,6 +2039,8 @@ class _HeroProfile extends StatelessWidget {
     required this.onEdit,
     required this.gameProfileSummary,
     required this.isLoadingGameProfile,
+    required this.onOpenAnalysis,
+    required this.onPublicProfile,
   });
 
   final User? user;
@@ -2001,16 +2048,17 @@ class _HeroProfile extends StatelessWidget {
   final VoidCallback onEdit;
   final GameProfileSummary? gameProfileSummary;
   final bool isLoadingGameProfile;
+  final VoidCallback onOpenAnalysis;
+  final VoidCallback onPublicProfile;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final displayName = profile?.nickname ??
-        (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
+    final displayName =
+        profile?.nickname ?? (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
 
-    final introduction =
-        profile?.introduction ?? '게임을 사랑하는 게이머';
+    final introduction = profile?.introduction ?? '게임을 사랑하는 게이머';
 
     final email = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
 
@@ -2115,9 +2163,7 @@ class _HeroProfile extends StatelessWidget {
             color: isDark ? const Color(0xFF081321) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isDark
-                  ? const Color(0xFF1C293B)
-                  : const Color(0xFFDDE3EC),
+              color: isDark ? const Color(0xFF1C293B) : const Color(0xFFDDE3EC),
             ),
           ),
           child: compact
@@ -2129,6 +2175,8 @@ class _HeroProfile extends StatelessWidget {
                     _GameProfileSummaryView(
                       profile: gameProfileSummary,
                       isLoading: isLoadingGameProfile,
+                      onOpenAnalysis: onOpenAnalysis,
+                      onPublicProfile: onPublicProfile,
                     ),
                   ],
                 )
@@ -2152,6 +2200,8 @@ class _HeroProfile extends StatelessWidget {
                       child: _GameProfileSummaryView(
                         profile: gameProfileSummary,
                         isLoading: isLoadingGameProfile,
+                        onOpenAnalysis: onOpenAnalysis,
+                        onPublicProfile: onPublicProfile,
                       ),
                     ),
                   ],
@@ -2337,9 +2387,7 @@ class _DeleteModeBar extends StatelessWidget {
           Text(
             '$selectedCount개 선택',
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFAEB9C8)
-                  : const Color(0xFF7C5962),
+              color: isDark ? const Color(0xFFAEB9C8) : const Color(0xFF7C5962),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -2372,10 +2420,14 @@ class _GameProfileSummaryView extends StatelessWidget {
   const _GameProfileSummaryView({
     required this.profile,
     required this.isLoading,
+    required this.onOpenAnalysis,
+    required this.onPublicProfile,
   });
 
   final GameProfileSummary? profile;
   final bool isLoading;
+  final VoidCallback onOpenAnalysis;
+  final VoidCallback onPublicProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -2482,14 +2534,29 @@ class _GameProfileSummaryView extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFB8B0F5)
-                  : const Color(0xFF6556B8),
+              color: isDark ? const Color(0xFFB8B0F5) : const Color(0xFF6556B8),
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
         ],
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: onOpenAnalysis,
+              icon: const Icon(Icons.analytics_outlined, size: 16),
+              label: const Text('상세 분석'),
+            ),
+            TextButton.icon(
+              onPressed: onPublicProfile,
+              icon: const Icon(Icons.public_rounded, size: 16),
+              label: const Text('프로필 공개'),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -2541,9 +2608,7 @@ class _GameProfileStat extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFF7E8B9F)
-                  : const Color(0xFF687386),
+              color: isDark ? const Color(0xFF7E8B9F) : const Color(0xFF687386),
               fontSize: 9,
             ),
           ),
@@ -2877,9 +2942,8 @@ class _AddGameCard extends StatelessWidget {
             Text(
               '캐릭터 또는 계정을 등록하세요.',
               style: TextStyle(
-                color: isDark
-                    ? const Color(0xFF77869B)
-                    : const Color(0xFF687386),
+                color:
+                    isDark ? const Color(0xFF77869B) : const Color(0xFF687386),
                 fontSize: 12,
               ),
             ),
@@ -3278,19 +3342,13 @@ class _ToolCardState extends State<_ToolCard> {
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: isDark
-              ? (_hovering
-                  ? const Color(0xFF152238)
-                  : const Color(0xFF0E1929))
-              : (_hovering
-                  ? const Color(0xFFF0EDFF)
-                  : const Color(0xFFF8F9FC)),
+              ? (_hovering ? const Color(0xFF152238) : const Color(0xFF0E1929))
+              : (_hovering ? const Color(0xFFF0EDFF) : const Color(0xFFF8F9FC)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _hovering
                 ? const Color(0xFF6959C8)
-                : (isDark
-                    ? const Color(0xFF293A51)
-                    : const Color(0xFFD9DFE9)),
+                : (isDark ? const Color(0xFF293A51) : const Color(0xFFD9DFE9)),
           ),
         ),
         child: Material(
@@ -3618,11 +3676,10 @@ class _MobileHeroProfile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
 
-    final displayName = profile?.nickname ??
-        (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
+    final displayName =
+        profile?.nickname ?? (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
 
-    final introduction =
-        profile?.introduction ?? '게임을 사랑하는 게이머';
+    final introduction = profile?.introduction ?? '게임을 사랑하는 게이머';
 
     final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
 

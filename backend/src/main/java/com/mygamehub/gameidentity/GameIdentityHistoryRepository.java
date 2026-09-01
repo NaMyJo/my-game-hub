@@ -10,4 +10,8 @@ public interface GameIdentityHistoryRepository
     Optional<GameIdentityHistory> findByUserUid(
             String userUid
     );
+
+    Optional<GameIdentityHistory> findByShareIdAndShareEnabledTrue(
+            String shareId
+    );
 }

@@ -12,7 +12,9 @@ import '../models/game_profile_summary.dart';
 import '../services/api_client.dart';
 import '../services/game_identity_repository.dart';
 import '../services/game_profile_summary_repository.dart';
+import '../services/public_profile_repository.dart';
 import '../utils/image_download.dart';
+import 'public_pages.dart';
 
 class GameIdentityPage extends StatefulWidget {
   const GameIdentityPage({
@@ -321,9 +323,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             '대시보드 게임 프로필에 반영하시겠습니까?\n\n'
             '반영한 정보는 다음 로그인에서도 유지됩니다.',
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFAEB9C8)
-                  : const Color(0xFF596579),
+              color: isDark ? const Color(0xFFAEB9C8) : const Color(0xFF596579),
               height: 1.6,
             ),
           ),
@@ -615,6 +615,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           'topPercent': calculatedEntry?.topPercent,
           'includedInAverage': calculatedEntry?.includedInAverage ?? false,
           'estimated': calculatedEntry?.estimated,
+          'exclusionReason': calculatedEntry?.exclusionReason,
         };
       }).toList(),
       'customGames': _customGames.map((game) {
@@ -983,6 +984,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         'metricValue': item['metricValue'],
         'topPercent': item['topPercent'],
         'estimated': item['estimated'] ?? false,
+        'exclusionReason': item['exclusionReason'],
 
         // 계산 포함 여부
         'includedInAverage':
@@ -1028,6 +1030,21 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Future<void> _createIdentityCard() async {
     await _generateIdentityCardImage();
+  }
+
+  Future<void> _shareLatestIdentity() async {
+    try {
+      final shared =
+          await PublicProfileRepository.instance.enableIdentityShare();
+      final shareId = shared.shareId;
+      if (shareId == null || shareId.isEmpty) {
+        throw const FormatException('Missing share id');
+      }
+      await copyPublicLink('/identity/$shareId');
+      if (mounted) _showMessageBubble('공유 링크를 복사했습니다.');
+    } catch (_) {
+      if (mounted) _showMessageBubble('공유 링크를 만들지 못했습니다.');
+    }
   }
 
   void _addCustomGame() {
@@ -1328,6 +1345,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   ],
                 ),
               ),
+              FilledButton.tonalIcon(
+                onPressed: _shareLatestIdentity,
+                icon: const Icon(Icons.share_rounded, size: 14),
+                label: const Text('공유하기'),
+              ),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () {
                   _openLatestIdentity(identity);
@@ -1408,7 +1431,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             labelText: '표시할 닉네임',
             hintText: '예: Faker',
             filled: true,
-            fillColor: isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
+            fillColor:
+                isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
             border: const OutlineInputBorder(),
           ),
           onChanged: (_) {
@@ -1536,9 +1560,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               vertical: 28,
             ),
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF0E1A2A)
-                  : const Color(0xFFF7F8FB),
+              color: isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: const Color(0xFF5746A8),
@@ -1665,9 +1687,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   labelText: '게임명',
                   hintText: '예: Minecraft',
                   filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF101D2D)
-                      : Colors.white,
+                  fillColor: isDark ? const Color(0xFF101D2D) : Colors.white,
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -1681,9 +1701,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF111F30)
-                          : Colors.white,
+                      color: isDark ? const Color(0xFF111F30) : Colors.white,
                       borderRadius: BorderRadius.circular(13),
                       border: Border.all(
                         color: isDark
@@ -1740,9 +1758,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   labelText: '플레이 시간 및 티어',
                   hintText: '예: 1,240시간 · 다이아몬드',
                   filled: true,
-                  fillColor: isDark
-                      ? const Color(0xFF101D2D)
-                      : Colors.white,
+                  fillColor: isDark ? const Color(0xFF101D2D) : Colors.white,
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -1770,7 +1786,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               color: isDark ? const Color(0xFF101A2B) : const Color(0xFFF1FAF4),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isDark ? const Color(0xFF27364D) : const Color(0xFFCFE7D7),
+                color:
+                    isDark ? const Color(0xFF27364D) : const Color(0xFFCFE7D7),
               ),
             ),
             child: Row(
@@ -1785,10 +1802,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   child: Text(
                     '현재 신분증에 ${_selectedGames.length}개의 '
                     '게임 계정이 선택되어 있습니다.',
-                      style: TextStyle(
-                        color: isDark
-                            ? const Color(0xFFAEB9C8)
-                            : const Color(0xFF4F6758),
+                    style: TextStyle(
+                      color: isDark
+                          ? const Color(0xFFAEB9C8)
+                          : const Color(0xFF4F6758),
                       fontSize: 12,
                     ),
                   ),
@@ -2101,12 +2118,11 @@ class _SelectableGameAccountCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color:
-                  selected
-                      ? const Color(0xFF8069FF)
-                      : (isDark
-                          ? const Color(0xFF24344A)
-                          : const Color(0xFFD8DEE8)),
+              color: selected
+                  ? const Color(0xFF8069FF)
+                  : (isDark
+                      ? const Color(0xFF24344A)
+                      : const Color(0xFFD8DEE8)),
               width: selected ? 2 : 1,
             ),
           ),
@@ -3663,9 +3679,8 @@ class _FinalInformationRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: isDark
-                    ? const Color(0xFF8290A4)
-                    : const Color(0xFF687386),
+                color:
+                    isDark ? const Color(0xFF8290A4) : const Color(0xFF687386),
                 fontSize: 12,
               ),
             ),

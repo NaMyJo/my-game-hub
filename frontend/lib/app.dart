@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/public_pages.dart';
 import 'theme/app_theme_controller.dart';
 
 class MyGameHubApp extends StatelessWidget {
@@ -38,6 +39,28 @@ class MyGameHubApp extends StatelessWidget {
           fontFamily: 'sans-serif',
           useMaterial3: true,
         ),
+        onGenerateRoute: (settings) {
+          final uri = Uri.parse(settings.name ?? '/');
+          if (uri.pathSegments.length == 2 &&
+              uri.pathSegments.first == 'profile') {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => PublicProfilePage(
+                publicId: uri.pathSegments[1],
+              ),
+            );
+          }
+          if (uri.pathSegments.length == 2 &&
+              uri.pathSegments.first == 'identity') {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => SharedIdentityPage(
+                shareId: uri.pathSegments[1],
+              ),
+            );
+          }
+          return null;
+        },
         home: const AuthGate(),
       ),
     );

@@ -27,6 +27,16 @@ public class AppUser {
     @Column(name = "profile_introduction", length = 120)
     private String profileIntroduction;
 
+    @Column(name = "public_id", unique = true, length = 36)
+    private String publicId;
+
+    @Column(
+            name = "profile_public",
+            nullable = false,
+            columnDefinition = "boolean default false"
+    )
+    private boolean profilePublic;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -59,6 +69,12 @@ public class AppUser {
         this.updatedAt = Instant.now();
     }
 
+    public void updatePublicProfile(String publicId, boolean profilePublic) {
+        this.publicId = publicId;
+        this.profilePublic = profilePublic;
+        this.updatedAt = Instant.now();
+    }
+
     public String getFirebaseUid() {
         return firebaseUid;
     }
@@ -82,4 +98,7 @@ public class AppUser {
     public String getProfileIntroduction() {
         return profileIntroduction;
     }
+
+    public String getPublicId() { return publicId; }
+    public boolean isProfilePublic() { return profilePublic; }
 }

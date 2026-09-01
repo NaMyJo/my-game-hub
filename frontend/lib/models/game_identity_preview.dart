@@ -10,6 +10,7 @@ class GameIdentityPreviewEntry {
     required this.topPercent,
     required this.includedInAverage,
     required this.estimated,
+    required this.exclusionReason,
   });
 
   final int gameAccountId;
@@ -20,12 +21,13 @@ class GameIdentityPreviewEntry {
   final double? topPercent;
   final bool includedInAverage;
   final bool estimated;
+  final String? exclusionReason;
 
   factory GameIdentityPreviewEntry.fromJson(
     Map<String, dynamic> json,
   ) {
     return GameIdentityPreviewEntry(
-      gameAccountId: (json['gameAccountId'] as num).toInt(),
+      gameAccountId: (json['gameAccountId'] as num?)?.toInt() ?? 0,
       gameType: GameTypeX.fromApiValue(
         json['gameType'] as String,
       ),
@@ -35,6 +37,7 @@ class GameIdentityPreviewEntry {
       topPercent: (json['topPercent'] as num?)?.toDouble(),
       includedInAverage: json['includedInAverage'] as bool? ?? false,
       estimated: json['estimated'] as bool? ?? false,
+      exclusionReason: json['exclusionReason'] as String?,
     );
   }
 }

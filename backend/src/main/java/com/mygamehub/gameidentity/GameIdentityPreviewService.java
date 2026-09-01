@@ -122,6 +122,27 @@ public class GameIdentityPreviewService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public GameIdentityPreviewResponse analyzeAll(
+            String firebaseUid,
+            String displayName
+    ) {
+        List<Long> ids = gameAccountRepository
+                .findAllByFirebaseUidOrderByDisplayOrderAscIdAsc(firebaseUid)
+                .stream()
+                .map(GameAccount::getId)
+                .toList();
+
+        if (ids.isEmpty()) {
+            return new GameIdentityPreviewResponse(
+                    displayName, null, "RPG_ONLY",
+                    "등록된 게임 계정이 없습니다.", 0, List.of()
+            );
+        }
+
+        return preview(firebaseUid, new GameIdentityPreviewRequest(displayName, ids));
+    }
+
     private GameIdentityPreviewEntryResponse createEntry(
             GameAccount account
     ) {
@@ -138,7 +159,8 @@ public class GameIdentityPreviewService {
                     ),
                     null,
                     false,
-                    false
+                    false,
+                    "RPG 게임"
             );
         }
 
@@ -165,8 +187,20 @@ public class GameIdentityPreviewService {
                 nullToDash(metricValue),
                 percentile.topPercent(),
                 percentile.available(),
-                percentile.estimated()
+                percentile.estimated(),
+                percentile.available()
+                        ? null
+                        : resolveExclusionReason(account)
         );
+    }
+
+    private String resolveExclusionReason(GameAccount account) {
+        if (account.getGameType() == GameType.ETERNAL_RETURN &&
+                ("0 RP".equals(account.getSecondaryValue()) ||
+                        "0".equals(account.getSecondaryValue()))) {
+            return "경쟁전 미진행";
+        }
+        return "비교 가능한 랭크 데이터 없음";
     }
 private String findRankLabel(
         GameAccount account

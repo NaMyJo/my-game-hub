@@ -57,6 +57,14 @@ class ApiClient {
     return _decode(response);
   }
 
+  Future<dynamic> publicGet(String path) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl$path'),
+      headers: const {'Accept': 'application/json'},
+    );
+    return _decode(response);
+  }
+
   Future<dynamic> post(
     String path, {
     Object? body,
@@ -94,6 +102,14 @@ class ApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwApiError(response);
     }
+  }
+
+  Future<dynamic> deleteWithResponse(String path) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl$path'),
+      headers: await _headers(),
+    );
+    return _decode(response);
   }
 
   dynamic _decode(http.Response response) {
