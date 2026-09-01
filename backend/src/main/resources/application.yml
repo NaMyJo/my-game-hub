@@ -44,6 +44,7 @@ app:
 
   game-finder:
     steam-api-key: ${STEAM_WEB_API_KEY:}
+    steam-catalog-base-url: ${GAME_FINDER_STEAM_CATALOG_BASE_URL:https://api.steampowered.com}
     igdb-client-id: ${IGDB_CLIENT_ID:}
     igdb-client-secret: ${IGDB_CLIENT_SECRET:}
     sync-enabled: ${GAME_FINDER_CATALOG_SYNC_ENABLED:false}
