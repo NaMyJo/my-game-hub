@@ -8,6 +8,7 @@ class StatCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.caption,
+    this.embedded = false,
   });
 
   final IconData? icon;
@@ -16,6 +17,7 @@ class StatCard extends StatelessWidget {
   final String label;
   final String value;
   final String caption;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +25,10 @@ class StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF091322) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: embedded
+            ? Colors.transparent
+            : (isDark ? const Color(0xFF091322) : Colors.white),
+        borderRadius: embedded ? null : BorderRadius.circular(18),
         border: Border.all(
           color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),

@@ -39,6 +39,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingGameProfile = true;
   int? _refreshingGameId;
   bool _isLoadingGames = true;
+  bool _isRefreshingAll = false;
   bool _loadGamesTakingLong = false;
   bool _dashboardMenuExpanded = true;
   bool _deleteMode = false;
@@ -734,6 +735,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _refreshAllGames() async {
+    if (_isRefreshingAll || _refreshingGameId != null || _games.isEmpty) {
+      return;
+    }
+
+    setState(() => _isRefreshingAll = true);
+    var successCount = 0;
+    final failures = <String>[];
+
+    for (final game in List<GameProfile>.from(_games)) {
+      if (!mounted) return;
+      setState(() => _refreshingGameId = game.id);
+      try {
+        final refreshed = await GameRepository.instance.refreshGame(game.id);
+        if (!mounted) return;
+        final index = _games.indexWhere((item) => item.id == game.id);
+        if (index != -1) {
+          setState(() => _games[index] = refreshed);
+        }
+        successCount++;
+      } on ApiException catch (error) {
+        failures.add('${game.accountName}: ${error.message}');
+      } catch (_) {
+        failures.add('${game.accountName}: API 연결 오류');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _refreshingGameId = null;
+      _isRefreshingAll = false;
+    });
+    await _loadGameProfileSummary();
+    if (!mounted) return;
+    await _showRefreshAllResult(successCount, failures);
+  }
+
+  Future<void> _showRefreshAllResult(
+    int successCount,
+    List<String> failures,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          failures.isEmpty
+              ? Icons.check_circle_outline_rounded
+              : Icons.sync_problem_rounded,
+        ),
+        title: const Text('전체 새로고침 완료'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$successCount개가 새로고침되었습니다.'),
+              if (failures.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  '현재 새로고침에 실패한 계정',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: SingleChildScrollView(
+                    child: Text(failures.map((item) => '• $item').join('\n')),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _reorderGame(
     GameProfile draggedGame,
     GameProfile targetGame,
@@ -1249,6 +1334,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               isLoadingGameProfile: _isLoadingGameProfile,
                               onOpenAnalysis: _openGamePowerAnalysis,
                               onPublicProfile: _openPublicProfileSettings,
+                              onRefreshAll: _refreshAllGames,
+                              isRefreshingAll: _isRefreshingAll,
                             ),
                             const SizedBox(height: 18),
                             if (_isLoadingGames)
@@ -2041,6 +2128,8 @@ class _HeroProfile extends StatelessWidget {
     required this.isLoadingGameProfile,
     required this.onOpenAnalysis,
     required this.onPublicProfile,
+    required this.onRefreshAll,
+    required this.isRefreshingAll,
   });
 
   final User? user;
@@ -2050,6 +2139,8 @@ class _HeroProfile extends StatelessWidget {
   final bool isLoadingGameProfile;
   final VoidCallback onOpenAnalysis;
   final VoidCallback onPublicProfile;
+  final VoidCallback onRefreshAll;
+  final bool isRefreshingAll;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
@@ -2071,7 +2162,7 @@ class _HeroProfile extends StatelessWidget {
           child: Stack(
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 46),
+                padding: const EdgeInsets.only(right: 88),
                 child: Row(
                   children: [
                     Container(
@@ -2132,6 +2223,34 @@ class _HeroProfile extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Positioned(
+                right: 42,
+                bottom: 0,
+                child: IconButton(
+                  onPressed: isRefreshingAll ? null : onRefreshAll,
+                  tooltip: '전체 새로고침',
+                  style: IconButton.styleFrom(
+                    backgroundColor: isDark
+                        ? const Color(0xFF101D30)
+                        : const Color(0xFFF0F3F8),
+                    foregroundColor: const Color(0xFF7D6CF0),
+                    side: BorderSide(
+                      color: isDark
+                          ? const Color(0xFF2B3A50)
+                          : const Color(0xFFD8DEEA),
+                    ),
+                    minimumSize: const Size(34, 34),
+                    padding: EdgeInsets.zero,
+                  ),
+                  icon: isRefreshingAll
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 17),
                 ),
               ),
               Positioned(
@@ -2245,95 +2364,111 @@ class _SummaryRow extends StatelessWidget {
                 ? 2
                 : 1;
 
-        const spacing = 14.0;
+        const spacing = 0.0;
 
         final cardWidth =
             (constraints.maxWidth - spacing * (columns - 1)) / columns;
 
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.auto_awesome_rounded,
-                imageAsset: 'assets/game_icons/lostark.png',
-                label: 'LOST ARK',
-                value: '$lostArkCount개',
-                caption: '등록 계정',
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF091322) : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: [
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.auto_awesome_rounded,
+                  imageAsset: 'assets/game_icons/lostark.png',
+                  label: 'LOST ARK',
+                  value: '$lostArkCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.shield_rounded,
-                imageAsset: 'assets/game_icons/lol.png',
-                label: 'RIOT GAMES',
-                value: 'LoL $lolCount개 · TFT $tftCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.shield_rounded,
+                  imageAsset: 'assets/game_icons/lol.png',
+                  label: 'RIOT GAMES',
+                  value: 'LoL $lolCount개 · TFT $tftCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.diamond_rounded,
-                imageAsset: 'assets/game_icons/eternal_return.png',
-                label: 'ETERNAL RETURN',
-                value: '$eternalReturnCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.diamond_rounded,
+                  imageAsset: 'assets/game_icons/eternal_return.png',
+                  label: 'ETERNAL RETURN',
+                  value: '$eternalReturnCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.park_rounded,
-                imageAsset: 'assets/game_icons/maplestory.png',
-                label: 'MAPLESTORY',
-                value: '$mapleStoryCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.park_rounded,
+                  imageAsset: 'assets/game_icons/maplestory.png',
+                  label: 'MAPLESTORY',
+                  value: '$mapleStoryCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.sports_martial_arts_rounded,
-                imageAsset: 'assets/game_icons/dungeon_fighter.png',
-                label: 'DUNGEON & FIGHTER',
-                value: '$dungeonFighterCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.sports_martial_arts_rounded,
+                  imageAsset: 'assets/game_icons/dungeon_fighter.png',
+                  label: 'DUNGEON & FIGHTER',
+                  value: '$dungeonFighterCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.sports_esports_rounded,
-                imageAsset: 'assets/game_icons/pubg.png',
-                label: 'BATTLEGROUNDS',
-                value: '$battlegroundsCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.sports_esports_rounded,
+                  imageAsset: 'assets/game_icons/pubg.png',
+                  label: 'BATTLEGROUNDS',
+                  value: '$battlegroundsCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.local_fire_department_rounded,
-                imageAsset: 'assets/game_icons/valorant.png',
-                label: 'VALORANT',
-                value: '$valorantCount개',
-                caption: '등록 계정',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.local_fire_department_rounded,
+                  imageAsset: 'assets/game_icons/valorant.png',
+                  label: 'VALORANT',
+                  value: '$valorantCount개',
+                  caption: '등록 계정',
+                ),
               ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: StatCard(
-                icon: Icons.bolt_rounded,
-                label: '데이터 동기화',
-                value: lastSyncText,
-                caption: '마지막 API 갱신',
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.bolt_rounded,
+                  label: '데이터 동기화',
+                  value: lastSyncText,
+                  caption: '마지막 API 갱신',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
