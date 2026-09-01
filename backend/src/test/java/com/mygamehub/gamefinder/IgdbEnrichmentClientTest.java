@@ -81,10 +81,13 @@ class IgdbEnrichmentClientTest {
     void exposesIgdbHttpFailureWithoutResponseBody(int status) {
         TestContext context = context();
         expectToken(context.server());
-        context.server().expect(requestTo("https://api.igdb.com/v4/external_game_sources"))
-                .andRespond(withStatus(HttpStatus.valueOf(status))
-                        .body("sensitive upstream response must not be propagated")
-                        .contentType(MediaType.TEXT_PLAIN));
+        int attempts = status == 429 || status >= 500 ? 3 : 1;
+        for (int i = 0; i < attempts; i++) {
+            context.server().expect(requestTo("https://api.igdb.com/v4/external_game_sources"))
+                    .andRespond(withStatus(HttpStatus.valueOf(status))
+                            .body("sensitive upstream response must not be propagated")
+                            .contentType(MediaType.TEXT_PLAIN));
+        }
         var exception = assertThrows(IgdbEnrichmentClient.IgdbRequestException.class,
                 () -> context.client().findBySteamAppId(570));
         assertEquals("external_game_sources", exception.stage());

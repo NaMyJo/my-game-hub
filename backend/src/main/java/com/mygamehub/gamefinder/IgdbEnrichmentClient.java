@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -19,18 +20,34 @@ public class IgdbEnrichmentClient {
     private final RestClient rest;
     private final String clientId;
     private final String secret;
+    private final ExternalApiRetry retry;
+    private final long requestIntervalMs;
+    private long lastRequestNanos;
     private String token;
     private Instant tokenExpiresAt = Instant.EPOCH;
     private Long steamSourceId;
 
+    @Autowired
     public IgdbEnrichmentClient(RestClient.Builder builder,
             @Value("${app.game-finder.igdb-client-id:}") String clientId,
-            @Value("${app.game-finder.igdb-client-secret:}") String secret) {
+            @Value("${app.game-finder.igdb-client-secret:}") String secret,
+            ExternalApiRetry retry,
+            @Value("${app.game-finder.igdb-request-interval-ms:260}") long requestIntervalMs) {
         this.rest = builder.build();
         this.clientId = clientId;
         this.secret = secret;
+        this.retry = retry;
+        this.requestIntervalMs = Math.max(250, requestIntervalMs);
         log.info("igdb_configuration configured={} clientIdPresent={} clientSecretPresent={}",
                 configured(), !clientId.isBlank(), !secret.isBlank());
+    }
+
+    IgdbEnrichmentClient(RestClient.Builder builder, String clientId, String secret) {
+        this.rest = builder.build();
+        this.clientId = clientId;
+        this.secret = secret;
+        this.retry = new ExternalApiRetry(millis -> {});
+        this.requestIntervalMs = 0;
     }
 
     public boolean configured() {
@@ -105,13 +122,19 @@ public class IgdbEnrichmentClient {
     }
 
     private JsonNode post(String endpoint, String body, String bearer, Long appId) {
+        pace();
+        return retry.execute(() -> postOnce(endpoint, body, bearer, appId));
+    }
+
+    private JsonNode postOnce(String endpoint, String body, String bearer, Long appId) {
         try {
             return rest.post().uri(IGDB_API + "/" + endpoint).contentType(MediaType.TEXT_PLAIN)
                     .header("Client-ID", clientId).header("Authorization", "Bearer " + bearer).body(body)
                     .retrieve().onStatus(status -> status.isError(), (request, response) -> {
                         int status = response.getStatusCode().value();
                         log.warn("igdb_http_error stage={} appId={} status={}", endpoint, appId, status);
-                        throw new IgdbRequestException(endpoint, status);
+                        throw new IgdbRequestException(endpoint, status,
+                                ExternalApiRetry.parseRetryAfter(response.getHeaders().getFirst("Retry-After")));
                     }).body(JsonNode.class);
         } catch (IgdbRequestException exception) {
             throw exception;
@@ -120,6 +143,17 @@ public class IgdbEnrichmentClient {
                     endpoint, appId, exception.getClass().getSimpleName());
             throw new IllegalStateException("IGDB 요청 전송에 실패했습니다. stage=" + endpoint);
         }
+    }
+
+    private synchronized void pace() {
+        if (requestIntervalMs <= 0) return;
+        long elapsedMs = (System.nanoTime() - lastRequestNanos) / 1_000_000L;
+        long waitMs = lastRequestNanos == 0 ? 0 : requestIntervalMs - elapsedMs;
+        if (waitMs > 0) {
+            try { Thread.sleep(waitMs); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("IGDB 요청 대기가 중단되었습니다.", e); }
+        }
+        lastRequestNanos = System.nanoTime();
     }
 
     private synchronized String token() {
@@ -132,7 +166,8 @@ public class IgdbEnrichmentClient {
                     .onStatus(status -> status.isError(), (request, httpResponse) -> {
                         int status = httpResponse.getStatusCode().value();
                         log.warn("igdb_token_http_error status={}", status);
-                        throw new IgdbRequestException("token", status);
+                        throw new IgdbRequestException("token", status,
+                                ExternalApiRetry.parseRetryAfter(httpResponse.getHeaders().getFirst("Retry-After")));
                     }).body(JsonNode.class);
         } catch (IgdbRequestException exception) {
             throw exception;
@@ -157,16 +192,20 @@ public class IgdbEnrichmentClient {
         return node != null && node.isArray() ? node.size() : 0;
     }
 
-    static final class IgdbRequestException extends RuntimeException {
+    static final class IgdbRequestException extends RuntimeException implements ExternalApiRetry.RetryableFailure {
         private final String stage;
         private final int status;
-        IgdbRequestException(String stage, int status) {
+        private final Long retryAfterMillis;
+        IgdbRequestException(String stage, int status, Long retryAfterMillis) {
             super("IGDB request failed: stage=" + stage + ", status=" + status);
             this.stage = stage;
             this.status = status;
+            this.retryAfterMillis = retryAfterMillis;
         }
         String stage() { return stage; }
         int status() { return status; }
+        @Override public boolean isRetryable() { return status == 429 || status >= 500; }
+        @Override public Long retryAfterMillis() { return retryAfterMillis; }
     }
 
     public record IgdbData(Long gameId, Integer multiplayerModeCount, Integer minPlayers,

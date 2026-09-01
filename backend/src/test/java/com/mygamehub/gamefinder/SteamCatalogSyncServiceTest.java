@@ -29,6 +29,7 @@ class SteamCatalogSyncServiceTest {
 
         assertEquals(10, checkpoint.getLastAppId());
         assertNull(checkpoint.getLastModifiedSince());
+        assertEquals(100, checkpoint.getPendingMaxModified());
         assertEquals("RUNNING", checkpoint.getStatus());
         verify(games).save(any(SteamGame.class));
     }
@@ -47,6 +48,23 @@ class SteamCatalogSyncServiceTest {
         assertEquals(200, checkpoint.getLastModifiedSince());
         assertEquals("SUCCESS", checkpoint.getStatus());
         assertNotNull(checkpoint.getLastSuccessfulSyncAt());
+    }
+
+    @Test
+    void resumeKeepsMaximumModifiedValueAcrossPages() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
+        when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null)).thenReturn(new SteamCatalogClient.CatalogPage(
+                List.of(new SteamCatalogClient.CatalogItem(10, "A", 900, 1)), true, 10));
+        when(catalog.page(10, null)).thenReturn(new SteamCatalogClient.CatalogPage(
+                List.of(new SteamCatalogClient.CatalogItem(20, "B", 200, 2)), false, 20));
+        when(games.findBySteamAppId(anyLong())).thenReturn(Optional.empty());
+
+        assertTrue(service.sync("steam-catalog"));
+        assertFalse(service.sync("steam-catalog"));
+
+        assertEquals(900, checkpoint.getLastModifiedSince());
+        assertNull(checkpoint.getPendingMaxModified());
     }
 
     @Test
@@ -76,5 +94,33 @@ class SteamCatalogSyncServiceTest {
         verify(games).save(existing);
         assertEquals("New", existing.getName());
         verify(games, never()).save(argThat(game -> game != existing));
+    }
+
+    @Test
+    void rowFailureDoesNotAdvancePageCheckpoint() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
+        when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null)).thenReturn(new SteamCatalogClient.CatalogPage(
+                List.of(new SteamCatalogClient.CatalogItem(40, "Broken", 400, 4)), true, 40));
+        when(games.findBySteamAppId(40L)).thenReturn(Optional.empty());
+        when(games.save(any(SteamGame.class))).thenThrow(new IllegalStateException("db unavailable"));
+
+        assertThrows(IllegalStateException.class, () -> service.sync("steam-catalog"));
+
+        assertEquals(0, checkpoint.getLastAppId());
+        assertEquals("FAILED", checkpoint.getStatus());
+    }
+
+    @Test
+    void limitedBootstrapDoesNotSaveCheckpoint() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
+        when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null)).thenReturn(new SteamCatalogClient.CatalogPage(List.of(), true, 100));
+
+        assertEquals(0, service.bootstrapLimited(100));
+
+        verify(checkpoints, never()).save(any());
+        assertEquals(0, checkpoint.getLastAppId());
+        assertEquals("NEW", checkpoint.getStatus());
     }
 }

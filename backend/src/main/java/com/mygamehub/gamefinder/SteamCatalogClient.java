@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import java.util.*;
 
 @Component
@@ -16,16 +17,18 @@ public class SteamCatalogClient {
     }
     public CatalogPage page(long lastAppId, Long modifiedSince) {
         if(apiKey.isBlank()) throw new IllegalStateException("STEAM_WEB_API_KEY 환경변수가 설정되지 않았습니다.");
-        JsonNode root=retry.execute(()->client.get().uri(builder->{builder.path("/IStoreService/GetAppList/v1/")
+        JsonNode root;
+        try{root=retry.execute(()->client.get().uri(builder->{builder.path("/IStoreService/GetAppList/v1/")
                 .queryParam("key",apiKey).queryParam("include_games",true).queryParam("include_dlc",false)
                 .queryParam("include_software",false).queryParam("include_videos",false)
                 .queryParam("include_hardware",false).queryParam("last_appid",lastAppId)
                 .queryParam("max_results",pageSize); if(modifiedSince!=null&&modifiedSince>0)builder.queryParam("if_modified_since",modifiedSince); return builder.build();})
-                .retrieve().body(JsonNode.class));
+                .retrieve().body(JsonNode.class));}catch(RestClientException e){throw new IllegalStateException("Steam catalog 요청에 실패했습니다. errorType="+e.getClass().getSimpleName());}
         JsonNode response=root==null?null:root.path("response"); List<CatalogItem> items=new ArrayList<>();
         if(response!=null) for(JsonNode app:response.path("apps")) items.add(new CatalogItem(app.path("appid").asLong(),app.path("name").asText(),app.path("last_modified").asLong(),app.path("price_change_number").asLong()));
         return new CatalogPage(items,response!=null&&response.path("have_more_results").asBoolean(false),response==null?lastAppId:response.path("last_appid").asLong(lastAppId));
     }
+    public int pageSize(){return pageSize;}
     public record CatalogItem(long appId,String name,long lastModified,long priceChangeNumber){}
     public record CatalogPage(List<CatalogItem> items,boolean hasMore,long lastAppId){}
 }

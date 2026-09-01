@@ -40,6 +40,7 @@ public class GameFinderCommandRunner implements ApplicationRunner {
             switch (command) {
                 case "smoke" -> smoke.run(smokeAppIds);
                 case "bootstrap" -> sync.bootstrap();
+                case "bootstrap-dry-run" -> sync.dryRun();
                 case "sync" -> sync.syncIncremental();
                 default -> throw new IllegalArgumentException(
                         "지원하지 않는 GAME FINDER command: " + command);

@@ -1,6 +1,9 @@
 package com.mygamehub.gamefinder;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -8,8 +11,21 @@ import org.springframework.web.client.RestClient;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class SteamStoreDetailClientTest {
+    @ParameterizedTest
+    @ValueSource(ints = {429, 500, 503})
+    void retriesTransientHttpFailureAndStopsAfterThreeAttempts(int status) {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        String url = "https://store.steampowered.com/api/appdetails?appids=570&cc=kr&l=korean";
+        for (int i = 0; i < 3; i++) server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.valueOf(status)));
+        SteamStoreDetailClient client = new SteamStoreDetailClient(builder, new ExternalApiRetry(ms -> {}));
+        assertThrows(RuntimeException.class, () -> client.get(570));
+        server.verify();
+    }
+
     @Test
     void parsesUpcomingGameAndRequiredAgeFromStoreResponse() {
         RestClient.Builder builder = RestClient.builder();
