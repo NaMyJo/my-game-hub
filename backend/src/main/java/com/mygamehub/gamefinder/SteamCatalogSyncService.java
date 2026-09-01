@@ -52,13 +52,6 @@ public class SteamCatalogSyncService {
         this.igdbIntervalMs = igdbIntervalMs;
     }
 
-    SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
-            SteamGameRepository games, CatalogSyncCheckpointRepository checkpoints,
-            IgdbEnrichmentClient igdb, int batchSize, int pagesPerRun) {
-        this(catalog, store, games, new SteamCatalogPersistenceService(games), checkpoints,
-                igdb, batchSize, pagesPerRun, 0, 0, 0);
-    }
-
     @PostConstruct
     void logConfiguration() {
         log.info("game_finder_bootstrap_config catalogPageSize={} pagesPerRun={} storeDelayMs={} "
