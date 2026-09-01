@@ -6,6 +6,7 @@ import org.mockito.InOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,9 +19,10 @@ class SteamCatalogSyncServiceTest {
     private final SteamCatalogPersistenceService persistence = mock(SteamCatalogPersistenceService.class);
     private final CatalogSyncCheckpointRepository checkpoints = mock(CatalogSyncCheckpointRepository.class);
     private final IgdbEnrichmentClient igdb = mock(IgdbEnrichmentClient.class);
+    private final GameTagService tagService = mock(GameTagService.class);
     private final SteamCatalogSyncService service =
             new SteamCatalogSyncService(catalog, store, games, persistence, checkpoints,
-                    igdb, 10, 2, 0, 0, 0);
+                    igdb, tagService, 10, 2, 0, 0, 0);
 
     @BeforeEach
     void persistenceReturnsEntities() {
@@ -130,7 +132,7 @@ class SteamCatalogSyncServiceTest {
     @Test
     void limitedBootstrapPersistsAllOneHundredBeforeStartingEnrichment() {
         SteamCatalogSyncService limitedService = new SteamCatalogSyncService(
-                catalog, store, games, persistence, checkpoints, igdb,
+                catalog, store, games, persistence, checkpoints, igdb, tagService,
                 10, 2, 100, 0, 0);
         CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
         List<SteamCatalogClient.CatalogItem> items = new ArrayList<>();
@@ -158,7 +160,7 @@ class SteamCatalogSyncServiceTest {
     @Test
     void catalogPersistDiagnosticDoesNotEnrichOrChangeCheckpoint() {
         SteamCatalogSyncService diagnosticService = new SteamCatalogSyncService(
-                catalog, store, games, persistence, checkpoints, igdb,
+                catalog, store, games, persistence, checkpoints, igdb, tagService,
                 10, 2, 100, 0, 0);
         CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
         var item = new SteamCatalogClient.CatalogItem(10, "Counter-Strike", 1, 1);
@@ -175,5 +177,135 @@ class SteamCatalogSyncServiceTest {
         verify(checkpoints, never()).save(any());
         assertEquals("NEW", checkpoint.getStatus());
         assertEquals(0, checkpoint.getLastAppId());
+    }
+
+    @Test
+    void resumeBatchSkipsCompletedMetadataAndProcessesPendingOnly() {
+        SteamGame completed = new SteamGame(1, "Done", 0, 0);
+        completed.updateStoreDetail("game", null, null, false, "KRW", 0, 0, 0,
+                0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, false, false, false);
+        SteamGame pending = new SteamGame(24, "Pending", 0, 0);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(pending));
+        when(games.findIgdbCandidates(any())).thenReturn(List.of());
+        when(store.get(24L)).thenReturn(Optional.empty());
+
+        assertEquals(1, service.enrichBatch());
+
+        verify(store).get(24L);
+        verify(store, never()).get(1L);
+        assertEquals(EnrichmentStatus.NOT_FOUND, pending.getMetadataStatus());
+        assertEquals(EnrichmentStatus.SUCCESS, completed.getMetadataStatus());
+    }
+
+    @Test
+    void igdbNotFoundIsDurableAndSuccessIsNotSelectedAgain() {
+        SteamGame noMatch = new SteamGame(4436560, "No Match", 0, 0);
+        noMatch.updateStoreDetail("game", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, true, false, false);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(noMatch));
+        when(igdb.configured()).thenReturn(true);
+        when(igdb.findBySteamAppId(4436560L)).thenReturn(Optional.empty());
+
+        assertEquals(1, service.enrichBatch());
+
+        assertEquals(EnrichmentStatus.NOT_FOUND, noMatch.getIgdbStatus());
+        assertNotNull(noMatch.getIgdbUpdatedAt());
+        verify(igdb, times(1)).findBySteamAppId(4436560L);
+    }
+
+    @Test
+    void retryableIgdbFailureCanSucceedOnNextBatch() {
+        SteamGame game = new SteamGame(570, "Dota 2", 0, 0);
+        game.updateStoreDetail("game", null, null, true, "KRW", 0, 0, 0, 0,
+                "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                false, true, true, false);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(game));
+        when(igdb.configured()).thenReturn(true);
+        when(igdb.findBySteamAppId(570L))
+                .thenThrow(new IgdbEnrichmentClient.IgdbRequestException("external_games", 429, 0L))
+                .thenReturn(Optional.of(new IgdbEnrichmentClient.IgdbData(
+                        42L, 1, 1, 10, 10, 5, true, true, false)));
+
+        service.enrichBatch();
+        assertEquals(EnrichmentStatus.RETRYABLE_FAILURE, game.getIgdbStatus());
+        service.enrichBatch();
+
+        assertEquals(EnrichmentStatus.SUCCESS, game.getIgdbStatus());
+        assertEquals(42L, game.getIgdbGameId());
+        verify(igdb, times(2)).findBySteamAppId(570L);
+    }
+
+    @Test
+    void completedMetadataAndIgdbAreNotCalledAgainEvenInLimitedInput() {
+        SteamGame game = new SteamGame(570, "Dota 2", 0, 0);
+        game.updateStoreDetail("game", null, null, true, "KRW", 0, 0, 0, 0,
+                "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                false, true, true, false);
+        game.updateIgdb(42L, 1, 10, 10, 5, true, true, false);
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
+        var item = new SteamCatalogClient.CatalogItem(570, "Dota 2", 0, 0);
+        when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null, 1)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 570));
+        when(persistence.upsertAll(List.of(item))).thenReturn(List.of(game));
+        when(igdb.configured()).thenReturn(true);
+
+        assertEquals(1, service.bootstrapLimited(1));
+
+        verifyNoInteractions(store);
+        verify(igdb, never()).findBySteamAppId(anyLong());
+    }
+
+    @Test
+    void incrementalPageNeverMarksMissingGamesRemoved() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
+        when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), false, 0));
+
+        service.sync("steam-catalog");
+
+        verify(games, never()).markMissingAsRemoved(anyString());
+    }
+
+    @Test
+    void interruptedReconciliationKeepsGenerationAndDoesNotRemoveMissing() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-reconciliation");
+        var item = new SteamCatalogClient.CatalogItem(10, "A", 1, 1);
+        when(checkpoints.findById("steam-reconciliation")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 10));
+        when(persistence.upsertAll(eq(List.of(item)), anyString()))
+                .thenReturn(List.of(new SteamGame(10, "A", 1, 1)));
+
+        assertTrue(service.reconcilePage());
+
+        assertEquals(10, checkpoint.getLastAppId());
+        assertNotNull(checkpoint.getReconciliationGeneration());
+        verify(games, never()).markMissingAsRemoved(anyString());
+    }
+
+    @Test
+    void onlySuccessfulFinalReconciliationMarksMissingAndClearsGeneration() {
+        CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-reconciliation");
+        String generation = checkpoint.ensureReconciliationGeneration();
+        checkpoint.page(10, 0);
+        var item = new SteamCatalogClient.CatalogItem(20, "B", 1, 1);
+        when(checkpoints.findById("steam-reconciliation")).thenReturn(Optional.of(checkpoint));
+        when(catalog.page(10, null)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), false, 20));
+        when(persistence.upsertAll(List.of(item), generation))
+                .thenReturn(List.of(new SteamGame(20, "B", 1, 1)));
+        when(games.markMissingAsRemoved(generation)).thenReturn(3);
+
+        assertFalse(service.reconcilePage());
+
+        verify(games).markMissingAsRemoved(generation);
+        assertNull(checkpoint.getReconciliationGeneration());
+        assertEquals("SUCCESS", checkpoint.getStatus());
     }
 }

@@ -12,14 +12,18 @@ public class CatalogSyncCheckpoint {
     @Column(name="last_successful_sync_at") private Instant lastSuccessfulSyncAt;
     @Column(length=20) private String status;
     @Column(name="failure_info", length=1000) private String failureInfo;
+    @Column(name="reconciliation_generation",length=60) private String reconciliationGeneration;
     protected CatalogSyncCheckpoint() {}
     public CatalogSyncCheckpoint(String key){this.syncKey=key; this.status="NEW"; this.lastAppId=0L;}
     public void running(){if(lastAppId==null||lastAppId==0)pendingMaxModified=lastModifiedSince;status="RUNNING"; failureInfo=null;}
     public void page(long appId,long maxModified){lastAppId=appId;pendingMaxModified=maxModified;}
     public void success(long modified){lastAppId=0L; lastModifiedSince=modified;pendingMaxModified=null;lastSuccessfulSyncAt=Instant.now(); status="SUCCESS"; failureInfo=null;}
     public void failed(String value){status="FAILED"; failureInfo=value == null ? null : value.substring(0, Math.min(1000,value.length()));}
+    public String ensureReconciliationGeneration(){if(reconciliationGeneration==null||reconciliationGeneration.isBlank())reconciliationGeneration=java.util.UUID.randomUUID().toString();return reconciliationGeneration;}
+    public void clearReconciliationGeneration(){reconciliationGeneration=null;}
     public Long getLastAppId(){return lastAppId;} public Long getLastModifiedSince(){return lastModifiedSince;}
     public Long getPendingMaxModified(){return pendingMaxModified;}
     public Instant getLastSuccessfulSyncAt(){return lastSuccessfulSyncAt;}
     public String getStatus(){return status;} public String getFailureInfo(){return failureInfo;}
+    public String getReconciliationGeneration(){return reconciliationGeneration;}
 }

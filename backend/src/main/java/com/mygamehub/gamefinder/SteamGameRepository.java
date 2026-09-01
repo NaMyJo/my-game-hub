@@ -9,9 +9,26 @@ import java.util.*;
 public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     Optional<SteamGame> findBySteamAppId(Long steamAppId);
     List<SteamGame> findBySteamAppIdIn(Collection<Long> ids);
-    List<SteamGame> findByNameContainingIgnoreCaseAndMetadataUpdatedAtIsNotNull(String query, Pageable pageable);
-    @Query("select g from SteamGame g where g.metadataUpdatedAt is not null and g.storeType = 'game'")
+    @Query("select g from SteamGame g where lower(g.name) like lower(concat('%',:query,'%')) and g.metadataUpdatedAt is not null and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE) order by lower(g.name), g.steamAppId")
+    List<SteamGame> findActiveByName(@org.springframework.data.repository.query.Param("query") String query, Pageable pageable);
+    @Query("select g from SteamGame g where g.metadataUpdatedAt is not null and g.storeType = 'game' and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE)")
     List<SteamGame> findRecommendationCandidates();
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
+    @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
+            + "or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
+            + "or ((metadata_status = 'SUCCESS' or metadata_status is null) and metadata_updated_at < :staleBefore)) "
+            + "and (lifecycle_status is null or lifecycle_status='ACTIVE') "
+            + "order by steam_app_id",nativeQuery=true)
+    List<SteamGame> findMetadataCandidates(Instant staleBefore, Pageable pageable);
+    @Query(value="select * from steam_games where metadata_updated_at is not null and store_type = 'game' and "
+            + "((igdb_status is null and igdb_updated_at is null) "
+            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and (lifecycle_status is null or lifecycle_status='ACTIVE') order by steam_app_id",nativeQuery=true)
+    List<SteamGame> findIgdbCandidates(Pageable pageable);
+    @Query(value="select g.* from steam_games g where g.metadata_updated_at is not null and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') and not exists (select 1 from steam_game_tags t where t.steam_app_id=g.steam_app_id) order by g.steam_app_id",nativeQuery=true)
+    List<SteamGame> findTaxonomyCandidates(Pageable pageable);
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value="update steam_games set lifecycle_status='REMOVED' where (lifecycle_status is null or lifecycle_status='ACTIVE') and (reconciliation_generation is null or reconciliation_generation<>:generation)",nativeQuery=true)
+    int markMissingAsRemoved(@org.springframework.data.repository.query.Param("generation") String generation);
 }

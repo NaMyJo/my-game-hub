@@ -36,4 +36,33 @@ class GameFinderRepository {
             (v) => GameFinderRecommendation.fromJson(v as Map<String, dynamic>))
         .toList();
   }
+
+  Future<List<GameFinderTagSearchResult>> searchByTags({
+    String query = '',
+    List<String> tags = const [],
+    required int priceMin,
+    required int priceMax,
+    required bool includeAdult,
+    required int playerMin,
+    required int playerMax,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json =
+        await ApiClient.instance.post('/api/game-finder/search', body: {
+      'query': query,
+      'tags': tags,
+      'priceMin': priceMin,
+      'priceMax': priceMax,
+      'includeAdult': includeAdult,
+      'playerMin': playerMin,
+      'playerMax': playerMax,
+      'page': page,
+      'size': size,
+    }) as List<dynamic>;
+    return json
+        .map((value) => GameFinderTagSearchResult.fromJson(
+            value as Map<String, dynamic>))
+        .toList();
+  }
 }

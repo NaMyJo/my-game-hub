@@ -43,6 +43,9 @@ public class GameFinderCommandRunner implements ApplicationRunner {
                 case "bootstrap-dry-run" -> sync.dryRun();
                 case "catalog-diagnostic" -> sync.catalogDiagnostic();
                 case "catalog-persist-diagnostic" -> sync.catalogPersistDiagnostic();
+                case "enrich" -> sync.enrichBatch();
+                case "taxonomy" -> sync.taxonomyBatch();
+                case "reconcile" -> sync.reconcile();
                 case "sync" -> sync.syncIncremental();
                 default -> throw new IllegalArgumentException(
                         "지원하지 않는 GAME FINDER command: " + command);

@@ -39,6 +39,16 @@ public class SteamGame {
     @Column(name = "metadata_updated_at") private Instant metadataUpdatedAt;
     @Column(name = "price_updated_at") private Instant priceUpdatedAt;
     @Column(name = "igdb_updated_at") private Instant igdbUpdatedAt;
+    @Enumerated(EnumType.STRING) @Column(name = "metadata_status", length = 30)
+    private EnrichmentStatus metadataStatus;
+    @Column(name = "metadata_last_attempt_at") private Instant metadataLastAttemptAt;
+    @Enumerated(EnumType.STRING) @Column(name = "igdb_status", length = 30)
+    private EnrichmentStatus igdbStatus;
+    @Column(name = "igdb_last_attempt_at") private Instant igdbLastAttemptAt;
+    @Enumerated(EnumType.STRING) @Column(name="lifecycle_status",length=20)
+    private CatalogLifecycleStatus lifecycleStatus;
+    @Column(name="last_seen_at") private Instant lastSeenAt;
+    @Column(name="reconciliation_generation",length=60) private String reconciliationGeneration;
     @Column(name = "single_player") private Boolean singlePlayer;
     @Column(name = "multiplayer") private Boolean multiplayer;
     @Column(name = "online_coop") private Boolean onlineCoop;
@@ -83,6 +93,7 @@ public class SteamGame {
         this.multiplayer = multiplayer; this.onlineCoop = onlineCoop;
         this.offlineCoop = offlineCoop; this.metadataUpdatedAt = Instant.now();
         this.priceUpdatedAt = Instant.now();
+        this.metadataLastAttemptAt = Instant.now(); this.metadataStatus = EnrichmentStatus.SUCCESS;
     }
     public void updateIgdb(Long id, Integer min, Integer max, Integer onlineMax,
             Integer coopMax, Boolean multiplayer, Boolean onlineCoop,
@@ -91,11 +102,14 @@ public class SteamGame {
         this.onlineMaxPlayers=onlineMax; this.onlineCoopMaxPlayers=coopMax;
         this.multiplayer=multiplayer; this.onlineCoop=onlineCoop;
         this.offlineCoop=offlineCoop; this.igdbUpdatedAt=Instant.now();
+        this.igdbLastAttemptAt=Instant.now(); this.igdbStatus=EnrichmentStatus.SUCCESS;
     }
-    public void markEnrichmentAttempted() {
-        this.metadataUpdatedAt = Instant.now();
-        this.priceUpdatedAt = Instant.now();
-    }
+    public void markMetadataNotFound(){metadataLastAttemptAt=Instant.now();metadataStatus=EnrichmentStatus.NOT_FOUND;lifecycleStatus=CatalogLifecycleStatus.UNAVAILABLE;}
+    public void markMetadataFailure(boolean retryable){metadataLastAttemptAt=Instant.now();metadataStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
+    public void markIgdbNotFound(){igdbLastAttemptAt=Instant.now();igdbUpdatedAt=Instant.now();igdbStatus=EnrichmentStatus.NOT_FOUND;}
+    public void markIgdbFailure(boolean retryable){igdbLastAttemptAt=Instant.now();igdbStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
+    public void markRemoved(){lifecycleStatus=CatalogLifecycleStatus.REMOVED;}
+    public boolean isDiscoverable(){return lifecycleStatus==null||lifecycleStatus==CatalogLifecycleStatus.ACTIVE;}
     private String join(Set<String> values) { return values == null ? "" : String.join("|", values); }
     private Set<String> split(String value) {
         if (value == null || value.isBlank()) return Set.of();
@@ -120,4 +134,8 @@ public class SteamGame {
     public Boolean getOnlineCoop(){return onlineCoop;} public Boolean getOfflineCoop(){return offlineCoop;}
     public Integer getMinPlayers(){return minPlayers;} public Integer getMaxPlayers(){return maxPlayers;}
     public Integer getOnlineMaxPlayers(){return onlineMaxPlayers;} public Integer getOnlineCoopMaxPlayers(){return onlineCoopMaxPlayers;}
+    public EnrichmentStatus getMetadataStatus(){return metadataStatus;} public Instant getMetadataLastAttemptAt(){return metadataLastAttemptAt;}
+    public EnrichmentStatus getIgdbStatus(){return igdbStatus;} public Instant getIgdbLastAttemptAt(){return igdbLastAttemptAt;}
+    public CatalogLifecycleStatus getLifecycleStatus(){return lifecycleStatus;} public Instant getLastSeenAt(){return lastSeenAt;}
+    public String getReconciliationGeneration(){return reconciliationGeneration;}
 }

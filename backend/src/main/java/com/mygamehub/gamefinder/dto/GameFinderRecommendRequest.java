@@ -9,4 +9,4 @@ public record GameFinderRecommendRequest(
         @Min(1) @Max(15) int playerMin,
         @Min(1) @Max(15) int playerMax,
         List<Long> excludeAppIds
-) {}
+) implements com.mygamehub.gamefinder.GameFinderFilterCriteria {}

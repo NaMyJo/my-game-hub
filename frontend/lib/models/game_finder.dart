@@ -61,3 +61,50 @@ class GameFinderRecommendation {
               .toList(),
           storeUrl: j['storeUrl'] as String? ?? '');
 }
+
+class GameFinderTagSearchResult {
+  const GameFinderTagSearchResult({
+    required this.appId,
+    required this.name,
+    required this.canonicalTags,
+    required this.storeUrl,
+    this.imageUrl,
+    this.currentPrice,
+    this.originalPrice,
+    this.discountPercent,
+    this.isFree = false,
+    this.multiplayer,
+    this.onlineCoop,
+    this.minPlayers,
+    this.maxPlayers,
+    this.comingSoon = false,
+  });
+
+  final int appId;
+  final String name, storeUrl;
+  final String? imageUrl;
+  final int? currentPrice, originalPrice, discountPercent, minPlayers, maxPlayers;
+  final bool isFree, comingSoon;
+  final bool? multiplayer, onlineCoop;
+  final List<String> canonicalTags;
+
+  factory GameFinderTagSearchResult.fromJson(Map<String, dynamic> json) =>
+      GameFinderTagSearchResult(
+        appId: (json['steamAppId'] as num).toInt(),
+        name: json['name'] as String? ?? '',
+        imageUrl: json['headerImageUrl'] as String?,
+        currentPrice: (json['currentPrice'] as num?)?.toInt(),
+        originalPrice: (json['originalPrice'] as num?)?.toInt(),
+        discountPercent: (json['discountPercent'] as num?)?.toInt(),
+        isFree: json['isFree'] as bool? ?? false,
+        multiplayer: json['multiplayer'] as bool?,
+        onlineCoop: json['onlineCoop'] as bool?,
+        minPlayers: (json['minPlayers'] as num?)?.toInt(),
+        maxPlayers: (json['maxPlayers'] as num?)?.toInt(),
+        comingSoon: json['comingSoon'] as bool? ?? false,
+        canonicalTags: (json['canonicalTags'] as List<dynamic>? ?? const [])
+            .map((value) => value.toString())
+            .toList(),
+        storeUrl: json['storeUrl'] as String? ?? '',
+      );
+}

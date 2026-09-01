@@ -5,8 +5,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class GameFinderHardFilter {
-    public boolean matches(SteamGame game, GameFinderRecommendRequest request) {
-        return priceMatches(game, request.priceMin(), request.priceMax())
+    public boolean matches(SteamGame game, GameFinderFilterCriteria request) {
+        return game.isDiscoverable()
+                && priceMatches(game, request.priceMin(), request.priceMax())
                 && adultMatches(game, request.includeAdult())
                 && playersMatch(game, request.playerMin(), request.playerMax());
     }
