@@ -3,9 +3,9 @@ package com.mygamehub.gamefinder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -21,7 +21,7 @@ public class GameFinderCommandRunner implements ApplicationRunner {
     private final List<Long> smokeAppIds;
 
     public GameFinderCommandRunner(SteamCatalogSyncService sync,
-            GameFinderSmokeService smoke, ConfigurableApplicationContext context,
+            @Lazy GameFinderSmokeService smoke, ConfigurableApplicationContext context,
             @Value("${app.game-finder.command:}") String command,
             @Value("${app.game-finder.smoke-app-ids:570,1245620,4436560}")
             String smokeAppIds) {
@@ -37,6 +37,7 @@ public class GameFinderCommandRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         try {
+            System.out.printf("game_finder_command_start command=%s%n", command);
             switch (command) {
                 case "smoke" -> smoke.run(smokeAppIds);
                 case "bootstrap" -> sync.bootstrap();
@@ -51,7 +52,8 @@ public class GameFinderCommandRunner implements ApplicationRunner {
                         "지원하지 않는 GAME FINDER command: " + command);
             }
         } finally {
-            SpringApplication.exit(context);
+            System.out.printf("game_finder_command_complete command=%s contextClosing=true%n", command);
+            context.close();
         }
     }
 }

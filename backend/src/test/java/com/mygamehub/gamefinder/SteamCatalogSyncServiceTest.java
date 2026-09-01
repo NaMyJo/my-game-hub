@@ -24,6 +24,19 @@ class SteamCatalogSyncServiceTest {
             new SteamCatalogSyncService(catalog, store, games, persistence, checkpoints,
                     igdb, tagService, 10, 2, 0, 0, 0);
 
+    @Test
+    void configuredBatchSizeIsUsedByEnrichmentQuery() {
+        var single = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 1, 2, 0, 0, 0);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of());
+
+        single.enrichBatch();
+
+        verify(games).findMetadataCandidates(any(), argThat(pageable -> pageable.getPageSize() == 1));
+        verify(games).findIgdbCandidates(argThat(pageable -> pageable.getPageSize() == 1));
+    }
+
     @BeforeEach
     void persistenceReturnsEntities() {
         lenient().when(persistence.upsertAll(anyCollection())).thenAnswer(invocation ->
