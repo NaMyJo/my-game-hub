@@ -16,12 +16,14 @@ import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
 import 'game_identity_page.dart';
+import 'game_finder_page.dart';
 import 'public_pages.dart';
 
 enum DashboardPage {
   dashboard,
   tools,
   gameIdentity,
+  gameFinder,
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -57,6 +59,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _currentPage = DashboardPage.gameIdentity;
 
       // 게임 카드 삭제 모드가 켜져 있다면 해제
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
+  void _openGameFinder() {
+    setState(() {
+      _currentPage = DashboardPage.gameFinder;
       _deleteMode = false;
       _selectedGameIds.clear();
     });
@@ -325,45 +335,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('공개 게임 프로필'),
-            content: SizedBox(
-              width: 420,
-              child: SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('프로필 공개'),
-                subtitle: const Text(
-                  '닉네임, 소개, 게임력 분석과 최근 게임 신분증을 공개합니다.',
+          builder: (context, setDialogState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF0B1727) : Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF263750)
+                      : const Color(0xFFDDE3EC),
                 ),
-                value: settings.isPublic,
-                onChanged: (value) async {
-                  try {
-                    final updated = await PublicProfileRepository.instance
-                        .updateSettings(value);
-                    setDialogState(() => settings = updated);
-                  } catch (_) {
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    if (mounted) await _showApiError();
-                  }
-                },
               ),
-            ),
-            actions: [
-              if (settings.isPublic && settings.publicId != null)
-                TextButton.icon(
-                  onPressed: () async {
-                    await copyPublicLink('/profile/${settings.publicId!}');
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+              icon: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7657FF).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child:
+                    const Icon(Icons.public_rounded, color: Color(0xFF8D79FF)),
+              ),
+              title: const Text('공개 게임 프로필'),
+              content: SizedBox(
+                width: 420,
+                child: SwitchListTile.adaptive(
+                  tileColor: isDark
+                      ? const Color(0xFF101E31)
+                      : const Color(0xFFF5F3FF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: settings.isPublic
+                          ? const Color(0xFF8D79FF)
+                          : (isDark
+                              ? const Color(0xFF27374D)
+                              : const Color(0xFFDDE3EC)),
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  secondary: Icon(
+                    settings.isPublic
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: const Color(0xFF8067FF),
+                  ),
+                  title: const Text('프로필 공개'),
+                  subtitle: const Text(
+                    '닉네임, 소개, 게임력 분석과 최근 게임 신분증을 공개합니다.',
+                  ),
+                  value: settings.isPublic,
+                  onChanged: (value) async {
+                    try {
+                      final updated = await PublicProfileRepository.instance
+                          .updateSettings(value);
+                      setDialogState(() => settings = updated);
+                    } catch (_) {
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      if (mounted) await _showApiError();
+                    }
                   },
-                  icon: const Icon(Icons.link_rounded),
-                  label: const Text('링크 복사'),
                 ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('닫기'),
               ),
-            ],
-          ),
+              actions: [
+                if (settings.isPublic && settings.publicId != null)
+                  TextButton.icon(
+                    onPressed: () async {
+                      await copyPublicLink('/profile/${settings.publicId!}');
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    },
+                    icon: const Icon(Icons.link_rounded),
+                    label: const Text('링크 복사'),
+                  ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('닫기'),
+                ),
+              ],
+            );
+          },
         ),
       );
     } catch (_) {
@@ -778,44 +833,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     return showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: Icon(
-          failures.isEmpty
-              ? Icons.check_circle_outline_rounded
-              : Icons.sync_problem_rounded,
-        ),
-        title: const Text('전체 새로고침 완료'),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$successCount개가 새로고침되었습니다.'),
-              if (failures.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                const Text(
-                  '현재 새로고침에 실패한 계정',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: SingleChildScrollView(
-                    child: Text(failures.map((item) => '• $item').join('\n')),
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        final accent = failures.isEmpty
+            ? const Color(0xFF57D3A0)
+            : const Color(0xFFFFB75E);
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF0B1727) : Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: isDark ? const Color(0xFF263750) : const Color(0xFFDDE3EC),
+            ),
+          ),
+          icon: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Icon(
+              failures.isEmpty
+                  ? Icons.done_all_rounded
+                  : Icons.sync_problem_rounded,
+              color: accent,
+              size: 27,
+            ),
+          ),
+          title: const Text('전체 새로고침 완료'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    '$successCount개가 새로고침되었습니다.',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF242A38),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
+                if (failures.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    '현재 새로고침에 실패한 계정',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF101E31)
+                          : const Color(0xFFFFF7EC),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          failures.map((item) => '• $item').join('\n'),
+                          style: const TextStyle(height: 1.55),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1127,6 +1236,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentPage: _currentPage,
         onDashboard: _openDashboard,
         onTools: _openTools,
+        onGameIdentity: _openGameIdentity,
+        onGameFinder: _openGameFinder,
       ),
 
       body: SafeArea(
@@ -1153,6 +1264,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       user: _user,
                       profile: _userProfile,
                       onEdit: _editUserProfile,
+                      onRefreshAll: _refreshAllGames,
+                      isRefreshingAll: _isRefreshingAll,
                     ),
                     const SizedBox(height: 14),
                     if (_isLoadingGames)
@@ -1195,15 +1308,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               )
-            : const SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  14,
-                  20,
-                  14,
-                  100,
-                ),
-                child: _ToolsPage(),
-              ),
+            : _currentPage == DashboardPage.tools
+                ? const SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
+                    child: _ToolsPage(),
+                  )
+                : _currentPage == DashboardPage.gameIdentity
+                    ? SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
+                        child: GameIdentityPage(
+                          games: _games,
+                          onAddGame: _addGameForIdentity,
+                          onProfileApplied: (profile) {
+                            if (!mounted) return;
+                            setState(() {
+                              _gameProfileSummary = profile;
+                              _isLoadingGameProfile = false;
+                            });
+                          },
+                        ),
+                      )
+                    : const SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
+                        child: GameFinderPage(),
+                      ),
       ),
     );
   }
@@ -1303,6 +1431,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             deleteMode: _deleteMode,
             onTools: _openTools,
             onGameIdentity: _openGameIdentity,
+            onGameFinder: _openGameFinder,
             onSignOut: _confirmSignOut,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
@@ -1404,6 +1533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             });
                           },
                         ),
+                      DashboardPage.gameFinder => const GameFinderPage(),
                     },
                   ),
                 ),
@@ -1555,6 +1685,7 @@ class _Sidebar extends StatefulWidget {
     required this.collapsed,
     required this.onToggleCollapsed,
     required this.onGameIdentity,
+    required this.onGameFinder,
     required this.isDarkMode,
     required this.onToggleTheme,
   });
@@ -1569,6 +1700,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onSignOut;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onGameIdentity;
+  final VoidCallback onGameFinder;
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
 
@@ -1740,6 +1872,13 @@ class _SidebarState extends State<_Sidebar> {
                     label: '게임 신분증',
                     selected: widget.currentPage == DashboardPage.gameIdentity,
                     onTap: widget.onGameIdentity,
+                    collapsed: !_showContent,
+                  ),
+                  _SideItem(
+                    icon: Icons.travel_explore_rounded,
+                    label: 'GAME FINDER',
+                    selected: widget.currentPage == DashboardPage.gameFinder,
+                    onTap: widget.onGameFinder,
                     collapsed: !_showContent,
                   ),
                   const Spacer(),
@@ -3533,11 +3672,15 @@ class _MobileBottomBar extends StatelessWidget {
     required this.currentPage,
     required this.onDashboard,
     required this.onTools,
+    required this.onGameIdentity,
+    required this.onGameFinder,
   });
 
   final DashboardPage currentPage;
   final VoidCallback onDashboard;
   final VoidCallback onTools;
+  final VoidCallback onGameIdentity;
+  final VoidCallback onGameFinder;
 
   @override
   Widget build(BuildContext context) {
@@ -3566,6 +3709,22 @@ class _MobileBottomBar extends StatelessWidget {
               label: '도구 모음',
               selected: currentPage == DashboardPage.tools,
               onTap: onTools,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              icon: Icons.badge_outlined,
+              label: '게임 신분증',
+              selected: currentPage == DashboardPage.gameIdentity,
+              onTap: onGameIdentity,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              icon: Icons.travel_explore_rounded,
+              label: 'FINDER',
+              selected: currentPage == DashboardPage.gameFinder,
+              onTap: onGameFinder,
             ),
           ),
         ],
@@ -3683,70 +3842,168 @@ class _MobileSummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 1.35,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        StatCard(
-          icon: Icons.auto_awesome_rounded,
-          imageAsset: 'assets/game_icons/lostark.png',
-          label: 'LOST ARK',
-          value: '$lostArkCount개',
-          caption: '등록 계정',
+        Expanded(
+          child: _MobileSummaryGroup(
+            items: [
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/lostark.png',
+                label: 'LOST ARK',
+                value: '$lostArkCount개',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/eternal_return.png',
+                label: 'ETERNAL RETURN',
+                value: '$eternalReturnCount개',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/dungeon_fighter.png',
+                label: 'D&F',
+                value: '$dungeonFighterCount개',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/valorant.png',
+                label: 'VALORANT',
+                value: '$valorantCount개',
+              ),
+            ],
+          ),
         ),
-        StatCard(
-          icon: Icons.shield_rounded,
-          imageAsset: 'assets/game_icons/lol.png',
-          label: 'RIOT',
-          value: 'LoL $lolCount개 \nTFT $tftCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.diamond_rounded,
-          imageAsset: 'assets/game_icons/eternal_return.png',
-          label: 'ETERNAL RETURN',
-          value: '$eternalReturnCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.park_rounded,
-          imageAsset: 'assets/game_icons/maplestory.png',
-          label: 'MAPLESTORY',
-          value: '$mapleStoryCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.sports_martial_arts_rounded,
-          imageAsset: 'assets/game_icons/dungeon_fighter.png',
-          label: 'D&F',
-          value: '$dungeonFighterCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.sports_esports_rounded,
-          imageAsset: 'assets/game_icons/pubg.png',
-          label: 'PUBG',
-          value: '$battlegroundsCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.sports_esports_rounded,
-          imageAsset: 'assets/game_icons/valorant.png',
-          label: 'Valorant',
-          value: '$valorantCount개',
-          caption: '등록 계정',
-        ),
-        StatCard(
-          icon: Icons.bolt_rounded,
-          label: '동기화',
-          value: lastSyncText,
-          caption: '마지막 갱신',
+        const SizedBox(width: 10),
+        Expanded(
+          child: _MobileSummaryGroup(
+            items: [
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/lol.png',
+                label: 'RIOT',
+                value: 'LoL $lolCount · TFT $tftCount',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/maplestory.png',
+                label: 'MAPLESTORY',
+                value: '$mapleStoryCount개',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/pubg.png',
+                label: 'PUBG',
+                value: '$battlegroundsCount개',
+              ),
+              _MobileSummaryItem(
+                icon: Icons.bolt_rounded,
+                label: '동기화',
+                value: lastSyncText,
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _MobileSummaryGroup extends StatelessWidget {
+  const _MobileSummaryGroup({required this.items});
+
+  final List<_MobileSummaryItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor =
+        isDark ? const Color(0xFF1F3046) : const Color(0xFFDDE3EC);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF091322) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: dividerColor),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            items[index],
+            if (index != items.length - 1)
+              Divider(height: 1, thickness: 1, color: dividerColor),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileSummaryItem extends StatelessWidget {
+  const _MobileSummaryItem({
+    this.imageAsset,
+    this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final String? imageAsset;
+  final IconData? icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      height: 76,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 35,
+              height: 35,
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7657FF).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: imageAsset != null
+                  ? Image.asset(imageAsset!, fit: BoxFit.contain)
+                  : Icon(
+                      icon ?? Icons.sports_esports_rounded,
+                      size: 18,
+                      color: const Color(0xFF8067FF),
+                    ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF7B899D),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF202636),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3802,11 +4059,15 @@ class _MobileHeroProfile extends StatelessWidget {
     required this.user,
     required this.profile,
     required this.onEdit,
+    required this.onRefreshAll,
+    required this.isRefreshingAll,
   });
 
   final User? user;
   final UserProfile? profile;
   final VoidCallback onEdit;
+  final VoidCallback onRefreshAll;
+  final bool isRefreshingAll;
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
@@ -3879,16 +4140,41 @@ class _MobileHeroProfile extends StatelessWidget {
                 const SizedBox(height: 7),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: IconButton(
-                    onPressed: onEdit,
-                    tooltip: '프로필 수정',
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF24234C),
-                      foregroundColor: const Color(0xFFB8AEFF),
-                      minimumSize: const Size(32, 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                    icon: const Icon(Icons.edit_rounded, size: 14),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: isRefreshingAll ? null : onRefreshAll,
+                        tooltip: '전체 새로고침',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF182740),
+                          foregroundColor: const Color(0xFF9B8CFF),
+                          minimumSize: const Size(32, 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: isRefreshingAll
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded, size: 15),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        onPressed: onEdit,
+                        tooltip: '프로필 수정',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF24234C),
+                          foregroundColor: const Color(0xFFB8AEFF),
+                          minimumSize: const Size(32, 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Icons.edit_rounded, size: 14),
+                      ),
+                    ],
                   ),
                 ),
               ],

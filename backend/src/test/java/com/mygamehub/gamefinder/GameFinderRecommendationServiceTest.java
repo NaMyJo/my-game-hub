@@ -1,0 +1,11 @@
+package com.mygamehub.gamefinder;
+import com.mygamehub.gamefinder.dto.GameFinderRecommendRequest;
+import org.junit.jupiter.api.Test;
+import java.util.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+class GameFinderRecommendationServiceTest {
+    @Test void excludesLikedAndShownAndAppliesHardFilters(){var repo=mock(SteamGameRepository.class);var liked=game(1,"liked",1000,"Action");var pass=game(2,"pass",5000,"Action");var expensive=game(3,"expensive",20000,"Action");var shown=game(4,"shown",5000,"Action");when(repo.findBySteamAppIdIn(List.of(1L))).thenReturn(List.of(liked));when(repo.findRecommendationCandidates()).thenReturn(List.of(liked,pass,expensive,shown));var service=new GameFinderRecommendationService(repo,new GameFinderHardFilter());var result=service.recommend(new GameFinderRecommendRequest(List.of(1L),0,10000,false,1,15,List.of(4L)));assertThat(result).extracting(r->r.steamAppId()).containsExactly(2L);}
+    @Test void returnsAtMostTwenty(){var repo=mock(SteamGameRepository.class);var liked=game(1,"liked",0,"Action");var candidates=new ArrayList<SteamGame>();for(int i=2;i<40;i++)candidates.add(game(i,"g"+i,0,"Action"));when(repo.findBySteamAppIdIn(List.of(1L))).thenReturn(List.of(liked));when(repo.findRecommendationCandidates()).thenReturn(candidates);var result=new GameFinderRecommendationService(repo,new GameFinderHardFilter()).recommend(new GameFinderRecommendRequest(List.of(1L),0,100000,true,1,15,List.of()));assertThat(result).hasSizeLessThanOrEqualTo(20);}
+    private SteamGame game(long id,String name,int price,String genre){var g=new SteamGame(id,name,1,1);g.updateStoreDetail("game",null,null,price==0,"KRW",price,price,0,0,"NON_ADULT",null,null,false,false,Set.of(genre),Set.of("Single-player"),true,false,false,false);return g;}
+}
