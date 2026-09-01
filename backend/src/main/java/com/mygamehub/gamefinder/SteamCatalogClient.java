@@ -55,6 +55,11 @@ public class SteamCatalogClient {
         return requestPage(lastAppId, modifiedSince, pageSize);
     }
 
+    public CatalogPage page(long lastAppId, Long modifiedSince, int maxResults) {
+        return requestPage(lastAppId, modifiedSince,
+                Math.min(Math.max(1, maxResults), 50000));
+    }
+
     public CatalogPage diagnose() {
         CatalogPage page = requestPage(0, null, 3);
         log.info("steam_catalog_diagnostic_success host={} requestedMaxResults=3 returnedCount={} "
