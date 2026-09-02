@@ -211,6 +211,37 @@ public class SteamCatalogSyncService {
         return EnrichmentBatchResult.from(targets.values(), hasMoreCandidates);
     }
 
+    public EnrichmentStageBatchResult enrichMetadataBatch(int requestedBatchSize) {
+        List<SteamGame> targets = games.findMetadataCandidates(
+                Instant.now().minus(Duration.ofDays(7)),
+                PageRequest.of(0, requestedBatchSize));
+        log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
+        for (SteamGame game : targets) enrichMetadataOne(game);
+        return EnrichmentStageBatchResult.from(
+                targets, true, games.countMetadataCandidates(
+                        Instant.now().minus(Duration.ofDays(7))) > 0);
+    }
+
+    public EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
+        List<SteamGame> targets = games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize));
+        log.info("game_finder_igdb_enrichment_start candidateCount={}", targets.size());
+        if (!targets.isEmpty() && igdb.configured()) {
+            List<Long> appIds = targets.stream().map(SteamGame::getSteamAppId).toList();
+            try {
+                var values = igdb.findBySteamAppIds(appIds);
+                targets = persistence.applyIgdbResults(appIds, values);
+                targets.forEach(tagService::rebuild);
+            } catch (RuntimeException exception) {
+                boolean retryable = retryable(exception);
+                targets = persistence.markIgdbBatchFailure(appIds, retryable);
+                log.warn("game_finder_igdb_batch_failed count={} errorType={}",
+                        targets.size(), exception.getClass().getSimpleName());
+            }
+        }
+        return EnrichmentStageBatchResult.from(
+                targets, false, igdb.configured() && games.countIgdbCandidates() > 0);
+    }
+
     public boolean hasEnrichmentCandidates() {
         return remainingEnrichmentCandidates() > 0;
     }
@@ -220,6 +251,14 @@ public class SteamCatalogSyncService {
         return igdb.configured()
                 ? games.countEnrichmentCandidates(staleBefore)
                 : games.countMetadataCandidates(staleBefore);
+    }
+
+    public long remainingMetadataCandidates() {
+        return games.countMetadataCandidates(Instant.now().minus(Duration.ofDays(7)));
+    }
+
+    public long remainingIgdbCandidates() {
+        return igdb.configured() ? games.countIgdbCandidates() : 0;
     }
 
     public CatalogExpandResult expandCatalogTo(int targetTotal) {
@@ -446,6 +485,32 @@ public class SteamCatalogSyncService {
         return new EnrichmentResult(steamEnriched, igdbProcessed);
     }
 
+    private void enrichMetadataOne(SteamGame game) {
+        try {
+            var detail = store.get(game.getSteamAppId());
+            if (detail.isEmpty()) {
+                game.markMetadataNotFound();
+                games.save(game);
+                return;
+            }
+            var value = detail.get();
+            game.updateStoreDetail(value.type(), value.image(), value.description(), value.free(),
+                    value.currency(), value.original(), value.current(), value.discount(),
+                    value.requiredAge(), value.adult(), value.releaseDate(), value.releaseText(),
+                    value.comingSoon(), value.earlyAccess(), value.genres(), value.categories(),
+                    value.single(), value.multiplayer(), value.onlineCoop(), value.offlineCoop());
+            if (game.getStoreType() != null && !"game".equalsIgnoreCase(game.getStoreType())) {
+                game.markIgdbNotApplicable();
+            }
+            games.save(game);
+        } catch (RuntimeException exception) {
+            game.markMetadataFailure(retryable(exception));
+            games.save(game);
+            log.warn("game_finder_metadata_failed appId={} errorType={}",
+                    game.getSteamAppId(), exception.getClass().getSimpleName());
+        }
+    }
+
     private boolean retryable(RuntimeException exception) {
         if (exception instanceof ExternalApiRetry.RetryableFailure failure) return failure.isRetryable();
         if (exception instanceof org.springframework.web.client.HttpStatusCodeException http) {
@@ -510,6 +575,26 @@ public class SteamCatalogSyncService {
                 EnrichmentStatus status) {
             return (int) games.stream().filter(game -> status == (metadata
                     ? game.getMetadataStatus() : game.getIgdbStatus())).count();
+        }
+    }
+
+    public record EnrichmentStageBatchResult(
+            int processed,
+            int success,
+            int notFound,
+            int retryableFailure,
+            int permanentFailure,
+            boolean hasMoreCandidates) {
+        static EnrichmentStageBatchResult from(
+                java.util.Collection<SteamGame> games, boolean metadata,
+                boolean hasMoreCandidates) {
+            return new EnrichmentStageBatchResult(
+                    games.size(),
+                    EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.SUCCESS),
+                    EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.NOT_FOUND),
+                    EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.RETRYABLE_FAILURE),
+                    EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.PERMANENT_FAILURE),
+                    hasMoreCandidates);
         }
     }
 }

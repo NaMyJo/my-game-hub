@@ -25,6 +25,21 @@ class GameFinderAdminMaintenanceServiceTest {
     }
 
     @Test
+    void delegatesMetadataAndIgdbToSeparateExistingServiceMethods() {
+        var sync = mock(SteamCatalogSyncService.class);
+        var stage = new SteamCatalogSyncService.EnrichmentStageBatchResult(
+                1, 1, 0, 0, 0, false);
+        when(sync.enrichMetadataBatch(1)).thenReturn(stage);
+        when(sync.enrichIgdbBatch(1)).thenReturn(stage);
+        var service = new GameFinderAdminMaintenanceService(sync);
+
+        assertThat(service.tryMetadataEnrich(1).orElseThrow().stage()).isEqualTo("metadata");
+        assertThat(service.tryIgdbEnrich(1).orElseThrow().stage()).isEqualTo("igdb");
+        verify(sync).enrichMetadataBatch(1);
+        verify(sync).enrichIgdbBatch(1);
+    }
+
+    @Test
     void rejectsSecondRequestWhileFirstIsRunning() throws Exception {
         var sync = mock(SteamCatalogSyncService.class);
         var entered = new CountDownLatch(1);

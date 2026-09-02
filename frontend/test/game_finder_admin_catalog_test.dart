@@ -114,7 +114,14 @@ class _FakeRepository extends GameFinderAdminRepository {
         hasFailure: false,
       ),
       remainingCandidates: 23,
+      remainingMetadataCandidates: 23,
+      remainingIgdbCandidates: 21,
       gameCatalogCount: 102,
+      metadataTerminalCount: 79,
+      storeUnavailableCount: 0,
+      igdbTargetCount: 80,
+      igdbTerminalCount: 80,
+      finderEligibleCount: 79,
       gameCount: 79,
       nonGameCount: 0,
       unclassifiedCount: 23,
@@ -169,6 +176,37 @@ class _FakeRepository extends GameFinderAdminRepository {
       igdbPermanentFailure: 0,
       durationMs: 10,
       hasMoreCandidates: enrichCalls == 1,
+    );
+  }
+
+  @override
+  Future<GameFinderAdminStageEnrichResult> enrichMetadata(int batchSize) async {
+    enrichCalls++;
+    return GameFinderAdminStageEnrichResult(
+      stage: 'metadata',
+      requestedBatchSize: batchSize,
+      processed: enrichCalls == 1 ? 1 : 0,
+      success: enrichCalls == 1 ? 1 : 0,
+      notFound: 0,
+      retryableFailure: 0,
+      permanentFailure: 0,
+      hasMoreCandidates: enrichCalls == 1,
+      durationMs: 10,
+    );
+  }
+
+  @override
+  Future<GameFinderAdminStageEnrichResult> enrichIgdb(int batchSize) async {
+    return GameFinderAdminStageEnrichResult(
+      stage: 'igdb',
+      requestedBatchSize: batchSize,
+      processed: 0,
+      success: 0,
+      notFound: 0,
+      retryableFailure: 0,
+      permanentFailure: 0,
+      hasMoreCandidates: false,
+      durationMs: 10,
     );
   }
 

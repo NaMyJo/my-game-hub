@@ -26,6 +26,22 @@ class GameFinderAdminRepository {
     return GameFinderAdminEnrichResult.fromJson(json);
   }
 
+  Future<GameFinderAdminStageEnrichResult> enrichMetadata(int batchSize) async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/enrich/metadata',
+      body: {'batchSize': batchSize},
+    ) as Map<String, dynamic>;
+    return GameFinderAdminStageEnrichResult.fromJson(json);
+  }
+
+  Future<GameFinderAdminStageEnrichResult> enrichIgdb(int batchSize) async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/enrich/igdb',
+      body: {'batchSize': batchSize},
+    ) as Map<String, dynamic>;
+    return GameFinderAdminStageEnrichResult.fromJson(json);
+  }
+
   Future<GameFinderAdminCatalogExpandResult> expandCatalog(
       int targetTotal) async {
     final json = await ApiClient.instance.post(

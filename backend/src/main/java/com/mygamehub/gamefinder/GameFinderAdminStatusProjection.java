@@ -6,6 +6,11 @@ public interface GameFinderAdminStatusProjection {
     long getUnavailable();
     long getRemoved();
     long getGameCatalogCount();
+    long getMetadataTerminalCount();
+    long getStoreUnavailableCount();
+    long getIgdbTargetCount();
+    long getIgdbTerminalCount();
+    long getFinderEligibleCount();
     long getMetadataPending();
     long getMetadataSuccess();
     long getMetadataNotFound();

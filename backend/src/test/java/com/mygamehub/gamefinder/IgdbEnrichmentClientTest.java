@@ -26,14 +26,11 @@ class IgdbEnrichmentClientTest {
                 .andExpect(header("Client-ID", "client"))
                 .andExpect(header("Authorization", "Bearer token"))
                 .andExpect(content().string(containsString("external_game_source = 1")))
-                .andExpect(content().string(containsString("uid = \"570\"")))
+                .andExpect(content().string(containsString("uid = (\"570\")")))
                 .andRespond(withSuccess("[{\"id\":100,\"game\":42,\"external_game_source\":1,\"uid\":\"570\"}]",
                         MediaType.APPLICATION_JSON));
-        context.server().expect(requestTo("https://api.igdb.com/v4/games"))
-                .andExpect(content().string(containsString("where id = 42")))
-                .andRespond(withSuccess("[{\"id\":42,\"name\":\"Dota 2\"}]", MediaType.APPLICATION_JSON));
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
-                .andExpect(content().string(containsString("where game = 42")))
+                .andExpect(content().string(containsString("where game = (42)")))
                 .andRespond(withSuccess("""
                         [{"id":7,"game":42,"onlinemax":10,
                         "onlinecoopmax":5,"onlinecoop":true,"offlinemax":2,
@@ -51,6 +48,32 @@ class IgdbEnrichmentClientTest {
         assertTrue(result.multiplayer());
         assertTrue(result.onlineCoop());
         assertTrue(result.offlineCoop());
+        context.server().verify();
+    }
+
+    @Test
+    void batchesMultipleSteamAppsIntoTwoIgdbDataRequests() {
+        TestContext context = context();
+        expectToken(context.server());
+        expectSteamSource(context.server());
+        context.server().expect(requestTo("https://api.igdb.com/v4/external_games"))
+                .andExpect(content().string(containsString("uid = (\"570\",\"1245620\")")))
+                .andRespond(withSuccess("""
+                        [{"game":42,"uid":"570"},{"game":119133,"uid":"1245620"}]
+                        """, MediaType.APPLICATION_JSON));
+        context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
+                .andExpect(content().string(containsString("where game = (42,119133)")))
+                .andExpect(content().string(containsString("limit 500; offset 0")))
+                .andRespond(withSuccess("""
+                        [{"game":42,"onlinemax":10},{"game":119133,"onlinemax":3,
+                          "onlinecoopmax":3,"onlinecoop":true}]
+                        """, MediaType.APPLICATION_JSON));
+
+        var result = context.client().findBySteamAppIds(java.util.List.of(570L, 1245620L));
+
+        assertEquals(42, result.get(570L).orElseThrow().gameId());
+        assertEquals(119133, result.get(1245620L).orElseThrow().gameId());
+        assertEquals(3, result.get(1245620L).orElseThrow().onlineMax());
         context.server().verify();
     }
 

@@ -44,6 +44,8 @@ public class GameFinderAdminStatusService {
                         "NEW", 0L, 0, null, false, false));
         long remainingCandidates = syncService.remainingEnrichmentCandidates();
         return GameFinderAdminStatusResponse.from(
-                games.adminStatus(), checkpoint, fullSync, gameOnlySync, remainingCandidates);
+                games.adminStatus(), checkpoint, fullSync, gameOnlySync, remainingCandidates,
+                syncService.remainingMetadataCandidates(),
+                syncService.remainingIgdbCandidates());
     }
 }

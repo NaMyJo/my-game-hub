@@ -16,27 +16,33 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     List<SteamGame> findRecommendationCandidates();
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
-    @Query(value="select * from steam_games where (metadata_status is null "
+    @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
             + "or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
-            + "or ((metadata_status = 'SUCCESS' or metadata_status is null) and metadata_updated_at < :staleBefore)) "
+            + "or (metadata_status = 'SUCCESS' and metadata_updated_at < :staleBefore)) "
             + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE') "
             + "order by case when metadata_status is null or metadata_status='PENDING' then 0 "
             + "when metadata_status='RETRYABLE_FAILURE' then 1 else 2 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findMetadataCandidates(Instant staleBefore, Pageable pageable);
-    @Query(value="select * from steam_games where metadata_updated_at is not null and "
-            + "(igdb_status is null "
+    @Query(value="select * from steam_games where metadata_updated_at is not null and store_type='game' and metadata_status='SUCCESS' and "
+            + "((igdb_status is null and igdb_updated_at is null) "
             + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and game_catalog_eligible=true "
             + "and (lifecycle_status is null or lifecycle_status='ACTIVE') "
             + "order by case when igdb_status is null or igdb_status='PENDING' then 0 else 1 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findIgdbCandidates(Pageable pageable);
     @Query(value="select count(*) from steam_games where game_catalog_eligible=true "
+            + "and metadata_status='SUCCESS' and metadata_updated_at is not null "
+            + "and store_type='game' and ((igdb_status is null and igdb_updated_at is null) or igdb_status in ('PENDING','RETRYABLE_FAILURE')) "
+            + "and (lifecycle_status is null or lifecycle_status='ACTIVE')", nativeQuery=true)
+    long countIgdbCandidates();
+    @Query(value="select count(*) from steam_games where game_catalog_eligible=true "
             + "and (lifecycle_status is null or lifecycle_status='ACTIVE') and ("
-            + "(metadata_status is null or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
+            + "((metadata_status is null and metadata_updated_at is null) or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
             + "or metadata_status='SUCCESS' and metadata_updated_at < :staleBefore) "
-            + "or (metadata_updated_at is not null and (igdb_status is null "
+            + "or (metadata_status='SUCCESS' and metadata_updated_at is not null and store_type='game' "
+            + "and ((igdb_status is null and igdb_updated_at is null) "
             + "or igdb_status in ('PENDING','RETRYABLE_FAILURE'))))", nativeQuery=true)
     long countEnrichmentCandidates(Instant staleBefore);
-    @Query(value="select count(*) from steam_games where (metadata_status is null "
+    @Query(value="select count(*) from steam_games where ((metadata_status is null and metadata_updated_at is null) "
             + "or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
             + "or metadata_status='SUCCESS' and metadata_updated_at < :staleBefore) "
             + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE')", nativeQuery=true)
@@ -53,6 +59,11 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "coalesce(sum(case when lifecycle_status='UNAVAILABLE' then 1 else 0 end), 0) as unavailable, "
             + "coalesce(sum(case when lifecycle_status='REMOVED' then 1 else 0 end), 0) as removed, "
             + "coalesce(sum(case when game_catalog_eligible=true then 1 else 0 end), 0) as \"gameCatalogCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status in ('SUCCESS','NOT_FOUND','PERMANENT_FAILURE') then 1 else 0 end), 0) as \"metadataTerminalCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='NOT_FOUND' then 1 else 0 end), 0) as \"storeUnavailableCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='SUCCESS' and store_type='game' and (lifecycle_status is null or lifecycle_status='ACTIVE') then 1 else 0 end), 0) as \"igdbTargetCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='SUCCESS' and store_type='game' and igdb_status in ('SUCCESS','NOT_FOUND','PERMANENT_FAILURE') then 1 else 0 end), 0) as \"igdbTerminalCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='SUCCESS' and store_type='game' and (lifecycle_status is null or lifecycle_status='ACTIVE') then 1 else 0 end), 0) as \"finderEligibleCount\", "
             + "coalesce(sum(case when game_catalog_eligible=true and (metadata_status='PENDING' or (metadata_status is null and metadata_updated_at is null)) then 1 else 0 end), 0) as \"metadataPending\", "
             + "coalesce(sum(case when game_catalog_eligible=true and (metadata_status='SUCCESS' or (metadata_status is null and metadata_updated_at is not null)) then 1 else 0 end), 0) as \"metadataSuccess\", "
             + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='NOT_FOUND' then 1 else 0 end), 0) as \"metadataNotFound\", "

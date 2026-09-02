@@ -10,7 +10,14 @@ class GameFinderAdminStatus {
     required this.fullCatalogSync,
     required this.gameOnlyCatalogSync,
     required this.remainingCandidates,
+    required this.remainingMetadataCandidates,
+    required this.remainingIgdbCandidates,
     required this.gameCatalogCount,
+    required this.metadataTerminalCount,
+    required this.storeUnavailableCount,
+    required this.igdbTargetCount,
+    required this.igdbTerminalCount,
+    required this.finderEligibleCount,
     required this.gameCount,
     required this.nonGameCount,
     required this.unclassifiedCount,
@@ -22,7 +29,10 @@ class GameFinderAdminStatus {
   final GameFinderFullCatalogSyncStatus fullCatalogSync;
   final GameFinderFullCatalogSyncStatus gameOnlyCatalogSync;
   final int remainingCandidates;
+  final int remainingMetadataCandidates, remainingIgdbCandidates;
   final int gameCatalogCount;
+  final int metadataTerminalCount, storeUnavailableCount;
+  final int igdbTargetCount, igdbTerminalCount, finderEligibleCount;
   final int gameCount, nonGameCount, unclassifiedCount;
 
   factory GameFinderAdminStatus.fromJson(Map<String, dynamic> json) =>
@@ -43,7 +53,20 @@ class GameFinderAdminStatus {
             json['gameOnlyCatalogSync'] as Map<String, dynamic>? ?? const {}),
         remainingCandidates:
             (json['remainingCandidates'] as num?)?.toInt() ?? 0,
+        remainingMetadataCandidates:
+            (json['remainingMetadataCandidates'] as num?)?.toInt() ?? 0,
+        remainingIgdbCandidates:
+            (json['remainingIgdbCandidates'] as num?)?.toInt() ?? 0,
         gameCatalogCount: (json['gameCatalogCount'] as num?)?.toInt() ?? 0,
+        metadataTerminalCount:
+            (json['metadataTerminalCount'] as num?)?.toInt() ?? 0,
+        storeUnavailableCount:
+            (json['storeUnavailableCount'] as num?)?.toInt() ?? 0,
+        igdbTargetCount: (json['igdbTargetCount'] as num?)?.toInt() ?? 0,
+        igdbTerminalCount:
+            (json['igdbTerminalCount'] as num?)?.toInt() ?? 0,
+        finderEligibleCount:
+            (json['finderEligibleCount'] as num?)?.toInt() ?? 0,
         gameCount: (json['gameCount'] as num?)?.toInt() ?? 0,
         nonGameCount: (json['nonGameCount'] as num?)?.toInt() ?? 0,
         unclassifiedCount: (json['unclassifiedCount'] as num?)?.toInt() ?? 0,
@@ -226,6 +249,44 @@ class GameFinderAdminEnrichResult {
             (json['igdbRetryableFailure'] as num?)?.toInt() ?? 0,
         igdbPermanentFailure:
             (json['igdbPermanentFailure'] as num?)?.toInt() ?? 0,
+        hasMoreCandidates: json['hasMoreCandidates'] as bool? ?? false,
+        durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class GameFinderAdminStageEnrichResult {
+  const GameFinderAdminStageEnrichResult({
+    required this.stage,
+    required this.requestedBatchSize,
+    required this.processed,
+    required this.success,
+    required this.notFound,
+    required this.retryableFailure,
+    required this.permanentFailure,
+    required this.hasMoreCandidates,
+    required this.durationMs,
+  });
+
+  final String stage;
+  final int requestedBatchSize, processed, success, notFound;
+  final int retryableFailure, permanentFailure, durationMs;
+  final bool hasMoreCandidates;
+
+  double get itemsPerSecond =>
+      durationMs <= 0 ? 0 : processed * 1000 / durationMs;
+
+  factory GameFinderAdminStageEnrichResult.fromJson(Map<String, dynamic> json) =>
+      GameFinderAdminStageEnrichResult(
+        stage: json['stage'] as String? ?? '',
+        requestedBatchSize:
+            (json['requestedBatchSize'] as num?)?.toInt() ?? 0,
+        processed: (json['processed'] as num?)?.toInt() ?? 0,
+        success: (json['success'] as num?)?.toInt() ?? 0,
+        notFound: (json['notFound'] as num?)?.toInt() ?? 0,
+        retryableFailure:
+            (json['retryableFailure'] as num?)?.toInt() ?? 0,
+        permanentFailure:
+            (json['permanentFailure'] as num?)?.toInt() ?? 0,
         hasMoreCandidates: json['hasMoreCandidates'] as bool? ?? false,
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
       );

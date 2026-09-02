@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class SteamCatalogPersistenceService {
@@ -102,5 +103,32 @@ public class SteamCatalogPersistenceService {
                 + String.join(",\n", java.util.Collections.nCopies(
                         rowCount, "(?, ?, 'game', ?, ?, 'UNKNOWN', false, 'ACTIVE', CURRENT_TIMESTAMP, ?, ?)"))
                 + "\n" + UPSERT_SUFFIX;
+    }
+
+    @Transactional
+    public List<SteamGame> applyIgdbResults(
+            Collection<Long> appIds,
+            Map<Long, Optional<IgdbEnrichmentClient.IgdbData>> results) {
+        List<SteamGame> targets = games.findBySteamAppIdIn(appIds);
+        for (SteamGame game : targets) {
+            var value = results.getOrDefault(game.getSteamAppId(), Optional.empty());
+            if (value.isPresent()) {
+                var data = value.get();
+                game.updateIgdb(data.gameId(), data.minPlayers(), data.maxPlayers(),
+                        data.onlineMax(), data.coopMax(), data.multiplayer(),
+                        data.onlineCoop(), data.offlineCoop());
+            } else {
+                game.markIgdbNotFound();
+            }
+        }
+        return targets;
+    }
+
+    @Transactional
+    public List<SteamGame> markIgdbBatchFailure(
+            Collection<Long> appIds, boolean retryable) {
+        List<SteamGame> targets = games.findBySteamAppIdIn(appIds);
+        targets.forEach(game -> game.markIgdbFailure(retryable));
+        return targets;
     }
 }

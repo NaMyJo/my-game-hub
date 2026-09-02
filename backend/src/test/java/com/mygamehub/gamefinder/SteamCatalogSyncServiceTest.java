@@ -53,6 +53,48 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
+    void metadataStageDoesNotCallIgdb() {
+        var pending = new SteamGame(570, "Dota 2", 1, 1);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(pending));
+        when(store.get(570)).thenReturn(Optional.of(detail("game")));
+        when(games.countMetadataCandidates(any())).thenReturn(0L);
+
+        var result = service.enrichMetadataBatch(1);
+
+        assertEquals(1, result.processed());
+        assertEquals(1, result.success());
+        verifyNoInteractions(igdb);
+        verify(store).get(570);
+    }
+
+    @Test
+    void igdbStageUsesOneBatchClientCallAndDoesNotCallSteamStore() {
+        var first = gameWithCurrentMetadata(570, "Dota 2", "game");
+        var second = gameWithCurrentMetadata(1245620, "ELDEN RING", "game");
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(first, second));
+        when(igdb.configured()).thenReturn(true);
+        when(igdb.findBySteamAppIds(List.of(570L, 1245620L))).thenReturn(java.util.Map.of(
+                570L, Optional.of(new IgdbEnrichmentClient.IgdbData(
+                        42L, 1, 1, 10, 10, 5, true, true, false)),
+                1245620L, Optional.empty()));
+        when(persistence.applyIgdbResults(eq(List.of(570L, 1245620L)), anyMap()))
+                .thenAnswer(invocation -> {
+                    first.updateIgdb(42L, 1, 10, 10, 5, true, true, false);
+                    second.markIgdbNotFound();
+                    return List.of(first, second);
+                });
+        when(games.countIgdbCandidates()).thenReturn(0L);
+
+        var result = service.enrichIgdbBatch(40);
+
+        assertEquals(2, result.processed());
+        assertEquals(1, result.success());
+        assertEquals(1, result.notFound());
+        verify(igdb).findBySteamAppIds(List.of(570L, 1245620L));
+        verifyNoInteractions(store);
+    }
+
+    @Test
     void adminCatalogExpansionIsNoOpWhenTargetIsAlreadyReached() {
         when(games.count()).thenReturn(1000L);
 
@@ -692,5 +734,19 @@ class SteamCatalogSyncServiceTest {
         var field = target.getClass().getDeclaredField(name);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static SteamStoreDetailClient.StoreDetail detail(String type) {
+        return new SteamStoreDetailClient.StoreDetail(570, "Game", type, null, null,
+                false, "KRW", null, null, null, 0, "NON_ADULT", null, null,
+                false, false, Set.of(), Set.of(), true, true, false, false);
+    }
+
+    private static SteamGame gameWithCurrentMetadata(long appId, String name, String type) {
+        SteamGame game = new SteamGame(appId, name, 0, 0);
+        game.updateStoreDetail(type, null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, true, false, false);
+        return game;
     }
 }

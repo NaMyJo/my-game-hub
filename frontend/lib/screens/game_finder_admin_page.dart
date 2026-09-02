@@ -17,6 +17,8 @@ class GameFinderAdminPage extends StatefulWidget {
 class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminStatus? _status;
   GameFinderAdminEnrichResult? _result;
+  GameFinderAdminStageEnrichResult? _metadataResult;
+  GameFinderAdminStageEnrichResult? _igdbResult;
   GameFinderAdminCatalogExpandResult? _catalogResult;
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
   GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
@@ -26,6 +28,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   bool _running = false;
   bool _continuousEnrichment = false;
   bool _stopEnrichmentRequested = false;
+  bool _igdbRunning = false;
+  bool _continuousIgdb = false;
+  bool _stopIgdbRequested = false;
   bool _catalogRunning = false;
   bool _fullCatalogRunning = false;
   bool _continuousFullCatalog = false;
@@ -36,12 +41,13 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   String? _error;
 
   bool get _maintenanceRunning =>
-      _running || _catalogRunning || _fullCatalogRunning || _gameCatalogRunning;
+      _running || _igdbRunning || _catalogRunning || _fullCatalogRunning || _gameCatalogRunning;
 
   @override
   void dispose() {
     _stopFullCatalogRequested = true;
     _stopEnrichmentRequested = true;
+    _stopIgdbRequested = true;
     _stopGameCatalogRequested = true;
     super.dispose();
   }
@@ -76,9 +82,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       do {
         final value = await (widget.repository ??
                 GameFinderAdminRepository.instance)
-            .enrich(_batchSize);
+            .enrichMetadata(_batchSize);
         if (!mounted) return;
-        setState(() => _result = value);
+        setState(() => _metadataResult = value);
         await _loadStatus();
         if (!continuous || !value.hasMoreCandidates || value.processed == 0 ||
             _stopEnrichmentRequested) break;
@@ -93,6 +99,38 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         setState(() {
           _running = false;
           _continuousEnrichment = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _runIgdbEnrichment({bool continuous = false}) async {
+    if (_maintenanceRunning) return;
+    setState(() {
+      _igdbRunning = true;
+      _continuousIgdb = continuous;
+      _stopIgdbRequested = false;
+      _error = null;
+    });
+    try {
+      do {
+        final value = await (widget.repository ??
+                GameFinderAdminRepository.instance)
+            .enrichIgdb(_batchSize);
+        if (!mounted) return;
+        setState(() => _igdbResult = value);
+        await _loadStatus();
+        if (!continuous || !value.hasMoreCandidates || value.processed == 0 ||
+            _stopIgdbRequested) break;
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      } while (mounted && !_stopIgdbRequested);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _igdbRunning = false;
+          _continuousIgdb = false;
         });
       }
     }
@@ -257,12 +295,13 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               mainAxisSpacing: 12,
               childAspectRatio: columns == 4 ? 2.3 : 1.8,
               children: [
-                _metric('전체 게임', _status!.total, Icons.storage_rounded),
-                _metric('활성', _status!.active, Icons.check_circle_outline),
-                _metric('조회 불가', _status!.unavailable,
+                _metric('전체 Steam Apps', _status!.total, Icons.storage_rounded),
+                _metric('Steam Games', _status!.gameCatalogCount,
+                    Icons.sports_esports_rounded),
+                _metric('Store 조회 불가', _status!.storeUnavailableCount,
                     Icons.cloud_off_outlined),
-                _metric('스토어 제거', _status!.removed,
-                    Icons.remove_circle_outline),
+                _metric('GAME FINDER 사용 가능', _status!.finderEligibleCount,
+                    Icons.check_circle_outline),
               ],
             );
           }),
@@ -304,6 +343,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _gameCatalogResultPanel(_gameCatalogResult!, panel, border),
         ],
         const SizedBox(height: 18),
+        const Text('STEAM METADATA',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(22),
@@ -321,18 +363,18 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               const Text('첫 운영 검증은 1개로 시작하고 Render Memory peak를 확인하세요.'),
               if (_status != null) ...[
                 const SizedBox(height: 12),
-                Text('전체 대상 ${_status!.active} · 처리 완료 '
-                    '${(_status!.active - _status!.remainingCandidates).clamp(0, _status!.active)} '
-                    '· 남은 후보 ${_status!.remainingCandidates}'),
+                Text('전체 대상 ${_status!.gameCatalogCount} · terminal 완료 '
+                    '${_status!.metadataTerminalCount} '
+                    '· 남은 후보 ${_status!.remainingMetadataCandidates}'),
                 const SizedBox(height: 4),
                 Text('게임 ${_status!.gameCount} · Non-game ${_status!.nonGameCount} '
                     '· 미분류 ${_status!.unclassifiedCount}'),
                 const SizedBox(height: 6),
                 LinearProgressIndicator(
-                  value: _status!.active == 0
+                  value: _status!.gameCatalogCount == 0
                       ? 0
-                      : ((_status!.active - _status!.remainingCandidates) /
-                              _status!.active)
+                      : (_status!.metadataTerminalCount /
+                              _status!.gameCatalogCount)
                           .clamp(0.0, 1.0)
                           .toDouble(),
                 ),
@@ -408,6 +450,16 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
             ],
           ),
         ),
+        if (_metadataResult != null) ...[
+          const SizedBox(height: 14),
+          _stageResultPanel(_metadataResult!, panel, border),
+        ],
+        const SizedBox(height: 18),
+        _igdbEnrichmentPanel(panel, border),
+        if (_igdbResult != null) ...[
+          const SizedBox(height: 14),
+          _stageResultPanel(_igdbResult!, panel, border),
+        ],
         if (_result != null) ...[
           const SizedBox(height: 14),
           _resultPanel(_result!, panel, border),
@@ -712,6 +764,74 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label),
           Text('$value', style: const TextStyle(fontWeight: FontWeight.w800)),
+        ]),
+      );
+
+  Widget _igdbEnrichmentPanel(Color panel, Color border) {
+    final target = _status?.igdbTargetCount ?? 0;
+    final completed = _status?.igdbTerminalCount ?? 0;
+    final progress = target == 0 ? 0.0 : (completed / target).clamp(0.0, 1.0);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('IGDB ENRICHMENT',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Text('대상 $target · terminal 완료 $completed · 남은 후보 ${_status?.remainingIgdbCandidates ?? 0}'),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: progress),
+        const SizedBox(height: 14),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          FilledButton.icon(
+            onPressed: _maintenanceRunning ? null : () => _runIgdbEnrichment(),
+            icon: const Icon(Icons.hub_outlined),
+            label: const Text('IGDB 1회 batch'),
+          ),
+          if (!_igdbRunning)
+            OutlinedButton.icon(
+              onPressed: _maintenanceRunning
+                  ? null
+                  : () => _runIgdbEnrichment(continuous: true),
+              icon: const Icon(Icons.repeat_rounded),
+              label: const Text('연속 IGDB'),
+            )
+          else if (_continuousIgdb)
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _stopIgdbRequested = true),
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('현재 요청 후 중지'),
+            ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _stageResultPanel(GameFinderAdminStageEnrichResult value,
+          Color panel, Color border) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${value.stage.toUpperCase()} 최근 실행',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          _line('처리', value.processed),
+          _line('SUCCESS', value.success),
+          _line('NOT_FOUND', value.notFound),
+          _line('RETRYABLE_FAILURE', value.retryableFailure),
+          _line('PERMANENT_FAILURE', value.permanentFailure),
+          Text('처리 속도 ${value.itemsPerSecond.toStringAsFixed(2)} apps/s · ${value.durationMs}ms'),
         ]),
       );
 

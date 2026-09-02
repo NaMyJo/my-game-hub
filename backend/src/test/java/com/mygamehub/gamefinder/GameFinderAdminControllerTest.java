@@ -9,6 +9,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -59,6 +60,29 @@ class GameFinderAdminControllerTest {
     }
 
     @Test
+    void metadataAndIgdbStagesAreIndependentlyAuthorizedAndDelegated() {
+        var body = new GameFinderAdminEnrichRequest(1);
+        assertThatThrownBy(() -> controller.enrichMetadata(
+                new MockHttpServletRequest(), body))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.enrichIgdb(authenticated("regular-user"), body))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        var metadata = new GameFinderAdminStageEnrichResponse(
+                "metadata", 1, 1, 1, 0, 0, 0, true, 10);
+        var igdb = new GameFinderAdminStageEnrichResponse(
+                "igdb", 1, 1, 1, 0, 0, 0, false, 10);
+        when(maintenance.tryMetadataEnrich(1)).thenReturn(Optional.of(metadata));
+        when(maintenance.tryIgdbEnrich(1)).thenReturn(Optional.of(igdb));
+
+        assertThat(controller.enrichMetadata(authenticated("admin-uid"), body))
+                .isSameAs(metadata);
+        assertThat(controller.enrichIgdb(authenticated("admin-uid"), body))
+                .isSameAs(igdb);
+    }
+
+    @Test
     void concurrentRequestIsReportedAsConflict() {
         when(maintenance.tryEnrich(1)).thenReturn(Optional.empty());
 
@@ -91,7 +115,8 @@ class GameFinderAdminControllerTest {
         var fullSync = new GameFinderAdminStatusResponse.FullCatalogSync(
                 "NEW", 0L, 0, null, false, false);
         var status = new GameFinderAdminStatusResponse(
-                15, 13, 1, 1, counts, counts, 4, 11, 10, 3, 2,
+                15, 13, 1, 1, counts, counts,
+                4, 4, 3, 11, 8, 2, 10, 7, 9, 10, 3, 2,
                 checkpoint, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);
 

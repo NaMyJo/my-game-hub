@@ -4,6 +4,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,36 @@ public class GameFinderAdminMaintenanceService {
             log.info("game_finder_admin_enrich_complete batchSize={} processed={} durationMs={}",
                     batchSize, result.processed(), durationMs);
             return Optional.of(GameFinderAdminEnrichResponse.from(batchSize, result, durationMs));
+        } finally {
+            maintenanceRunning.set(false);
+        }
+    }
+
+    public Optional<GameFinderAdminStageEnrichResponse> tryMetadataEnrich(int batchSize) {
+        return tryStageEnrich("metadata", batchSize, true);
+    }
+
+    public Optional<GameFinderAdminStageEnrichResponse> tryIgdbEnrich(int batchSize) {
+        return tryStageEnrich("igdb", batchSize, false);
+    }
+
+    private Optional<GameFinderAdminStageEnrichResponse> tryStageEnrich(
+            String stage, int batchSize, boolean metadata) {
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            log.warn("game_finder_admin_stage_enrich_rejected stage={} reason=already_running", stage);
+            return Optional.empty();
+        }
+        long startedAt = System.nanoTime();
+        log.info("game_finder_admin_stage_enrich_start stage={} batchSize={}", stage, batchSize);
+        try {
+            var result = metadata
+                    ? syncService.enrichMetadataBatch(batchSize)
+                    : syncService.enrichIgdbBatch(batchSize);
+            long durationMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            log.info("game_finder_admin_stage_enrich_complete stage={} batchSize={} processed={} durationMs={}",
+                    stage, batchSize, result.processed(), durationMs);
+            return Optional.of(GameFinderAdminStageEnrichResponse.from(
+                    stage, batchSize, result, durationMs));
         } finally {
             maintenanceRunning.set(false);
         }

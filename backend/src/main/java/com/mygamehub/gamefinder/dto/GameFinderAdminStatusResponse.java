@@ -11,7 +11,14 @@ public record GameFinderAdminStatusResponse(
         EnrichmentCounts metadata,
         EnrichmentCounts igdb,
         long remainingCandidates,
+        long remainingMetadataCandidates,
+        long remainingIgdbCandidates,
         long gameCatalogCount,
+        long metadataTerminalCount,
+        long storeUnavailableCount,
+        long igdbTargetCount,
+        long igdbTerminalCount,
+        long finderEligibleCount,
         long gameCount,
         long nonGameCount,
         long unclassifiedCount,
@@ -22,7 +29,8 @@ public record GameFinderAdminStatusResponse(
     public static GameFinderAdminStatusResponse from(
             GameFinderAdminStatusProjection value, Checkpoint checkpoint,
             FullCatalogSync fullCatalogSync, FullCatalogSync gameOnlyCatalogSync,
-            long remainingCandidates) {
+            long remainingCandidates, long remainingMetadataCandidates,
+            long remainingIgdbCandidates) {
         return new GameFinderAdminStatusResponse(
                 value.getTotal(), value.getActive(), value.getUnavailable(), value.getRemoved(),
                 new EnrichmentCounts(value.getMetadataPending(), value.getMetadataSuccess(),
@@ -31,7 +39,10 @@ public record GameFinderAdminStatusResponse(
                 new EnrichmentCounts(value.getIgdbPending(), value.getIgdbSuccess(),
                         value.getIgdbNotFound(), value.getIgdbRetryableFailure(),
                         value.getIgdbPermanentFailure()), remainingCandidates,
-                value.getGameCatalogCount(),
+                remainingMetadataCandidates, remainingIgdbCandidates,
+                value.getGameCatalogCount(), value.getMetadataTerminalCount(),
+                value.getStoreUnavailableCount(), value.getIgdbTargetCount(),
+                value.getIgdbTerminalCount(), value.getFinderEligibleCount(),
                 value.getGameCount(), value.getNonGameCount(), value.getUnclassifiedCount(),
                 checkpoint, fullCatalogSync, gameOnlyCatalogSync);
     }

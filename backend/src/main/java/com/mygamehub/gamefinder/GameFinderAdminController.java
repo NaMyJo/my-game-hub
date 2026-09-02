@@ -10,6 +10,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -55,6 +56,26 @@ public class GameFinderAdminController {
         return maintenance.tryEnrich(request.effectiveBatchSize())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER enrichment is already running"));
+    }
+
+    @PostMapping("/enrich/metadata")
+    public GameFinderAdminStageEnrichResponse enrichMetadata(
+            HttpServletRequest servletRequest,
+            @Valid @RequestBody GameFinderAdminEnrichRequest request) {
+        requireAdmin(servletRequest);
+        return maintenance.tryMetadataEnrich(request.effectiveBatchSize())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/enrich/igdb")
+    public GameFinderAdminStageEnrichResponse enrichIgdb(
+            HttpServletRequest servletRequest,
+            @Valid @RequestBody GameFinderAdminEnrichRequest request) {
+        requireAdmin(servletRequest);
+        return maintenance.tryIgdbEnrich(request.effectiveBatchSize())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
     }
 
     @PostMapping("/catalog/expand")

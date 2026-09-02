@@ -11,7 +11,13 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class IgdbEnrichmentClient {
@@ -55,42 +61,70 @@ public class IgdbEnrichmentClient {
     }
 
     public Optional<IgdbData> findBySteamAppId(long appId) {
+        return findBySteamAppIds(List.of(appId)).getOrDefault(appId, Optional.empty());
+    }
+
+    public Map<Long, Optional<IgdbData>> findBySteamAppIds(Collection<Long> appIds) {
+        LinkedHashMap<Long, Optional<IgdbData>> results = new LinkedHashMap<>();
+        appIds.stream().distinct().forEach(id -> results.put(id, Optional.empty()));
+        if (results.isEmpty()) return results;
         if (!configured()) {
-            log.info("igdb_enrichment_skipped appId={} reason=not_configured", appId);
-            return Optional.empty();
+            log.info("igdb_enrichment_skipped count={} reason=not_configured", results.size());
+            return results;
         }
         String bearer = token();
         long sourceId = steamSourceId(bearer);
-        JsonNode links = post("external_games",
-                "fields game,external_game_source,uid; where external_game_source = " + sourceId
-                        + " & uid = \"" + appId + "\"; limit 10;",
-                bearer, appId);
-        int linkCount = arraySize(links);
-        log.info("igdb_external_games_result appId={} matchCount={}", appId, linkCount);
-        if (linkCount == 0) return Optional.empty();
-
-        long gameId = links.get(0).path("game").asLong(0);
-        if (gameId <= 0) {
-            log.warn("igdb_external_games_invalid appId={} reason=missing_game_id", appId);
-            return Optional.empty();
+        String uids = results.keySet().stream().map(id -> "\"" + id + "\"")
+                .collect(Collectors.joining(","));
+        List<JsonNode> links = new ArrayList<>();
+        int linkOffset = 0;
+        while (true) {
+            JsonNode page = post("external_games",
+                    "fields game,external_game_source,uid; where external_game_source = " + sourceId
+                            + " & uid = (" + uids + "); limit 500; offset " + linkOffset + ";",
+                    bearer, null);
+            if (page != null && page.isArray()) page.forEach(links::add);
+            if (arraySize(page) < 500) break;
+            linkOffset += 500;
         }
-        JsonNode games = post("games", "fields id,name; where id = " + gameId + "; limit 1;", bearer, appId);
-        int gameCount = arraySize(games);
-        log.info("igdb_games_result appId={} igdbGameId={} matchCount={}", appId, gameId, gameCount);
-        if (gameCount == 0) return Optional.empty();
+        int linkCount = links.size();
+        log.info("igdb_external_games_batch_result requested={} matchCount={}",
+                results.size(), linkCount);
+        Map<Long, Long> gameIdsByAppId = new LinkedHashMap<>();
+        if (!links.isEmpty()) {
+            for (JsonNode link : links) {
+                long appId = parseLong(link.path("uid").asText(""));
+                long gameId = link.path("game").asLong(0);
+                if (results.containsKey(appId) && gameId > 0) {
+                    gameIdsByAppId.putIfAbsent(appId, gameId);
+                }
+            }
+        }
+        if (gameIdsByAppId.isEmpty()) return results;
 
-        JsonNode modes = post("multiplayer_modes",
-                "fields campaigncoop,dropin,lancoop,offlinecoop,offlinecoopmax,offlinemax,"
-                        + "onlinecoop,onlinecoopmax,onlinemax,platform,splitscreen,splitscreenonline; "
-                        + "where game = " + gameId + "; limit 50;",
-                bearer, appId);
-        int modeCount = arraySize(modes);
-        log.info("igdb_multiplayer_modes_result appId={} igdbGameId={} matchCount={}", appId, gameId, modeCount);
-
-        int min = Integer.MAX_VALUE, max = 0, onlineMax = 0, coopMax = 0;
-        boolean onlineCoop = false, offlineCoop = false;
-        if (modes != null && modes.isArray()) {
-            for (JsonNode mode : modes) {
+        String gameIds = gameIdsByAppId.values().stream().distinct()
+                .map(String::valueOf).collect(Collectors.joining(","));
+        List<JsonNode> modes = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            JsonNode page = post("multiplayer_modes",
+                    "fields game,campaigncoop,dropin,lancoop,offlinecoop,offlinecoopmax,offlinemax,"
+                            + "onlinecoop,onlinecoopmax,onlinemax,platform,splitscreen,splitscreenonline; "
+                            + "where game = (" + gameIds + "); limit 500; offset " + offset + ";",
+                    bearer, null);
+            if (page != null && page.isArray()) page.forEach(modes::add);
+            if (arraySize(page) < 500) break;
+            offset += 500;
+        }
+        Map<Long, List<JsonNode>> modesByGameId = modes.stream()
+                .collect(Collectors.groupingBy(mode -> mode.path("game").asLong(0)));
+        for (Map.Entry<Long, Long> entry : gameIdsByAppId.entrySet()) {
+            long appId = entry.getKey();
+            long gameId = entry.getValue();
+            List<JsonNode> gameModes = modesByGameId.getOrDefault(gameId, List.of());
+            int min = Integer.MAX_VALUE, max = 0, onlineMax = 0, coopMax = 0;
+            boolean onlineCoop = false, offlineCoop = false;
+            for (JsonNode mode : gameModes) {
                 int online = mode.path("onlinemax").asInt(0);
                 int offline = mode.path("offlinemax").asInt(0);
                 int onlineCoopCount = mode.path("onlinecoopmax").asInt(0);
@@ -102,10 +136,19 @@ public class IgdbEnrichmentClient {
                 offlineCoop |= offlineCoopCount > 0 || mode.path("offlinecoop").asBoolean(false);
                 if (max > 0) min = 1;
             }
+            results.put(appId, Optional.of(new IgdbData(gameId, gameModes.size(),
+                    min == Integer.MAX_VALUE ? null : min, max == 0 ? null : max,
+                    onlineMax == 0 ? null : onlineMax, coopMax == 0 ? null : coopMax,
+                    !gameModes.isEmpty(), onlineCoop, offlineCoop)));
         }
-        return Optional.of(new IgdbData(gameId, modeCount, min == Integer.MAX_VALUE ? null : min,
-                max == 0 ? null : max, onlineMax == 0 ? null : onlineMax, coopMax == 0 ? null : coopMax,
-                modeCount > 0, onlineCoop, offlineCoop));
+        log.info("igdb_batch_complete requested={} mapped={} multiplayerModes={}",
+                results.size(), gameIdsByAppId.size(), modes.size());
+        return results;
+    }
+
+    private static long parseLong(String value) {
+        try { return Long.parseLong(value); }
+        catch (NumberFormatException ignored) { return 0; }
     }
 
     private synchronized long steamSourceId(String bearer) {

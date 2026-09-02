@@ -124,6 +124,30 @@ class SteamCatalogPersistenceServiceTest {
         assertTrue(sql.getValue().contains("game_catalog_eligible = COALESCE"));
     }
 
+    @Test
+    void igdbBatchPersistenceLoadsAllTargetsOnceWithoutPerGameSave() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        SteamGameRepository games = mock(SteamGameRepository.class);
+        SteamGame first = new SteamGame(570, "Dota 2", 1, 1);
+        SteamGame second = new SteamGame(1245620, "ELDEN RING", 1, 1);
+        when(games.findBySteamAppIdIn(List.of(570L, 1245620L)))
+                .thenReturn(List.of(first, second));
+        var values = java.util.Map.of(
+                570L, java.util.Optional.of(new IgdbEnrichmentClient.IgdbData(
+                        42L, 1, 1, 10, 10, 5, true, true, false)),
+                1245620L, java.util.Optional.<IgdbEnrichmentClient.IgdbData>empty());
+
+        var result = new SteamCatalogPersistenceService(jdbc, games)
+                .applyIgdbResults(List.of(570L, 1245620L), values);
+
+        assertEquals(2, result.size());
+        assertEquals(EnrichmentStatus.SUCCESS, first.getIgdbStatus());
+        assertEquals(EnrichmentStatus.NOT_FOUND, second.getIgdbStatus());
+        verify(games, times(1)).findBySteamAppIdIn(anyCollection());
+        verify(games, never()).save(any());
+        verify(games, never()).saveAll(anyCollection());
+    }
+
     private static int countOccurrences(String value, String token) {
         return (value.length() - value.replace(token, "").length()) / token.length();
     }
