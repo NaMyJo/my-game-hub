@@ -190,16 +190,20 @@ public class SteamCatalogSyncService {
     }
 
     public int enrichBatch() {
+        return enrichBatch(batchSize).processed();
+    }
+
+    public EnrichmentBatchResult enrichBatch(int requestedBatchSize) {
         LinkedHashMap<Long, SteamGame> targets = new LinkedHashMap<>();
-        games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)), PageRequest.of(0, batchSize))
+        games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)), PageRequest.of(0, requestedBatchSize))
                 .forEach(game -> targets.put(game.getSteamAppId(), game));
-        if (targets.size() < batchSize) {
-            games.findIgdbCandidates(PageRequest.of(0, batchSize - targets.size()))
+        if (targets.size() < requestedBatchSize) {
+            games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize - targets.size()))
                     .forEach(game -> targets.put(game.getSteamAppId(), game));
         }
         log.info("game_finder_enrichment_start candidateCount={}", targets.size());
         for (SteamGame game : targets.values()) enrichOne(game);
-        return targets.size();
+        return EnrichmentBatchResult.from(targets.values());
     }
 
     public int taxonomyBatch() {
@@ -322,4 +326,34 @@ public class SteamCatalogSyncService {
     }
 
     private record EnrichmentResult(boolean steamEnriched, boolean igdbProcessed) {}
+
+    public record EnrichmentBatchResult(
+            int processed,
+            int metadataSuccess,
+            int metadataNotFound,
+            int metadataRetryableFailure,
+            int metadataPermanentFailure,
+            int igdbSuccess,
+            int igdbNotFound,
+            int igdbRetryableFailure,
+            int igdbPermanentFailure) {
+        static EnrichmentBatchResult from(java.util.Collection<SteamGame> games) {
+            return new EnrichmentBatchResult(
+                    games.size(),
+                    count(games, true, EnrichmentStatus.SUCCESS),
+                    count(games, true, EnrichmentStatus.NOT_FOUND),
+                    count(games, true, EnrichmentStatus.RETRYABLE_FAILURE),
+                    count(games, true, EnrichmentStatus.PERMANENT_FAILURE),
+                    count(games, false, EnrichmentStatus.SUCCESS),
+                    count(games, false, EnrichmentStatus.NOT_FOUND),
+                    count(games, false, EnrichmentStatus.RETRYABLE_FAILURE),
+                    count(games, false, EnrichmentStatus.PERMANENT_FAILURE));
+        }
+
+        private static int count(java.util.Collection<SteamGame> games, boolean metadata,
+                EnrichmentStatus status) {
+            return (int) games.stream().filter(game -> status == (metadata
+                    ? game.getMetadataStatus() : game.getIgdbStatus())).count();
+        }
+    }
 }

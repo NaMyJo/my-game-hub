@@ -60,3 +60,4 @@ app:
     bootstrap-on-start: ${GAME_FINDER_BOOTSTRAP_ON_START:false}
     command: ${GAME_FINDER_COMMAND:}
     smoke-app-ids: ${GAME_FINDER_SMOKE_APP_IDS:570,1245620,4436560}
+    admin-uids: ${GAME_FINDER_ADMIN_UIDS:}
