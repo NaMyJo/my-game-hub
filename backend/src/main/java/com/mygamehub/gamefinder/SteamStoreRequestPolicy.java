@@ -1,6 +1,7 @@
 package com.mygamehub.gamefinder;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -27,6 +28,7 @@ public class SteamStoreRequestPolicy {
     private final Sleeper sleeper;
     private long nextRequestNanos;
 
+    @Autowired
     public SteamStoreRequestPolicy(
             @Value("${app.game-finder.steam-store-request-delay-ms:500}") long requestDelayMs,
             @Value("${app.game-finder.steam-store-max-retries:2}") int maxRetries,
@@ -118,4 +120,9 @@ public class SteamStoreRequestPolicy {
     }
 
     interface Sleeper { void sleep(long millis) throws InterruptedException; }
+
+    long requestDelayMs() { return requestDelayMs; }
+    int maxRetries() { return maxRetries; }
+    long initialBackoffMs() { return initialBackoffMs; }
+    long maxBackoffMs() { return maxBackoffMs; }
 }
