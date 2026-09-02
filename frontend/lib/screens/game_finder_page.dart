@@ -5,7 +5,13 @@ import '../models/game_finder.dart';
 import '../services/game_finder_repository.dart';
 
 class GameFinderPage extends StatefulWidget {
-  const GameFinderPage({super.key});
+  const GameFinderPage({
+    super.key,
+    this.isAdmin = false,
+    this.onOpenAdmin,
+  });
+  final bool isAdmin;
+  final VoidCallback? onOpenAdmin;
   @override
   State<GameFinderPage> createState() => _GameFinderPageState();
 }
@@ -81,8 +87,18 @@ class _GameFinderPageState extends State<GameFinderPage> {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('GAME FINDER',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+      Row(children: [
+        const Expanded(
+          child: Text('GAME FINDER',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        ),
+        if (widget.isAdmin)
+          OutlinedButton.icon(
+            onPressed: widget.onOpenAdmin,
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            label: const Text('관리'),
+          ),
+      ]),
       const SizedBox(height: 6),
       const Text('좋아했던 Steam 게임을 바탕으로 다음 게임을 찾아보세요.'),
       const SizedBox(height: 20),

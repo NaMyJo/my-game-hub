@@ -31,4 +31,21 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     @org.springframework.transaction.annotation.Transactional
     @Query(value="update steam_games set lifecycle_status='REMOVED' where (lifecycle_status is null or lifecycle_status='ACTIVE') and (reconciliation_generation is null or reconciliation_generation<>:generation)",nativeQuery=true)
     int markMissingAsRemoved(@org.springframework.data.repository.query.Param("generation") String generation);
+
+    @Query(value = "select count(*) as total, "
+            + "coalesce(sum(case when lifecycle_status is null or lifecycle_status='ACTIVE' then 1 else 0 end), 0) as active, "
+            + "coalesce(sum(case when lifecycle_status='UNAVAILABLE' then 1 else 0 end), 0) as unavailable, "
+            + "coalesce(sum(case when lifecycle_status='REMOVED' then 1 else 0 end), 0) as removed, "
+            + "coalesce(sum(case when metadata_status is null or metadata_status='PENDING' then 1 else 0 end), 0) as \"metadataPending\", "
+            + "coalesce(sum(case when metadata_status='SUCCESS' then 1 else 0 end), 0) as \"metadataSuccess\", "
+            + "coalesce(sum(case when metadata_status='NOT_FOUND' then 1 else 0 end), 0) as \"metadataNotFound\", "
+            + "coalesce(sum(case when metadata_status='RETRYABLE_FAILURE' then 1 else 0 end), 0) as \"metadataRetryableFailure\", "
+            + "coalesce(sum(case when metadata_status='PERMANENT_FAILURE' then 1 else 0 end), 0) as \"metadataPermanentFailure\", "
+            + "coalesce(sum(case when igdb_status is null or igdb_status='PENDING' then 1 else 0 end), 0) as \"igdbPending\", "
+            + "coalesce(sum(case when igdb_status='SUCCESS' then 1 else 0 end), 0) as \"igdbSuccess\", "
+            + "coalesce(sum(case when igdb_status='NOT_FOUND' then 1 else 0 end), 0) as \"igdbNotFound\", "
+            + "coalesce(sum(case when igdb_status='RETRYABLE_FAILURE' then 1 else 0 end), 0) as \"igdbRetryableFailure\", "
+            + "coalesce(sum(case when igdb_status='PERMANENT_FAILURE' then 1 else 0 end), 0) as \"igdbPermanentFailure\" "
+            + "from steam_games", nativeQuery = true)
+    GameFinderAdminStatusProjection adminStatus();
 }

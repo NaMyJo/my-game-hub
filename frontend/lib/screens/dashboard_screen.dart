@@ -8,6 +8,7 @@ import '../models/user_profile.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/game_profile_summary_repository.dart';
+import '../services/game_finder_admin_repository.dart';
 import '../services/game_repository.dart';
 import '../services/public_profile_repository.dart';
 import '../services/user_profile_repository.dart';
@@ -17,6 +18,7 @@ import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
 import 'game_identity_page.dart';
 import 'game_finder_page.dart';
+import 'game_finder_admin_page.dart';
 import 'public_pages.dart';
 
 enum DashboardPage {
@@ -24,6 +26,7 @@ enum DashboardPage {
   tools,
   gameIdentity,
   gameFinder,
+  gameFinderAdmin,
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -46,6 +49,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _dashboardMenuExpanded = true;
   bool _deleteMode = false;
   bool _sidebarCollapsed = false;
+  bool _isGameFinderAdmin = false;
   final Set<int> _selectedGameIds = {};
   String? _loadGamesError;
   void _toggleSidebar() {
@@ -72,6 +76,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _openGameFinderAdmin() {
+    if (!_isGameFinderAdmin) return;
+    setState(() {
+      _currentPage = DashboardPage.gameFinderAdmin;
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
   DashboardPage _currentPage = DashboardPage.dashboard;
 
   @override
@@ -81,6 +94,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadGames();
     _loadGameProfileSummary();
     _loadUserProfile();
+    _loadGameFinderAdminAccess();
+  }
+
+  Future<void> _loadGameFinderAdminAccess() async {
+    try {
+      final isAdmin = await GameFinderAdminRepository.instance.isAdmin();
+      if (mounted) setState(() => _isGameFinderAdmin = isAdmin);
+    } catch (_) {
+      if (mounted) setState(() => _isGameFinderAdmin = false);
+    }
   }
 
   void _openDashboard() {
@@ -1328,10 +1351,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                       )
-                    : const SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
-                        child: GameFinderPage(),
-                      ),
+                    : _currentPage == DashboardPage.gameFinder
+                        ? SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
+                            child: GameFinderPage(
+                              isAdmin: _isGameFinderAdmin,
+                              onOpenAdmin: _openGameFinderAdmin,
+                            ),
+                          )
+                        : const SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
+                            child: GameFinderAdminPage(),
+                          ),
       ),
     );
   }
@@ -1432,6 +1463,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onTools: _openTools,
             onGameIdentity: _openGameIdentity,
             onGameFinder: _openGameFinder,
+            isGameFinderAdmin: _isGameFinderAdmin,
+            onGameFinderAdmin: _openGameFinderAdmin,
             onSignOut: _confirmSignOut,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
@@ -1533,7 +1566,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             });
                           },
                         ),
-                      DashboardPage.gameFinder => const GameFinderPage(),
+                      DashboardPage.gameFinder => GameFinderPage(
+                          isAdmin: _isGameFinderAdmin,
+                          onOpenAdmin: _openGameFinderAdmin,
+                        ),
+                      DashboardPage.gameFinderAdmin =>
+                        const GameFinderAdminPage(),
                     },
                   ),
                 ),
@@ -1686,6 +1724,8 @@ class _Sidebar extends StatefulWidget {
     required this.onToggleCollapsed,
     required this.onGameIdentity,
     required this.onGameFinder,
+    required this.isGameFinderAdmin,
+    required this.onGameFinderAdmin,
     required this.isDarkMode,
     required this.onToggleTheme,
   });
@@ -1701,6 +1741,8 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onToggleCollapsed;
   final VoidCallback onGameIdentity;
   final VoidCallback onGameFinder;
+  final bool isGameFinderAdmin;
+  final VoidCallback onGameFinderAdmin;
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
 
@@ -1881,6 +1923,15 @@ class _SidebarState extends State<_Sidebar> {
                     onTap: widget.onGameFinder,
                     collapsed: !_showContent,
                   ),
+                  if (widget.isGameFinderAdmin)
+                    _SideItem(
+                      icon: Icons.admin_panel_settings_outlined,
+                      label: 'FINDER ADMIN',
+                      selected: widget.currentPage ==
+                          DashboardPage.gameFinderAdmin,
+                      onTap: widget.onGameFinderAdmin,
+                      collapsed: !_showContent,
+                    ),
                   const Spacer(),
                   _ThemeModeButton(
                     collapsed: !_showContent,

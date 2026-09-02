@@ -4,6 +4,7 @@ import com.mygamehub.auth.AuthenticatedUser;
 import com.mygamehub.auth.FirebaseAuthInterceptor;
 import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminStatusResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -20,8 +21,9 @@ import static org.mockito.Mockito.when;
 class GameFinderAdminControllerTest {
     private final GameFinderAdminAuthorizer authorizer = new GameFinderAdminAuthorizer("admin-uid");
     private final GameFinderAdminMaintenanceService maintenance = mock(GameFinderAdminMaintenanceService.class);
+    private final GameFinderAdminStatusService statusService = mock(GameFinderAdminStatusService.class);
     private final GameFinderAdminController controller =
-            new GameFinderAdminController(authorizer, maintenance);
+            new GameFinderAdminController(authorizer, maintenance, statusService);
 
     @Test
     void unauthenticatedRequestIsRejected() {
@@ -60,6 +62,31 @@ class GameFinderAdminControllerTest {
                 authenticated("admin-uid"), new GameFinderAdminEnrichRequest(1)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void meReturnsFalseWithoutExposingAllowlist() {
+        assertThat(controller.me(authenticated("regular-user")).admin()).isFalse();
+        assertThat(controller.me(authenticated("admin-uid")).admin()).isTrue();
+    }
+
+    @Test
+    void statusRequiresAuthenticationAndAdminAuthorization() {
+        assertThatThrownBy(() -> controller.status(new MockHttpServletRequest()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.status(authenticated("regular-user")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+    }
+
+    @Test
+    void adminCanReadAggregateStatus() {
+        var counts = new GameFinderAdminStatusResponse.EnrichmentCounts(1, 2, 3, 4, 5);
+        var status = new GameFinderAdminStatusResponse(15, 13, 1, 1, counts, counts);
+        when(statusService.status()).thenReturn(status);
+
+        assertThat(controller.status(authenticated("admin-uid"))).isSameAs(status);
     }
 
     private MockHttpServletRequest authenticated(String uid) {
