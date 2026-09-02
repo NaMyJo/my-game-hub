@@ -38,6 +38,7 @@ public class SteamCatalogSyncService {
     private final int metadataConcurrency;
     private final long igdbIntervalMs;
     private final long metadataRetryCooldownMs;
+    private final int metadata429AbortThreshold;
     private final SteamStoreRequestPolicy storeRequestPolicy;
 
     @Autowired
@@ -51,6 +52,7 @@ public class SteamCatalogSyncService {
             @Value("${app.game-finder.steam-metadata-concurrency:1}") int metadataConcurrency,
             @Value("${app.game-finder.igdb-request-interval-ms:260}") long igdbIntervalMs,
             @Value("${app.game-finder.metadata-retry-cooldown-ms:1200000}") long metadataRetryCooldownMs,
+            @Value("${app.game-finder.metadata-429-abort-threshold:3}") int metadata429AbortThreshold,
             SteamStoreRequestPolicy storeRequestPolicy) {
         this.catalog = catalog;
         this.store = store;
@@ -66,6 +68,7 @@ public class SteamCatalogSyncService {
         this.metadataConcurrency = Math.max(1, Math.min(4, metadataConcurrency));
         this.igdbIntervalMs = igdbIntervalMs;
         this.metadataRetryCooldownMs = Math.max(0, metadataRetryCooldownMs);
+        this.metadata429AbortThreshold = Math.max(1, metadata429AbortThreshold);
         this.storeRequestPolicy = storeRequestPolicy;
     }
 
@@ -76,7 +79,7 @@ public class SteamCatalogSyncService {
             long storeDelayMs, long igdbIntervalMs) {
         this(catalog, store, games, persistence, checkpoints, igdb, tagService, batchSize,
                 pagesPerRun, bootstrapMaxApps, storeDelayMs, 1, igdbIntervalMs,
-                1_200_000, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
+                1_200_000, 3, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
     }
 
     SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
@@ -86,17 +89,19 @@ public class SteamCatalogSyncService {
             long storeDelayMs, int metadataConcurrency, long igdbIntervalMs) {
         this(catalog, store, games, persistence, checkpoints, igdb, tagService, batchSize,
                 pagesPerRun, bootstrapMaxApps, storeDelayMs, metadataConcurrency, igdbIntervalMs,
-                1_200_000, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
+                1_200_000, 3, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
     }
 
     @PostConstruct
     void logConfiguration() {
         log.info("game_finder_bootstrap_config catalogPageSize={} pagesPerRun={} storeDelayMs={} "
                         + "metadataConcurrency={} metadataRetryCooldownMs={} storeMaxRetries={} "
-                        + "storeInitialMaxRetries={} igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
+                        + "storeInitialMaxRetries={} storeRateLimitCooldownMs={} "
+                        + "metadata429AbortThreshold={} igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
                 catalog.pageSize(), pagesPerRun, storeDelayMs, metadataConcurrency,
                 metadataRetryCooldownMs, storeRequestPolicy.maxRetries(),
-                storeRequestPolicy.initialMaxRetries(),
+                storeRequestPolicy.initialMaxRetries(), storeRequestPolicy.rateLimitCooldownMs(),
+                metadata429AbortThreshold,
                 igdbIntervalMs <= 0 ? "unlimited"
                         : String.format(Locale.ROOT, "%.2f", 1000.0 / igdbIntervalMs),
                 batchSize, bootstrapMaxApps);
@@ -253,25 +258,44 @@ public class SteamCatalogSyncService {
         List<SteamGame> targets = List.copyOf(uniqueTargets.values());
         log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
         SteamStoreRequestPolicy.Stats before = storeRequestPolicy.stats();
-        enrichMetadataTargets(targets);
+        MetadataBatchExecution execution = enrichMetadataTargets(targets);
         SteamStoreRequestPolicy.Stats stats = storeRequestPolicy.stats().minus(before);
         log.info("game_finder_metadata_batch_http_stats apps={} attempts={} retries={} "
                         + "http429={} http5xx={} network={} parsing={} averageAttemptsPerApp={}",
                 stats.executions(), stats.attempts(), stats.retries(), stats.http429(),
                 stats.http5xx(), stats.network(), stats.parsing(), stats.averageAttemptsPerApp());
+        if (execution.aborted()) {
+            log.warn("game_finder_metadata_batch_aborted reason=rate_limited attempted={} pending={}",
+                    execution.attempted().size(), targets.size() - execution.attempted().size());
+        }
         return EnrichmentStageBatchResult.from(
-                targets, true, games.countMetadataCandidates(staleBefore(), retryBefore()) > 0);
+                execution.attempted(), true,
+                games.countMetadataCandidates(staleBefore(), retryBefore()) > 0,
+                execution.rateLimited());
     }
 
-    private void enrichMetadataTargets(List<SteamGame> targets) {
+    private MetadataBatchExecution enrichMetadataTargets(List<SteamGame> targets) {
+        MetadataRateLimitGuard guard = new MetadataRateLimitGuard(metadata429AbortThreshold);
+        List<SteamGame> attempted = new java.util.concurrent.CopyOnWriteArrayList<>();
         if (metadataConcurrency == 1 || targets.size() < 2) {
-            targets.forEach(this::enrichMetadataOne);
-            return;
+            for (SteamGame game : targets) {
+                if (guard.aborted()) break;
+                MetadataAttemptOutcome outcome = enrichMetadataOne(game);
+                attempted.add(game);
+                guard.record(outcome);
+            }
+            return new MetadataBatchExecution(
+                    List.copyOf(attempted), guard.rateLimited(), guard.aborted());
         }
         try (var executor = Executors.newFixedThreadPool(
                 Math.min(metadataConcurrency, targets.size()))) {
             var futures = targets.stream()
-                    .map(game -> executor.submit(() -> enrichMetadataOne(game)))
+                    .map(game -> executor.submit(() -> {
+                        if (guard.aborted()) return;
+                        MetadataAttemptOutcome outcome = enrichMetadataOne(game);
+                        attempted.add(game);
+                        guard.record(outcome);
+                    }))
                     .toList();
             for (var future : futures) {
                 try {
@@ -285,6 +309,8 @@ public class SteamCatalogSyncService {
                 }
             }
         }
+        return new MetadataBatchExecution(
+                List.copyOf(attempted), guard.rateLimited(), guard.aborted());
     }
 
     public int metadataConcurrency() { return metadataConcurrency; }
@@ -307,7 +333,7 @@ public class SteamCatalogSyncService {
             }
         }
         return EnrichmentStageBatchResult.from(
-                targets, false, igdb.configured() && games.countIgdbCandidates() > 0);
+                targets, false, igdb.configured() && games.countIgdbCandidates() > 0, false);
     }
 
     public boolean hasEnrichmentCandidates() {
@@ -553,7 +579,7 @@ public class SteamCatalogSyncService {
         return new EnrichmentResult(steamEnriched, igdbProcessed);
     }
 
-    private void enrichMetadataOne(SteamGame game) {
+    private MetadataAttemptOutcome enrichMetadataOne(SteamGame game) {
         try {
             boolean initialAttempt = game.getMetadataUpdatedAt() == null
                     && (game.getMetadataStatus() == null
@@ -562,7 +588,7 @@ public class SteamCatalogSyncService {
             if (detail.isEmpty()) {
                 game.markMetadataNotFound();
                 games.save(game);
-                return;
+                return MetadataAttemptOutcome.COMPLETED;
             }
             var value = detail.get();
             game.updateStoreDetail(value.name(), value.type(), value.image(), value.description(), value.free(),
@@ -574,13 +600,43 @@ public class SteamCatalogSyncService {
                 game.markIgdbNotApplicable();
             }
             games.save(game);
+            return MetadataAttemptOutcome.COMPLETED;
         } catch (RuntimeException exception) {
             game.markMetadataFailure(retryable(exception));
             games.save(game);
             log.warn("game_finder_metadata_failed appId={} reason={} errorType={}",
                     game.getSteamAppId(), SteamStoreRequestPolicy.failureCategory(exception),
                     exception.getClass().getSimpleName());
+            return "HTTP_429".equals(SteamStoreRequestPolicy.failureCategory(exception))
+                    ? MetadataAttemptOutcome.RATE_LIMITED
+                    : MetadataAttemptOutcome.OTHER_FAILURE;
         }
+    }
+
+    private enum MetadataAttemptOutcome { COMPLETED, RATE_LIMITED, OTHER_FAILURE }
+
+    private record MetadataBatchExecution(
+            List<SteamGame> attempted, boolean rateLimited, boolean aborted) {}
+
+    private static final class MetadataRateLimitGuard {
+        private final int threshold;
+        private int consecutive429;
+        private boolean rateLimited;
+        private boolean aborted;
+
+        private MetadataRateLimitGuard(int threshold) { this.threshold = threshold; }
+
+        synchronized void record(MetadataAttemptOutcome outcome) {
+            if (outcome == MetadataAttemptOutcome.RATE_LIMITED) {
+                rateLimited = true;
+                if (++consecutive429 >= threshold) aborted = true;
+            } else {
+                consecutive429 = 0;
+            }
+        }
+
+        synchronized boolean aborted() { return aborted; }
+        synchronized boolean rateLimited() { return rateLimited; }
     }
 
     private Instant staleBefore() { return Instant.now().minus(Duration.ofDays(7)); }
@@ -659,17 +715,19 @@ public class SteamCatalogSyncService {
             int notFound,
             int retryableFailure,
             int permanentFailure,
-            boolean hasMoreCandidates) {
+            boolean hasMoreCandidates,
+            boolean rateLimited) {
         static EnrichmentStageBatchResult from(
                 java.util.Collection<SteamGame> games, boolean metadata,
-                boolean hasMoreCandidates) {
+                boolean hasMoreCandidates, boolean rateLimited) {
             return new EnrichmentStageBatchResult(
                     games.size(),
                     EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.SUCCESS),
                     EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.NOT_FOUND),
                     EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.RETRYABLE_FAILURE),
                     EnrichmentBatchResult.count(games, metadata, EnrichmentStatus.PERMANENT_FAILURE),
-                    hasMoreCandidates);
+                    hasMoreCandidates,
+                    rateLimited);
         }
     }
 }

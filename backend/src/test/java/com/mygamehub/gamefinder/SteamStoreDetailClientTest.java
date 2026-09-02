@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
+import java.util.concurrent.atomic.AtomicLong;
 
 class SteamStoreDetailClientTest {
     @ParameterizedTest
@@ -127,6 +128,8 @@ class SteamStoreDetailClientTest {
     }
 
     private SteamStoreRequestPolicy policy(int maxRetries) {
-        return new SteamStoreRequestPolicy(0, maxRetries, 1, 2, millis -> {});
+        AtomicLong nanoTime = new AtomicLong();
+        return new SteamStoreRequestPolicy(0, maxRetries, 0, 1, 2, 1,
+                millis -> nanoTime.addAndGet(millis * 1_000_000L), nanoTime::get);
     }
 }

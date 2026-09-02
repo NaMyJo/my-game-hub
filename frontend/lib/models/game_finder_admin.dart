@@ -277,6 +277,7 @@ class GameFinderAdminStageEnrichResult {
     required this.retryableFailure,
     required this.permanentFailure,
     required this.hasMoreCandidates,
+    required this.rateLimited,
     required this.durationMs,
   });
 
@@ -284,6 +285,7 @@ class GameFinderAdminStageEnrichResult {
   final int requestedBatchSize, processed, success, notFound;
   final int retryableFailure, permanentFailure, durationMs;
   final bool hasMoreCandidates;
+  final bool rateLimited;
 
   double get itemsPerSecond =>
       durationMs <= 0 ? 0 : processed * 1000 / durationMs;
@@ -301,6 +303,7 @@ class GameFinderAdminStageEnrichResult {
         permanentFailure:
             (json['permanentFailure'] as num?)?.toInt() ?? 0,
         hasMoreCandidates: json['hasMoreCandidates'] as bool? ?? false,
+        rateLimited: json['rateLimited'] as bool? ?? false,
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
       );
 }

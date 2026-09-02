@@ -9,6 +9,7 @@ import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,13 +38,16 @@ class SteamStoreRequestPolicyTest {
 
     @Test
     void retries429AndHonorsRetryAfter() {
-        var sleeps = new ArrayList<Long>();
+        var time = new FakeTime();
         var attempts = new AtomicInteger();
+        var attemptTimes = new ArrayList<Long>();
         var headers = new HttpHeaders();
         headers.set(HttpHeaders.RETRY_AFTER, "2");
-        var policy = new SteamStoreRequestPolicy(0, 2, 10, 100, sleeps::add);
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 10, 100,
+                60_000, time, time);
 
         String result = policy.execute(() -> {
+            attemptTimes.add(time.nanoTime.get());
             if (attempts.incrementAndGet() == 1) throw HttpClientErrorException.create(
                     HttpStatus.TOO_MANY_REQUESTS, "limited", headers, null, null);
             return "ok";
@@ -51,15 +55,47 @@ class SteamStoreRequestPolicyTest {
 
         assertEquals("ok", result);
         assertEquals(2, attempts.get());
-        assertTrue(sleeps.contains(2000L));
-        int waitsAfterLimitedRequest = sleeps.size();
-
-        policy.execute(() -> "next-worker-request");
-
-        assertTrue(sleeps.size() > waitsAfterLimitedRequest,
-                "429 backoff must defer the next globally scheduled request too");
+        assertTrue(time.sleeps.contains(2000L));
+        assertTrue(attemptTimes.get(1) - attemptTimes.get(0) >= 2_000_000_000L,
+                "the retry itself must pass the shared Retry-After deadline");
         assertEquals(1, policy.stats().http429());
         assertEquals(1, policy.stats().retries());
+    }
+
+    @Test
+    void initialRequestWithoutRetriesStillRegistersGlobal429CooldownForNextWorker() {
+        var time = new FakeTime();
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 500, 10_000,
+                60_000, time, time);
+        var limited = new HttpClientErrorException(HttpStatus.TOO_MANY_REQUESTS);
+
+        assertThrows(HttpClientErrorException.class,
+                () -> policy.executeInitial(() -> { throw limited; }));
+        long firstFailureAt = time.nanoTime.get();
+        var nextWorkerStart = new AtomicLong(-1);
+
+        policy.executeInitial(() -> {
+            nextWorkerStart.set(time.nanoTime.get());
+            return "ok";
+        });
+
+        assertTrue(nextWorkerStart.get() - firstFailureAt >= 60_000_000_000L,
+                "a later worker/batch must retain the singleton policy cooldown");
+        assertEquals(1, policy.stats().http429());
+        assertEquals(0, policy.stats().retries());
+    }
+
+    @Test
+    void normalRequestsResumeAfterGlobalCooldownExpires() {
+        var time = new FakeTime();
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 500, 10_000,
+                30_000, time, time);
+        assertThrows(HttpClientErrorException.class, () -> policy.executeInitial(() -> {
+            throw new HttpClientErrorException(HttpStatus.TOO_MANY_REQUESTS);
+        }));
+
+        assertEquals("recovered", policy.executeInitial(() -> "recovered"));
+        assertTrue(time.nanoTime.get() >= 30_000_000_000L);
     }
 
     @Test
@@ -84,5 +120,18 @@ class SteamStoreRequestPolicyTest {
             throw new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE);
         }));
         assertEquals(3, attempts.get());
+    }
+
+    private static final class FakeTime implements SteamStoreRequestPolicy.Sleeper,
+            java.util.function.LongSupplier {
+        private final AtomicLong nanoTime = new AtomicLong();
+        private final ArrayList<Long> sleeps = new ArrayList<>();
+
+        @Override public synchronized void sleep(long millis) {
+            sleeps.add(millis);
+            nanoTime.addAndGet(millis * 1_000_000L);
+        }
+
+        @Override public long getAsLong() { return nanoTime.get(); }
     }
 }

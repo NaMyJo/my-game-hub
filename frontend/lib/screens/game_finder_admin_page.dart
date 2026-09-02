@@ -91,7 +91,11 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         if (!mounted) return;
         setState(() => _metadataResult = value);
         await _loadStatus();
-        if (!continuous || !value.hasMoreCandidates || value.processed == 0 ||
+        if (value.rateLimited) {
+          setState(() => _error =
+              'Steam 요청 제한이 감지되어 연속 실행을 중단했습니다. 잠시 후 다시 시도해 주세요.');
+        }
+        if (!continuous || value.rateLimited || !value.hasMoreCandidates || value.processed == 0 ||
             _stopEnrichmentRequested) break;
         await Future<void>.delayed(const Duration(milliseconds: 300));
       } while (mounted && !_stopEnrichmentRequested);
@@ -968,6 +972,12 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _line('NOT_FOUND', value.notFound),
           _line('RETRYABLE_FAILURE', value.retryableFailure),
           _line('PERMANENT_FAILURE', value.permanentFailure),
+          if (value.rateLimited)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Steam 요청 제한 감지 · 연속 실행 중단',
+                  style: TextStyle(color: Color(0xFFE2A93B), fontWeight: FontWeight.w700)),
+            ),
           Text('처리 속도 ${value.itemsPerSecond.toStringAsFixed(2)} apps/s · ${value.durationMs}ms'),
         ]),
       );

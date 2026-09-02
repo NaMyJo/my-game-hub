@@ -28,7 +28,7 @@ class GameFinderAdminMaintenanceServiceTest {
     void delegatesMetadataAndIgdbToSeparateExistingServiceMethods() {
         var sync = mock(SteamCatalogSyncService.class);
         var stage = new SteamCatalogSyncService.EnrichmentStageBatchResult(
-                1, 1, 0, 0, 0, false);
+                1, 1, 0, 0, 0, false, false);
         when(sync.enrichMetadataBatch(1)).thenReturn(stage);
         when(sync.enrichIgdbBatch(1)).thenReturn(stage);
         var service = service(sync);

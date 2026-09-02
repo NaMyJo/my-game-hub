@@ -11,6 +11,7 @@ public record GameFinderAdminStageEnrichResponse(
         int retryableFailure,
         int permanentFailure,
         boolean hasMoreCandidates,
+        boolean rateLimited,
         long durationMs) {
     public static GameFinderAdminStageEnrichResponse from(
             String stage, int requestedBatchSize,
@@ -18,6 +19,6 @@ public record GameFinderAdminStageEnrichResponse(
         return new GameFinderAdminStageEnrichResponse(stage, requestedBatchSize,
                 result.processed(), result.success(), result.notFound(),
                 result.retryableFailure(), result.permanentFailure(),
-                result.hasMoreCandidates(), durationMs);
+                result.hasMoreCandidates(), result.rateLimited(), durationMs);
     }
 }

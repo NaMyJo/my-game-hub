@@ -16,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /** Bounded retry and globally spaced request starts for the Store endpoint. */
@@ -27,7 +28,9 @@ public class SteamStoreRequestPolicy {
     private final long requestDelayMs;
     private final long requestDelayNanos;
     private final int initialMaxRetries;
+    private final long rateLimitCooldownMs;
     private final Sleeper sleeper;
+    private final LongSupplier nanoTime;
     private long nextRequestNanos;
     private final LongAdder executions = new LongAdder();
     private final LongAdder attempts = new LongAdder();
@@ -43,9 +46,10 @@ public class SteamStoreRequestPolicy {
             @Value("${app.game-finder.steam-store-max-retries:2}") int maxRetries,
             @Value("${app.game-finder.steam-store-initial-max-retries:0}") int initialMaxRetries,
             @Value("${app.game-finder.steam-store-backoff-initial-ms:500}") long initialBackoffMs,
-            @Value("${app.game-finder.steam-store-backoff-max-ms:10000}") long maxBackoffMs) {
+            @Value("${app.game-finder.steam-store-backoff-max-ms:10000}") long maxBackoffMs,
+            @Value("${app.game-finder.steam-store-rate-limit-cooldown-ms:60000}") long rateLimitCooldownMs) {
         this(requestDelayMs, maxRetries, initialMaxRetries, initialBackoffMs,
-                maxBackoffMs, Thread::sleep);
+                maxBackoffMs, rateLimitCooldownMs, Thread::sleep, System::nanoTime);
     }
 
     SteamStoreRequestPolicy(long requestDelayMs, int maxRetries, long initialBackoffMs,
@@ -55,13 +59,22 @@ public class SteamStoreRequestPolicy {
 
     SteamStoreRequestPolicy(long requestDelayMs, int maxRetries, int initialMaxRetries,
             long initialBackoffMs, long maxBackoffMs, Sleeper sleeper) {
+        this(requestDelayMs, maxRetries, initialMaxRetries, initialBackoffMs,
+                maxBackoffMs, 60_000, sleeper, System::nanoTime);
+    }
+
+    SteamStoreRequestPolicy(long requestDelayMs, int maxRetries, int initialMaxRetries,
+            long initialBackoffMs, long maxBackoffMs, long rateLimitCooldownMs,
+            Sleeper sleeper, LongSupplier nanoTime) {
         this.requestDelayMs = Math.max(0, requestDelayMs);
         this.requestDelayNanos = Duration.ofMillis(this.requestDelayMs).toNanos();
         this.maxRetries = Math.max(0, maxRetries);
         this.initialMaxRetries = Math.max(0, initialMaxRetries);
         this.initialBackoffMs = Math.max(1, initialBackoffMs);
         this.maxBackoffMs = Math.max(this.initialBackoffMs, maxBackoffMs);
+        this.rateLimitCooldownMs = Math.max(1, rateLimitCooldownMs);
         this.sleeper = sleeper;
+        this.nanoTime = nanoTime;
     }
 
     public <T> T execute(Supplier<T> action) {
@@ -85,11 +98,13 @@ public class SteamStoreRequestPolicy {
                 return action.get();
             } catch (RuntimeException exception) {
                 recordFailure(exception);
+                long delay = retryDelayMs(exception, attempt);
+                // A 429 is a server-wide signal, not merely a retry decision for this App.
+                // Register it even when initialMaxRetries=0.
+                if (is429(exception)) deferAllRequests(rateLimitDelayMs(exception, delay));
                 if (!retryable(exception) || attempt == retryLimit) throw exception;
                 last = exception;
                 retries.increment();
-                long delay = retryDelayMs(exception, attempt);
-                if (is429(exception)) deferAllRequests(delay);
                 sleep(delay);
             }
         }
@@ -142,6 +157,11 @@ public class SteamStoreRequestPolicy {
                 + ThreadLocalRandom.current().nextLong(jitterBound));
     }
 
+    private long rateLimitDelayMs(RuntimeException exception, long retryDelayMs) {
+        Long retryAfter = retryAfterMillis(exception);
+        return retryAfter != null ? retryAfter : Math.max(rateLimitCooldownMs, retryDelayMs);
+    }
+
     private Long retryAfterMillis(RuntimeException exception) {
         if (!(exception instanceof RestClientResponseException response)
                 || response.getResponseHeaders() == null) return null;
@@ -162,14 +182,26 @@ public class SteamStoreRequestPolicy {
         }
     }
 
-    private synchronized void awaitRequestSlot() {
-        long waitNanos = Math.max(0, nextRequestNanos - System.nanoTime());
-        if (waitNanos > 0) sleep(Duration.ofNanos(waitNanos).toMillis() + 1);
-        nextRequestNanos = System.nanoTime() + requestDelayNanos;
+    private void awaitRequestSlot() {
+        while (true) {
+            long waitNanos;
+            synchronized (this) {
+                long now = nanoTime.getAsLong();
+                waitNanos = Math.max(0, nextRequestNanos - now);
+                if (waitNanos == 0) {
+                    nextRequestNanos = now + requestDelayNanos;
+                    return;
+                }
+            }
+            // Never hold the monitor while waiting. A concurrent 429 must be able to
+            // extend the deadline, and this loop re-checks that extended deadline.
+            sleep(Duration.ofNanos(waitNanos).toMillis() + 1);
+        }
     }
 
     private synchronized void deferAllRequests(long delayMs) {
-        long deferredUntil = System.nanoTime() + Duration.ofMillis(Math.max(0, delayMs)).toNanos();
+        long deferredUntil = nanoTime.getAsLong()
+                + Duration.ofMillis(Math.max(0, delayMs)).toNanos();
         nextRequestNanos = Math.max(nextRequestNanos, deferredUntil);
     }
 
@@ -189,6 +221,7 @@ public class SteamStoreRequestPolicy {
     long initialBackoffMs() { return initialBackoffMs; }
     long maxBackoffMs() { return maxBackoffMs; }
     int initialMaxRetries() { return initialMaxRetries; }
+    long rateLimitCooldownMs() { return rateLimitCooldownMs; }
 
     Stats stats() {
         return new Stats(executions.sum(), attempts.sum(), retries.sum(), http429.sum(),

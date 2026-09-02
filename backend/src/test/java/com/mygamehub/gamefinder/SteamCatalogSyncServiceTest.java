@@ -3,6 +3,10 @@ package com.mygamehub.gamefinder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InOrder;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -163,6 +167,76 @@ class SteamCatalogSyncServiceTest {
         assertEquals(2000, succeeded.getPriceCurrent());
         assertEquals(1, result.success());
         assertEquals(1, result.retryableFailure());
+    }
+
+    @Test
+    void consecutive429AbortsBatchAndLeavesUnrequestedCandidatesPending() {
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 1, 2, 60_000,
+                millis -> {}, System::nanoTime);
+        var guardedService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 0, 1, 260,
+                1_200_000, 3, policy);
+        var candidates = java.util.stream.LongStream.rangeClosed(1, 5)
+                .mapToObj(id -> new SteamGame(id, "game-" + id, 1, 1)).toList();
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(candidates);
+        when(games.countMetadataCandidates(any(), any())).thenReturn(2L);
+        when(store.get(anyLong(), eq(true))).thenThrow(
+                new HttpClientErrorException(HttpStatus.TOO_MANY_REQUESTS));
+
+        var result = guardedService.enrichMetadataBatch(40);
+
+        assertEquals(3, result.processed());
+        assertEquals(3, result.retryableFailure());
+        assertTrue(result.rateLimited());
+        assertTrue(result.hasMoreCandidates());
+        verify(store, times(3)).get(anyLong(), eq(true));
+        assertNull(candidates.get(3).getMetadataStatus(),
+                "uninitialized candidate must remain untouched");
+        assertNull(candidates.get(4).getMetadataStatus(),
+                "uninitialized candidate must remain untouched");
+        verify(games, never()).save(candidates.get(3));
+        verify(games, never()).save(candidates.get(4));
+    }
+
+    @Test
+    void serverFailuresDoNotTrip429CircuitBreaker() {
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 1, 2, 60_000,
+                millis -> {}, System::nanoTime);
+        var guardedService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 0, 1, 260,
+                1_200_000, 3, policy);
+        var candidates = java.util.stream.LongStream.rangeClosed(1, 5)
+                .mapToObj(id -> new SteamGame(id, "game-" + id, 1, 1)).toList();
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(candidates);
+        when(games.countMetadataCandidates(any(), any())).thenReturn(5L);
+        when(store.get(anyLong(), eq(true))).thenThrow(
+                new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+
+        var result = guardedService.enrichMetadataBatch(40);
+
+        assertEquals(5, result.processed());
+        assertFalse(result.rateLimited());
+        verify(store, times(5)).get(anyLong(), eq(true));
+    }
+
+    @Test
+    void networkFailuresDoNotTrip429CircuitBreaker() {
+        var policy = new SteamStoreRequestPolicy(0, 2, 0, 1, 2, 60_000,
+                millis -> {}, System::nanoTime);
+        var guardedService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 0, 1, 260,
+                1_200_000, 3, policy);
+        var candidates = java.util.stream.LongStream.rangeClosed(1, 4)
+                .mapToObj(id -> new SteamGame(id, "game-" + id, 1, 1)).toList();
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(candidates);
+        when(games.countMetadataCandidates(any(), any())).thenReturn(4L);
+        when(store.get(anyLong(), eq(true))).thenThrow(new ResourceAccessException("timeout"));
+
+        var result = guardedService.enrichMetadataBatch(40);
+
+        assertEquals(4, result.processed());
+        assertFalse(result.rateLimited());
+        verify(store, times(4)).get(anyLong(), eq(true));
     }
 
     @Test

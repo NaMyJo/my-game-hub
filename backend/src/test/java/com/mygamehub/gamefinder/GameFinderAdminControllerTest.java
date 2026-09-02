@@ -72,9 +72,9 @@ class GameFinderAdminControllerTest {
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
         var metadata = new GameFinderAdminStageEnrichResponse(
-                "metadata", 1, 1, 1, 0, 0, 0, true, 10);
+                "metadata", 1, 1, 1, 0, 0, 0, true, false, 10);
         var igdb = new GameFinderAdminStageEnrichResponse(
-                "igdb", 1, 1, 1, 0, 0, 0, false, 10);
+                "igdb", 1, 1, 1, 0, 0, 0, false, false, 10);
         when(maintenance.tryMetadataEnrich(1)).thenReturn(Optional.of(metadata));
         when(maintenance.tryIgdbEnrich(1)).thenReturn(Optional.of(igdb));
 

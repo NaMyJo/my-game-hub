@@ -27,6 +27,7 @@ class SteamStoreRequestPolicyContextTest {
             assertThat(policy.initialMaxRetries()).isZero();
             assertThat(policy.initialBackoffMs()).isEqualTo(500);
             assertThat(policy.maxBackoffMs()).isEqualTo(10_000);
+            assertThat(policy.rateLimitCooldownMs()).isEqualTo(60_000);
 
             SteamCatalogSyncService sync = context.getBean(SteamCatalogSyncService.class);
             assertThat(sync.metadataConcurrency()).isEqualTo(1);
