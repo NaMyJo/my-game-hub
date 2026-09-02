@@ -13,6 +13,7 @@ public record GameFinderAdminEnrichResponse(
         int igdbNotFound,
         int igdbRetryableFailure,
         int igdbPermanentFailure,
+        boolean hasMoreCandidates,
         long durationMs
 ) {
     public static GameFinderAdminEnrichResponse from(
@@ -21,6 +22,7 @@ public record GameFinderAdminEnrichResponse(
                 requestedBatchSize, result.processed(), result.metadataSuccess(),
                 result.metadataNotFound(), result.metadataRetryableFailure(),
                 result.metadataPermanentFailure(), result.igdbSuccess(), result.igdbNotFound(),
-                result.igdbRetryableFailure(), result.igdbPermanentFailure(), durationMs);
+                result.igdbRetryableFailure(), result.igdbPermanentFailure(),
+                result.hasMoreCandidates(), durationMs);
     }
 }

@@ -11,6 +11,7 @@ class GameFinderAdminStatusServiceTest {
     void mapsSingleAggregateProjectionWithoutLoadingEntities() {
         var games = mock(SteamGameRepository.class);
         var checkpoints = mock(CatalogSyncCheckpointRepository.class);
+        var syncService = mock(SteamCatalogSyncService.class);
         var projection = mock(GameFinderAdminStatusProjection.class);
         var fullCheckpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
         fullCheckpoint.fullSyncPage(500, 500, false);
@@ -21,12 +22,18 @@ class GameFinderAdminStatusServiceTest {
         when(projection.getActive()).thenReturn(100L);
         when(projection.getUnavailable()).thenReturn(1L);
         when(projection.getRemoved()).thenReturn(1L);
+        when(projection.getGameCatalogCount()).thenReturn(90L);
         when(projection.getMetadataPending()).thenReturn(79L);
         when(projection.getMetadataSuccess()).thenReturn(23L);
         when(projection.getIgdbPending()).thenReturn(81L);
         when(projection.getIgdbSuccess()).thenReturn(21L);
+        when(projection.getGameCount()).thenReturn(80L);
+        when(projection.getNonGameCount()).thenReturn(10L);
+        when(projection.getUnclassifiedCount()).thenReturn(12L);
+        when(syncService.remainingEnrichmentCandidates()).thenReturn(17L);
 
-        var response = new GameFinderAdminStatusService(games, checkpoints).status();
+        var response = new GameFinderAdminStatusService(
+                games, checkpoints, syncService).status();
 
         assertThat(response.total()).isEqualTo(102);
         assertThat(response.active()).isEqualTo(100);
@@ -38,5 +45,10 @@ class GameFinderAdminStatusServiceTest {
         assertThat(response.fullCatalogSync().lastAppId()).isEqualTo(500);
         assertThat(response.fullCatalogSync().discoveredCount()).isEqualTo(500);
         assertThat(response.fullCatalogSync().completed()).isFalse();
+        assertThat(response.remainingCandidates()).isEqualTo(17);
+        assertThat(response.gameCatalogCount()).isEqualTo(90);
+        assertThat(response.gameCount()).isEqualTo(80);
+        assertThat(response.nonGameCount()).isEqualTo(10);
+        assertThat(response.unclassifiedCount()).isEqualTo(12);
     }
 }

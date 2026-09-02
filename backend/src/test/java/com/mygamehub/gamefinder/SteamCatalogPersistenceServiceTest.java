@@ -33,9 +33,9 @@ class SteamCatalogPersistenceServiceTest {
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object[]> parameters = ArgumentCaptor.forClass(Object[].class);
         verify(jdbc, times(1)).update(sql.capture(), parameters.capture());
-        assertEquals(100, countOccurrences(sql.getValue(), "(?, ?, 'game', ?, ?, 'UNKNOWN', false, 'ACTIVE', CURRENT_TIMESTAMP, ?)"));
+        assertEquals(100, countOccurrences(sql.getValue(), "(?, ?, 'game', ?, ?, 'UNKNOWN', false, 'ACTIVE', CURRENT_TIMESTAMP, ?, ?)"));
         assertTrue(sql.getValue().contains("ON CONFLICT (steam_app_id) DO UPDATE"));
-        assertEquals(500, parameters.getValue().length);
+        assertEquals(600, parameters.getValue().length);
         verify(games, times(1)).findBySteamAppIdIn(anyCollection());
         verify(games, never()).save(any());
         verify(games, never()).saveAll(anyCollection());
@@ -57,7 +57,7 @@ class SteamCatalogPersistenceServiceTest {
 
         ArgumentCaptor<Object[]> parameters = ArgumentCaptor.forClass(Object[].class);
         verify(jdbc).update(anyString(), parameters.capture());
-        assertArrayEquals(new Object[]{10L, "Latest", 2L, 2L, null}, parameters.getValue());
+        assertArrayEquals(new Object[]{10L, "Latest", 2L, 2L, null, null}, parameters.getValue());
         assertEquals(1, result.size());
     }
 
@@ -104,6 +104,24 @@ class SteamCatalogPersistenceServiceTest {
         assertEquals("generation-1", args.getValue()[4]);
         assertTrue(sql.getValue().contains("lifecycle_status = 'ACTIVE'"));
         assertTrue(sql.getValue().contains("reconciliation_generation = COALESCE"));
+    }
+
+    @Test
+    void gameOnlyUpsertMarksEligibilityWithoutOverwritingItInGeneralScans() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        SteamGameRepository games = mock(SteamGameRepository.class);
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        when(games.findBySteamAppIdIn(anyCollection())).thenReturn(List.of());
+        var item = new SteamCatalogClient.CatalogItem(10, "Game", 1, 1);
+
+        var service = new SteamCatalogPersistenceService(jdbc, games);
+        service.upsertGameCatalogAll(List.of(item));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).update(sql.capture(), args.capture());
+        assertEquals(true, args.getValue()[5]);
+        assertTrue(sql.getValue().contains("game_catalog_eligible = COALESCE"));
     }
 
     private static int countOccurrences(String value, String token) {

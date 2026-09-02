@@ -38,6 +38,21 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
+    void enrichmentResponseUsesActualCandidateQueryForCompletion() {
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of());
+        when(games.countEnrichmentCandidates(any())).thenReturn(0L, 3L);
+        when(igdb.configured()).thenReturn(true);
+
+        var completed = service.enrichBatch(1);
+        var more = service.enrichBatch(1);
+
+        assertEquals(0, completed.processed());
+        assertFalse(completed.hasMoreCandidates());
+        assertTrue(more.hasMoreCandidates());
+    }
+
+    @Test
     void adminCatalogExpansionIsNoOpWhenTargetIsAlreadyReached() {
         when(games.count()).thenReturn(1000L);
 
@@ -225,6 +240,78 @@ class SteamCatalogSyncServiceTest {
         service.syncFullCatalogPage();
 
         verify(checkpoints, never()).findById("steam-catalog-admin-expand");
+    }
+
+    @Test
+    void gameOnlyScanUsesIndependentCheckpointAndEligibilityUpsert() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-game-only");
+        var item = new SteamCatalogClient.CatalogItem(570, "Dota 2", 1, 1);
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.countByGameCatalogEligibleTrue()).thenReturn(0L, 1L);
+        when(catalog.page(0, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 570));
+
+        var result = service.syncGameOnlyCatalogPage();
+
+        verify(persistence).upsertGameCatalogAll(List.of(item));
+        verify(catalog, never()).pageAllApps(anyLong(), anyInt());
+        verifyNoInteractions(store, igdb);
+        assertEquals(570, checkpoint.getLastAppId());
+        assertEquals(1, result.eligibleCatalogTotal());
+        assertFalse(result.completed());
+    }
+
+    @Test
+    void gameOnlyScanResumesAndCompletesFromSteamContinuationFlag() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-game-only");
+        checkpoint.fullSyncPage(570, 500, false);
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.countByGameCatalogEligibleTrue()).thenReturn(500L, 500L);
+        when(catalog.page(570, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), false, 570));
+
+        var result = service.syncGameOnlyCatalogPage();
+
+        assertTrue(result.completed());
+        assertEquals("COMPLETED", checkpoint.getStatus());
+        assertEquals(500, result.discoveredCount());
+    }
+
+    @Test
+    void gameOnlyPersistenceFailureDoesNotAdvanceCursor() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-game-only");
+        checkpoint.fullSyncPage(570, 500, false);
+        var item = new SteamCatalogClient.CatalogItem(730, "Next", 1, 1);
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.countByGameCatalogEligibleTrue()).thenReturn(500L);
+        when(catalog.page(570, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 730));
+        when(persistence.upsertGameCatalogAll(List.of(item)))
+                .thenThrow(new IllegalStateException("db"));
+
+        assertThrows(IllegalStateException.class, service::syncGameOnlyCatalogPage);
+
+        assertEquals(570, checkpoint.getLastAppId());
+        assertEquals(500, checkpoint.getProcessedCount());
+        assertEquals("FAILED", checkpoint.getStatus());
+    }
+
+    @Test
+    void completedGameOnlyScanIsNoOp() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-game-only");
+        checkpoint.fullSyncPage(999, 1200, true);
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.countByGameCatalogEligibleTrue()).thenReturn(1000L);
+
+        var result = service.syncGameOnlyCatalogPage();
+
+        assertTrue(result.completed());
+        assertEquals(0, result.fetched());
+        verifyNoInteractions(catalog);
     }
 
     @BeforeEach
@@ -417,6 +504,39 @@ class SteamCatalogSyncServiceTest {
         assertEquals(EnrichmentStatus.NOT_FOUND, noMatch.getIgdbStatus());
         assertNotNull(noMatch.getIgdbUpdatedAt());
         verify(igdb, times(1)).findBySteamAppId(4436560L);
+    }
+
+    @Test
+    void nonGameMetadataIsMarkedIgdbNotApplicableWithoutIgdbCall() {
+        SteamGame dlc = new SteamGame(99, "DLC", 0, 0);
+        dlc.updateStoreDetail("dlc", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                false, false, false, false);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(dlc));
+        when(igdb.configured()).thenReturn(true);
+
+        var result = service.enrichBatch(1);
+
+        assertEquals(1, result.processed());
+        assertEquals(EnrichmentStatus.NOT_FOUND, dlc.getIgdbStatus());
+        verify(igdb, never()).findBySteamAppId(anyLong());
+    }
+
+    @Test
+    void gameMetadataStillUsesIgdbEnrichment() {
+        SteamGame game = new SteamGame(570, "Game", 0, 0);
+        game.updateStoreDetail("game", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, true, false, false);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(game));
+        when(igdb.configured()).thenReturn(true);
+        when(igdb.findBySteamAppId(570L)).thenReturn(Optional.empty());
+
+        service.enrichBatch(1);
+
+        verify(igdb).findBySteamAppId(570L);
     }
 
     @Test

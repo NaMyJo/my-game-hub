@@ -8,6 +8,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminStatusResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -90,7 +91,8 @@ class GameFinderAdminControllerTest {
         var fullSync = new GameFinderAdminStatusResponse.FullCatalogSync(
                 "NEW", 0L, 0, null, false, false);
         var status = new GameFinderAdminStatusResponse(
-                15, 13, 1, 1, counts, counts, checkpoint, fullSync);
+                15, 13, 1, 1, counts, counts, 4, 11, 10, 3, 2,
+                checkpoint, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);
 
         assertThat(controller.status(authenticated("admin-uid"))).isSameAs(status);
@@ -138,6 +140,22 @@ class GameFinderAdminControllerTest {
         verify(maintenance).tryFullCatalogSync();
     }
 
+    @Test
+    void gameOnlyCatalogSyncRequiresAdminAndUsesMaintenancePath() {
+        assertThatThrownBy(() -> controller.gameCatalogSync(new MockHttpServletRequest()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.gameCatalogSync(authenticated("regular-user")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        var response = new GameFinderAdminGameCatalogSyncResponse(
+                500, 500, 12345, 500, false, 100);
+        when(maintenance.tryGameCatalogSync()).thenReturn(Optional.of(response));
+
+        assertThat(controller.gameCatalogSync(authenticated("admin-uid"))).isSameAs(response);
+        verify(maintenance).tryGameCatalogSync();
+    }
+
     private MockHttpServletRequest authenticated(String uid) {
         var request = new MockHttpServletRequest();
         request.setAttribute(FirebaseAuthInterceptor.USER_ATTRIBUTE,
@@ -147,6 +165,6 @@ class GameFinderAdminControllerTest {
 
     private GameFinderAdminEnrichResponse response(int batchSize) {
         return new GameFinderAdminEnrichResponse(
-                batchSize, 1, 1, 0, 0, 0, 1, 0, 0, 0, 10);
+                batchSize, 1, 1, 0, 0, 0, 1, 0, 0, 0, false, 10);
     }
 }

@@ -20,6 +20,7 @@ public class SteamCatalogSyncService {
     private static final String CHECKPOINT_KEY = "steam-catalog";
     static final String ADMIN_EXPAND_CHECKPOINT_KEY = "steam-catalog-admin-expand";
     static final String ADMIN_FULL_SYNC_CHECKPOINT_KEY = "steam-catalog-admin-full-sync";
+    static final String ADMIN_GAME_ONLY_CHECKPOINT_KEY = "steam-catalog-admin-game-only";
     static final int ADMIN_EXPAND_MAX_APPS_PER_REQUEST = 500;
     private final SteamCatalogClient catalog;
     private final SteamStoreDetailClient store;
@@ -206,7 +207,19 @@ public class SteamCatalogSyncService {
         }
         log.info("game_finder_enrichment_start candidateCount={}", targets.size());
         for (SteamGame game : targets.values()) enrichOne(game);
-        return EnrichmentBatchResult.from(targets.values());
+        boolean hasMoreCandidates = hasEnrichmentCandidates();
+        return EnrichmentBatchResult.from(targets.values(), hasMoreCandidates);
+    }
+
+    public boolean hasEnrichmentCandidates() {
+        return remainingEnrichmentCandidates() > 0;
+    }
+
+    public long remainingEnrichmentCandidates() {
+        Instant staleBefore = Instant.now().minus(Duration.ofDays(7));
+        return igdb.configured()
+                ? games.countEnrichmentCandidates(staleBefore)
+                : games.countMetadataCandidates(staleBefore);
     }
 
     public CatalogExpandResult expandCatalogTo(int targetTotal) {
@@ -264,6 +277,40 @@ public class SteamCatalogSyncService {
             checkpoints.save(cp);
             return new FullCatalogSyncResult(page.items().size(),
                     Math.max(0, after - currentTotal), after, nextAppId,
+                    cp.getProcessedCount(), completed);
+        } catch (RuntimeException exception) {
+            cp.failed(exception.getClass().getSimpleName());
+            checkpoints.save(cp);
+            throw exception;
+        }
+    }
+
+    public GameOnlyCatalogSyncResult syncGameOnlyCatalogPage() {
+        CatalogSyncCheckpoint cp = checkpoints.findById(ADMIN_GAME_ONLY_CHECKPOINT_KEY)
+                .orElseGet(() -> new CatalogSyncCheckpoint(ADMIN_GAME_ONLY_CHECKPOINT_KEY));
+        long eligibleTotal = games.countByGameCatalogEligibleTrue();
+        if ("COMPLETED".equals(cp.getStatus())) {
+            return new GameOnlyCatalogSyncResult(0, eligibleTotal,
+                    cp.getLastAppId() == null ? 0 : cp.getLastAppId(),
+                    cp.getProcessedCount() == null ? 0 : cp.getProcessedCount(), true);
+        }
+        cp.running();
+        checkpoints.save(cp);
+        try {
+            long start = cp.getLastAppId() == null ? 0 : cp.getLastAppId();
+            SteamCatalogClient.CatalogPage page = catalog.page(
+                    start, null, ADMIN_EXPAND_MAX_APPS_PER_REQUEST);
+            logPage(page, ADMIN_EXPAND_MAX_APPS_PER_REQUEST, start);
+            if (page.hasMore() && (page.items().isEmpty() || page.lastAppId() <= start)) {
+                throw new IllegalStateException("Steam game-only catalog page made no cursor progress");
+            }
+            persistence.upsertGameCatalogAll(page.items());
+            boolean completed = !page.hasMore();
+            long nextAppId = page.items().isEmpty() ? start : page.lastAppId();
+            cp.fullSyncPage(nextAppId, page.items().size(), completed);
+            checkpoints.save(cp);
+            return new GameOnlyCatalogSyncResult(page.items().size(),
+                    games.countByGameCatalogEligibleTrue(), nextAppId,
                     cp.getProcessedCount(), completed);
         } catch (RuntimeException exception) {
             cp.failed(exception.getClass().getSimpleName());
@@ -364,6 +411,14 @@ public class SteamCatalogSyncService {
             game.normalizeLegacyIgdbStatus();
             games.save(game);
         }
+        if (game.getStoreType() != null && !"game".equalsIgnoreCase(game.getStoreType())) {
+            if (game.getIgdbStatus() != EnrichmentStatus.NOT_FOUND
+                    && game.getIgdbStatus() != EnrichmentStatus.PERMANENT_FAILURE) {
+                game.markIgdbNotApplicable();
+                games.save(game);
+            }
+            return new EnrichmentResult(steamEnriched, false);
+        }
         boolean igdbComplete = game.getIgdbStatus() == EnrichmentStatus.SUCCESS
                 || game.getIgdbStatus() == EnrichmentStatus.NOT_FOUND
                 || game.getIgdbStatus() == EnrichmentStatus.PERMANENT_FAILURE
@@ -418,6 +473,13 @@ public class SteamCatalogSyncService {
             long discoveredCount,
             boolean completed) {}
 
+    public record GameOnlyCatalogSyncResult(
+            int fetched,
+            long eligibleCatalogTotal,
+            long lastAppId,
+            long discoveredCount,
+            boolean completed) {}
+
     public record EnrichmentBatchResult(
             int processed,
             int metadataSuccess,
@@ -427,8 +489,10 @@ public class SteamCatalogSyncService {
             int igdbSuccess,
             int igdbNotFound,
             int igdbRetryableFailure,
-            int igdbPermanentFailure) {
-        static EnrichmentBatchResult from(java.util.Collection<SteamGame> games) {
+            int igdbPermanentFailure,
+            boolean hasMoreCandidates) {
+        static EnrichmentBatchResult from(
+                java.util.Collection<SteamGame> games, boolean hasMoreCandidates) {
             return new EnrichmentBatchResult(
                     games.size(),
                     count(games, true, EnrichmentStatus.SUCCESS),
@@ -438,7 +502,8 @@ public class SteamCatalogSyncService {
                     count(games, false, EnrichmentStatus.SUCCESS),
                     count(games, false, EnrichmentStatus.NOT_FOUND),
                     count(games, false, EnrichmentStatus.RETRYABLE_FAILURE),
-                    count(games, false, EnrichmentStatus.PERMANENT_FAILURE));
+                    count(games, false, EnrichmentStatus.PERMANENT_FAILURE),
+                    hasMoreCandidates);
         }
 
         private static int count(java.util.Collection<SteamGame> games, boolean metadata,

@@ -8,11 +8,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class GameFinderAdminStatusService {
     private final SteamGameRepository games;
     private final CatalogSyncCheckpointRepository checkpoints;
+    private final SteamCatalogSyncService syncService;
 
     public GameFinderAdminStatusService(
-            SteamGameRepository games, CatalogSyncCheckpointRepository checkpoints) {
+            SteamGameRepository games, CatalogSyncCheckpointRepository checkpoints,
+            SteamCatalogSyncService syncService) {
         this.games = games;
         this.checkpoints = checkpoints;
+        this.syncService = syncService;
     }
 
     @Transactional(readOnly = true)
@@ -31,6 +34,16 @@ public class GameFinderAdminStatusService {
                         value.getFailureInfo() != null && !value.getFailureInfo().isBlank()))
                 .orElseGet(() -> new GameFinderAdminStatusResponse.FullCatalogSync(
                         "NEW", 0L, 0, null, false, false));
-        return GameFinderAdminStatusResponse.from(games.adminStatus(), checkpoint, fullSync);
+        var gameOnlySync = checkpoints.findById(SteamCatalogSyncService.ADMIN_GAME_ONLY_CHECKPOINT_KEY)
+                .map(value -> new GameFinderAdminStatusResponse.FullCatalogSync(
+                        value.getStatus(), value.getLastAppId(),
+                        value.getProcessedCount() == null ? 0 : value.getProcessedCount(),
+                        value.getLastSuccessfulSyncAt(), "COMPLETED".equals(value.getStatus()),
+                        value.getFailureInfo() != null && !value.getFailureInfo().isBlank()))
+                .orElseGet(() -> new GameFinderAdminStatusResponse.FullCatalogSync(
+                        "NEW", 0L, 0, null, false, false));
+        long remainingCandidates = syncService.remainingEnrichmentCandidates();
+        return GameFinderAdminStatusResponse.from(
+                games.adminStatus(), checkpoint, fullSync, gameOnlySync, remainingCandidates);
     }
 }

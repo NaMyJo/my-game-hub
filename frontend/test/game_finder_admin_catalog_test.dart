@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_game_hub/models/game_finder_admin.dart';
+import 'package:my_game_hub/models/game_finder_admin_game_catalog.dart';
 import 'package:my_game_hub/screens/game_finder_admin_page.dart';
 import 'package:my_game_hub/services/game_finder_admin_repository.dart';
 
@@ -45,11 +46,26 @@ void main() {
     expect(find.text('최근 전체 Catalog 수집 결과'), findsOneWidget);
     expect(find.text('다음 최대 500개를 이어서 수집할 수 있습니다.'), findsOneWidget);
   });
+
+  testWidgets('continuous enrichment stops when processed is zero', (tester) async {
+    final repository = _FakeRepository();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('연속 Enrichment'));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+
+    expect(repository.enrichCalls, 2);
+    expect(find.text('현재 처리 가능한 후보가 없습니다.'), findsOneWidget);
+  });
 }
 
 class _FakeRepository extends GameFinderAdminRepository {
   int statusCalls = 0;
   int fullSyncCalls = 0;
+  int enrichCalls = 0;
   final requestedTargets = <int>[];
   final _catalog = Completer<GameFinderAdminCatalogExpandResult>();
 
@@ -89,6 +105,19 @@ class _FakeRepository extends GameFinderAdminRepository {
         completed: false,
         hasFailure: false,
       ),
+      gameOnlyCatalogSync: GameFinderFullCatalogSyncStatus(
+        status: 'NEW',
+        lastAppId: 0,
+        discoveredCount: 0,
+        lastSuccessfulRunAt: null,
+        completed: false,
+        hasFailure: false,
+      ),
+      remainingCandidates: 23,
+      gameCatalogCount: 102,
+      gameCount: 79,
+      nonGameCount: 0,
+      unclassifiedCount: 23,
     );
   }
 
@@ -109,6 +138,37 @@ class _FakeRepository extends GameFinderAdminRepository {
       discoveredCount: 500,
       completed: false,
       durationMs: 500,
+    );
+  }
+
+  @override
+  Future<GameFinderAdminGameCatalogSyncResult> syncNextGameCatalogPage() async {
+    return const GameFinderAdminGameCatalogSyncResult(
+      fetched: 500,
+      eligibleCatalogTotal: 500,
+      lastAppId: 500,
+      discoveredCount: 500,
+      completed: false,
+      durationMs: 100,
+    );
+  }
+
+  @override
+  Future<GameFinderAdminEnrichResult> enrich(int batchSize) async {
+    enrichCalls++;
+    return GameFinderAdminEnrichResult(
+      requestedBatchSize: batchSize,
+      processed: enrichCalls == 1 ? 1 : 0,
+      metadataSuccess: enrichCalls == 1 ? 1 : 0,
+      metadataNotFound: 0,
+      metadataRetryableFailure: 0,
+      metadataPermanentFailure: 0,
+      igdbSuccess: 0,
+      igdbNotFound: 0,
+      igdbRetryableFailure: 0,
+      igdbPermanentFailure: 0,
+      durationMs: 10,
+      hasMoreCandidates: enrichCalls == 1,
     );
   }
 

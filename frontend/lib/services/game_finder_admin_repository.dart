@@ -1,4 +1,5 @@
 import '../models/game_finder_admin.dart';
+import '../models/game_finder_admin_game_catalog.dart';
 import 'api_client.dart';
 
 class GameFinderAdminRepository {
@@ -39,5 +40,12 @@ class GameFinderAdminRepository {
       '/api/admin/game-finder/catalog/full-sync',
     ) as Map<String, dynamic>;
     return GameFinderAdminFullCatalogSyncResult.fromJson(json);
+  }
+
+  Future<GameFinderAdminGameCatalogSyncResult> syncNextGameCatalogPage() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/catalog/game-only-sync',
+    ) as Map<String, dynamic>;
+    return GameFinderAdminGameCatalogSyncResult.fromJson(json);
   }
 }

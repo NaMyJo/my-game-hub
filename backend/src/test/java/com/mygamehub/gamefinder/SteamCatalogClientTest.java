@@ -91,4 +91,25 @@ class SteamCatalogClientTest {
         assertFalse(page.hasMore());
         server.verify();
     }
+
+    @Test
+    void regularCatalogPageRequestsGamesOnly() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(containsString("IStoreService/GetAppList/v1/")))
+                .andExpect(queryParam("input_json", containsString("%22include_games%22:true")))
+                .andExpect(queryParam("input_json", containsString("%22include_dlc%22:false")))
+                .andExpect(queryParam("input_json", containsString("%22include_software%22:false")))
+                .andExpect(queryParam("input_json", containsString("%22include_videos%22:false")))
+                .andExpect(queryParam("input_json", containsString("%22include_hardware%22:false")))
+                .andRespond(withSuccess("""
+                        {"response":{"apps":[],"have_more_results":false,"last_appid":0}}
+                        """, MediaType.APPLICATION_JSON));
+        SteamCatalogClient client = new SteamCatalogClient(builder, "test-key", 5000,
+                "https://api.steampowered.com", new ExternalApiRetry(ms -> {}));
+
+        client.page(0, null, 500);
+
+        server.verify();
+    }
 }

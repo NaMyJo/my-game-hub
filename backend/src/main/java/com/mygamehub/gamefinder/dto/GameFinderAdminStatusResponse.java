@@ -10,12 +10,19 @@ public record GameFinderAdminStatusResponse(
         long removed,
         EnrichmentCounts metadata,
         EnrichmentCounts igdb,
+        long remainingCandidates,
+        long gameCatalogCount,
+        long gameCount,
+        long nonGameCount,
+        long unclassifiedCount,
         Checkpoint checkpoint,
-        FullCatalogSync fullCatalogSync
+        FullCatalogSync fullCatalogSync,
+        FullCatalogSync gameOnlyCatalogSync
 ) {
     public static GameFinderAdminStatusResponse from(
             GameFinderAdminStatusProjection value, Checkpoint checkpoint,
-            FullCatalogSync fullCatalogSync) {
+            FullCatalogSync fullCatalogSync, FullCatalogSync gameOnlyCatalogSync,
+            long remainingCandidates) {
         return new GameFinderAdminStatusResponse(
                 value.getTotal(), value.getActive(), value.getUnavailable(), value.getRemoved(),
                 new EnrichmentCounts(value.getMetadataPending(), value.getMetadataSuccess(),
@@ -23,7 +30,10 @@ public record GameFinderAdminStatusResponse(
                         value.getMetadataPermanentFailure()),
                 new EnrichmentCounts(value.getIgdbPending(), value.getIgdbSuccess(),
                         value.getIgdbNotFound(), value.getIgdbRetryableFailure(),
-                        value.getIgdbPermanentFailure()), checkpoint, fullCatalogSync);
+                        value.getIgdbPermanentFailure()), remainingCandidates,
+                value.getGameCatalogCount(),
+                value.getGameCount(), value.getNonGameCount(), value.getUnclassifiedCount(),
+                checkpoint, fullCatalogSync, gameOnlyCatalogSync);
     }
 
     public record EnrichmentCounts(

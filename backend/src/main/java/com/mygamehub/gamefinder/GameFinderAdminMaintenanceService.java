@@ -3,6 +3,7 @@ package com.mygamehub.gamefinder;
 import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -74,6 +75,26 @@ public class GameFinderAdminMaintenanceService {
                     result.fetched(), result.newlySaved(), result.currentCatalogTotal(),
                     result.lastAppId(), result.discoveredCount(), result.completed(), durationMs);
             return Optional.of(GameFinderAdminFullCatalogSyncResponse.from(result, durationMs));
+        } finally {
+            maintenanceRunning.set(false);
+        }
+    }
+
+    public Optional<GameFinderAdminGameCatalogSyncResponse> tryGameCatalogSync() {
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            log.warn("game_finder_admin_game_catalog_rejected reason=maintenance_running");
+            return Optional.empty();
+        }
+        long startedAt = System.nanoTime();
+        log.info("game_finder_admin_game_catalog_start maxApps={}",
+                SteamCatalogSyncService.ADMIN_EXPAND_MAX_APPS_PER_REQUEST);
+        try {
+            var result = syncService.syncGameOnlyCatalogPage();
+            long durationMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            log.info("game_finder_admin_game_catalog_complete fetched={} eligibleTotal={} lastAppId={} discoveredCount={} completed={} durationMs={}",
+                    result.fetched(), result.eligibleCatalogTotal(), result.lastAppId(),
+                    result.discoveredCount(), result.completed(), durationMs);
+            return Optional.of(GameFinderAdminGameCatalogSyncResponse.from(result, durationMs));
         } finally {
             maintenanceRunning.set(false);
         }

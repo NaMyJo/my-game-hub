@@ -16,7 +16,8 @@ public class SteamCatalogPersistenceService {
             INSERT INTO steam_games
                 (steam_app_id, name, store_type, steam_last_modified,
                  steam_price_change_number, adult_status, coming_soon,
-                 lifecycle_status, last_seen_at, reconciliation_generation)
+                 lifecycle_status, last_seen_at, reconciliation_generation,
+                 game_catalog_eligible)
             VALUES
             """;
     private static final String UPSERT_SUFFIX = """
@@ -42,7 +43,9 @@ public class SteamCatalogPersistenceService {
                 lifecycle_status = 'ACTIVE',
                 last_seen_at = EXCLUDED.last_seen_at,
                 reconciliation_generation = COALESCE(EXCLUDED.reconciliation_generation,
-                                                     steam_games.reconciliation_generation)
+                                                     steam_games.reconciliation_generation),
+                game_catalog_eligible = COALESCE(EXCLUDED.game_catalog_eligible,
+                                                 steam_games.game_catalog_eligible)
             """;
 
     private final JdbcTemplate jdbc;
@@ -55,23 +58,35 @@ public class SteamCatalogPersistenceService {
 
     @Transactional
     public List<SteamGame> upsertAll(Collection<SteamCatalogClient.CatalogItem> items) {
-        return upsertAll(items, null);
+        return upsertAll(items, null, null);
     }
 
     @Transactional
     public List<SteamGame> upsertAll(Collection<SteamCatalogClient.CatalogItem> items,
             String reconciliationGeneration) {
+        return upsertAll(items, reconciliationGeneration, null);
+    }
+
+    @Transactional
+    public List<SteamGame> upsertGameCatalogAll(
+            Collection<SteamCatalogClient.CatalogItem> items) {
+        return upsertAll(items, null, true);
+    }
+
+    private List<SteamGame> upsertAll(Collection<SteamCatalogClient.CatalogItem> items,
+            String reconciliationGeneration, Boolean gameCatalogEligible) {
         Map<Long, SteamCatalogClient.CatalogItem> uniqueItems = new LinkedHashMap<>();
         items.forEach(item -> uniqueItems.put(item.appId(), item));
         if (uniqueItems.isEmpty()) return List.of();
 
-        List<Object> parameters = new ArrayList<>(uniqueItems.size() * 5);
+        List<Object> parameters = new ArrayList<>(uniqueItems.size() * 6);
         uniqueItems.values().forEach(item -> {
             parameters.add(item.appId());
             parameters.add(item.name());
             parameters.add(item.lastModified());
             parameters.add(item.priceChangeNumber());
             parameters.add(reconciliationGeneration);
+            parameters.add(gameCatalogEligible);
         });
         int affectedRows = jdbc.update(upsertSql(uniqueItems.size()), parameters.toArray());
         if (affectedRows != uniqueItems.size()) {
@@ -85,7 +100,7 @@ public class SteamCatalogPersistenceService {
         if (rowCount < 1) throw new IllegalArgumentException("rowCount must be positive");
         return INSERT_PREFIX
                 + String.join(",\n", java.util.Collections.nCopies(
-                        rowCount, "(?, ?, 'game', ?, ?, 'UNKNOWN', false, 'ACTIVE', CURRENT_TIMESTAMP, ?)"))
+                        rowCount, "(?, ?, 'game', ?, ?, 'UNKNOWN', false, 'ACTIVE', CURRENT_TIMESTAMP, ?, ?)"))
                 + "\n" + UPSERT_SUFFIX;
     }
 }

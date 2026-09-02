@@ -11,7 +11,8 @@ import java.util.stream.Collectors;
 @Entity
 @Table(name = "steam_games", indexes = {
         @Index(name = "idx_steam_games_name", columnList = "name"),
-        @Index(name = "idx_steam_games_candidate", columnList = "store_type, metadata_updated_at")
+        @Index(name = "idx_steam_games_candidate", columnList = "store_type, metadata_updated_at"),
+        @Index(name = "idx_steam_games_game_catalog", columnList = "game_catalog_eligible, lifecycle_status, metadata_status")
 })
 public class SteamGame {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,6 +50,7 @@ public class SteamGame {
     private CatalogLifecycleStatus lifecycleStatus;
     @Column(name="last_seen_at") private Instant lastSeenAt;
     @Column(name="reconciliation_generation",length=60) private String reconciliationGeneration;
+    @Column(name="game_catalog_eligible") private Boolean gameCatalogEligible;
     @Column(name = "single_player") private Boolean singlePlayer;
     @Column(name = "multiplayer") private Boolean multiplayer;
     @Column(name = "online_coop") private Boolean onlineCoop;
@@ -108,6 +110,9 @@ public class SteamGame {
     public void markMetadataFailure(boolean retryable){metadataLastAttemptAt=Instant.now();metadataStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
     public void markIgdbNotFound(){igdbLastAttemptAt=Instant.now();igdbUpdatedAt=Instant.now();igdbStatus=EnrichmentStatus.NOT_FOUND;}
     public void markIgdbFailure(boolean retryable){igdbLastAttemptAt=Instant.now();igdbStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
+    public void markIgdbNotApplicable(){
+        igdbLastAttemptAt=Instant.now();igdbUpdatedAt=Instant.now();igdbStatus=EnrichmentStatus.NOT_FOUND;
+    }
     public void normalizeLegacyMetadataStatus(){
         if(metadataStatus==null&&metadataUpdatedAt!=null) metadataStatus=EnrichmentStatus.SUCCESS;
     }
@@ -145,4 +150,5 @@ public class SteamGame {
     public EnrichmentStatus getIgdbStatus(){return igdbStatus;} public Instant getIgdbLastAttemptAt(){return igdbLastAttemptAt;}
     public CatalogLifecycleStatus getLifecycleStatus(){return lifecycleStatus;} public Instant getLastSeenAt(){return lastSeenAt;}
     public String getReconciliationGeneration(){return reconciliationGeneration;}
+    public Boolean getGameCatalogEligible(){return gameCatalogEligible;}
 }

@@ -9,6 +9,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminStatusResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -75,6 +76,15 @@ public class GameFinderAdminController {
             HttpServletRequest servletRequest) {
         requireAdmin(servletRequest);
         return maintenance.tryFullCatalogSync()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/catalog/game-only-sync")
+    public GameFinderAdminGameCatalogSyncResponse gameCatalogSync(
+            HttpServletRequest servletRequest) {
+        requireAdmin(servletRequest);
+        return maintenance.tryGameCatalogSync()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
     }

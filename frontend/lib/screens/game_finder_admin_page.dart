@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/game_finder_admin.dart';
+import '../models/game_finder_admin_game_catalog.dart';
 import '../services/api_client.dart';
 import '../services/game_finder_admin_repository.dart';
 
@@ -18,22 +19,30 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminEnrichResult? _result;
   GameFinderAdminCatalogExpandResult? _catalogResult;
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
+  GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
   int _batchSize = 1;
   int _targetTotal = 500;
   bool _loadingStatus = true;
   bool _running = false;
+  bool _continuousEnrichment = false;
+  bool _stopEnrichmentRequested = false;
   bool _catalogRunning = false;
   bool _fullCatalogRunning = false;
   bool _continuousFullCatalog = false;
   bool _stopFullCatalogRequested = false;
+  bool _gameCatalogRunning = false;
+  bool _continuousGameCatalog = false;
+  bool _stopGameCatalogRequested = false;
   String? _error;
 
   bool get _maintenanceRunning =>
-      _running || _catalogRunning || _fullCatalogRunning;
+      _running || _catalogRunning || _fullCatalogRunning || _gameCatalogRunning;
 
   @override
   void dispose() {
     _stopFullCatalogRequested = true;
+    _stopEnrichmentRequested = true;
+    _stopGameCatalogRequested = true;
     super.dispose();
   }
 
@@ -55,24 +64,37 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     }
   }
 
-  Future<void> _runEnrichment() async {
+  Future<void> _runEnrichment({bool continuous = false}) async {
     if (_maintenanceRunning) return;
     setState(() {
       _running = true;
+      _continuousEnrichment = continuous;
+      _stopEnrichmentRequested = false;
       _error = null;
     });
     try {
-      final value = await (widget.repository ?? GameFinderAdminRepository.instance)
-          .enrich(_batchSize);
-      if (!mounted) return;
-      setState(() => _result = value);
-      await _loadStatus();
+      do {
+        final value = await (widget.repository ??
+                GameFinderAdminRepository.instance)
+            .enrich(_batchSize);
+        if (!mounted) return;
+        setState(() => _result = value);
+        await _loadStatus();
+        if (!continuous || !value.hasMoreCandidates || value.processed == 0 ||
+            _stopEnrichmentRequested) break;
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      } while (mounted && !_stopEnrichmentRequested);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = _message(error));
     } catch (_) {
       if (mounted) setState(() => _error = '네트워크 오류가 발생했습니다.');
     } finally {
-      if (mounted) setState(() => _running = false);
+      if (mounted) {
+        setState(() {
+          _running = false;
+          _continuousEnrichment = false;
+        });
+      }
     }
   }
 
@@ -125,6 +147,37 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         setState(() {
           _fullCatalogRunning = false;
           _continuousFullCatalog = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _runGameCatalog({required bool continuous}) async {
+    if (_maintenanceRunning) return;
+    setState(() {
+      _gameCatalogRunning = true;
+      _continuousGameCatalog = continuous;
+      _stopGameCatalogRequested = false;
+      _error = null;
+    });
+    try {
+      do {
+        final value = await (widget.repository ??
+                GameFinderAdminRepository.instance)
+            .syncNextGameCatalogPage();
+        if (!mounted) return;
+        setState(() => _gameCatalogResult = value);
+        await _loadStatus();
+        if (!continuous || value.completed || _stopGameCatalogRequested) break;
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      } while (mounted && !_stopGameCatalogRequested);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _gameCatalogRunning = false;
+          _continuousGameCatalog = false;
         });
       }
     }
@@ -245,6 +298,12 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _fullCatalogResultPanel(_fullCatalogResult!, panel, border),
         ],
         const SizedBox(height: 18),
+        _gameCatalogPanel(panel, border),
+        if (_gameCatalogResult != null) ...[
+          const SizedBox(height: 14),
+          _gameCatalogResultPanel(_gameCatalogResult!, panel, border),
+        ],
+        const SizedBox(height: 18),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(22),
@@ -260,6 +319,24 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                   style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
               const SizedBox(height: 6),
               const Text('첫 운영 검증은 1개로 시작하고 Render Memory peak를 확인하세요.'),
+              if (_status != null) ...[
+                const SizedBox(height: 12),
+                Text('전체 대상 ${_status!.active} · 처리 완료 '
+                    '${(_status!.active - _status!.remainingCandidates).clamp(0, _status!.active)} '
+                    '· 남은 후보 ${_status!.remainingCandidates}'),
+                const SizedBox(height: 4),
+                Text('게임 ${_status!.gameCount} · Non-game ${_status!.nonGameCount} '
+                    '· 미분류 ${_status!.unclassifiedCount}'),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: _status!.active == 0
+                      ? 0
+                      : ((_status!.active - _status!.remainingCandidates) /
+                              _status!.active)
+                          .clamp(0.0, 1.0)
+                          .toDouble(),
+                ),
+              ],
               const SizedBox(height: 18),
               Wrap(
                 spacing: 8,
@@ -299,8 +376,11 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                 ),
               ),
               const SizedBox(height: 18),
+              Wrap(spacing: 10, runSpacing: 10, children: [
               FilledButton.icon(
-                onPressed: _maintenanceRunning ? null : _runEnrichment,
+                onPressed: _maintenanceRunning
+                    ? null
+                    : () => _runEnrichment(),
                 icon: _running
                     ? const SizedBox(
                         width: 18,
@@ -309,6 +389,22 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                     : const Icon(Icons.auto_awesome_rounded),
                 label: Text(_running ? '게임 데이터를 불러오고 있습니다' : 'Enrichment 실행'),
               ),
+              if (!_running)
+                OutlinedButton.icon(
+                  onPressed: _maintenanceRunning
+                      ? null
+                      : () => _runEnrichment(continuous: true),
+                  icon: const Icon(Icons.repeat_rounded),
+                  label: const Text('연속 Enrichment'),
+                )
+              else if (_continuousEnrichment)
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      setState(() => _stopEnrichmentRequested = true),
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('현재 요청 후 중지'),
+                ),
+              ]),
             ],
           ),
         ),
@@ -509,6 +605,76 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         ]),
       );
 
+  Widget _gameCatalogPanel(Color panel, Color border) {
+    final status = _status?.gameOnlyCatalogSync;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('STEAM GAME-ONLY CATALOG',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        const Text('Steam 공식 game 필터 목록만 500개씩 수집합니다. 기존 전체 Catalog는 보존됩니다.'),
+        const SizedBox(height: 12),
+        Text('전체 Steam Apps: ${_status?.total ?? 0}'),
+        Text('Steam Games: ${_status?.gameCatalogCount ?? 0}'),
+        Text('누적 발견: ${status?.discoveredCount ?? 0} · 마지막 App ID: ${status?.lastAppId ?? 0}'),
+        Text('상태: ${status?.status ?? 'NEW'} · ${status?.completed == true ? '완료' : '진행 가능'}'),
+        const SizedBox(height: 14),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          FilledButton.icon(
+            onPressed: _maintenanceRunning || status?.completed == true
+                ? null
+                : () => _runGameCatalog(continuous: false),
+            icon: const Icon(Icons.sports_esports_rounded),
+            label: const Text('다음 500개 게임 수집'),
+          ),
+          if (!_gameCatalogRunning)
+            OutlinedButton.icon(
+              onPressed: _maintenanceRunning || status?.completed == true
+                  ? null
+                  : () => _runGameCatalog(continuous: true),
+              icon: const Icon(Icons.repeat_rounded),
+              label: const Text('연속 수집'),
+            )
+          else if (_continuousGameCatalog)
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _stopGameCatalogRequested = true),
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('현재 요청 후 중지'),
+            ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _gameCatalogResultPanel(GameFinderAdminGameCatalogSyncResult value,
+          Color panel, Color border) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('최근 Game-only 수집 결과',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+          _line('이번 조회', value.fetched),
+          _line('Steam Games', value.eligibleCatalogTotal),
+          _line('누적 발견', value.discoveredCount),
+          _line('마지막 App ID', value.lastAppId),
+          _line('처리 시간(ms)', value.durationMs),
+        ]),
+      );
+
   Widget _statusCard(String title, GameFinderEnrichmentCounts counts,
           Color panel, Color border) {
     final total = counts.pending + counts.success + counts.notFound +
@@ -568,6 +734,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _line('실패', value.failures),
           _line('처리 시간(ms)', value.durationMs),
           const SizedBox(height: 4),
+          Text(value.hasMoreCandidates ? '처리 가능한 후보가 남아 있습니다.' : '현재 처리 가능한 후보가 없습니다.'),
           Text('처리 시간 ${(value.durationMs / 1000).toStringAsFixed(2)}초',
               style: const TextStyle(color: Color(0xFF8794A8))),
         ]),

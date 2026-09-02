@@ -8,12 +8,22 @@ class GameFinderAdminStatus {
     required this.igdb,
     required this.checkpoint,
     required this.fullCatalogSync,
+    required this.gameOnlyCatalogSync,
+    required this.remainingCandidates,
+    required this.gameCatalogCount,
+    required this.gameCount,
+    required this.nonGameCount,
+    required this.unclassifiedCount,
   });
 
   final int total, active, unavailable, removed;
   final GameFinderEnrichmentCounts metadata, igdb;
   final GameFinderCatalogCheckpoint checkpoint;
   final GameFinderFullCatalogSyncStatus fullCatalogSync;
+  final GameFinderFullCatalogSyncStatus gameOnlyCatalogSync;
+  final int remainingCandidates;
+  final int gameCatalogCount;
+  final int gameCount, nonGameCount, unclassifiedCount;
 
   factory GameFinderAdminStatus.fromJson(Map<String, dynamic> json) =>
       GameFinderAdminStatus(
@@ -29,6 +39,14 @@ class GameFinderAdminStatus {
             json['checkpoint'] as Map<String, dynamic>? ?? const {}),
         fullCatalogSync: GameFinderFullCatalogSyncStatus.fromJson(
             json['fullCatalogSync'] as Map<String, dynamic>? ?? const {}),
+        gameOnlyCatalogSync: GameFinderFullCatalogSyncStatus.fromJson(
+            json['gameOnlyCatalogSync'] as Map<String, dynamic>? ?? const {}),
+        remainingCandidates:
+            (json['remainingCandidates'] as num?)?.toInt() ?? 0,
+        gameCatalogCount: (json['gameCatalogCount'] as num?)?.toInt() ?? 0,
+        gameCount: (json['gameCount'] as num?)?.toInt() ?? 0,
+        nonGameCount: (json['nonGameCount'] as num?)?.toInt() ?? 0,
+        unclassifiedCount: (json['unclassifiedCount'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -175,6 +193,7 @@ class GameFinderAdminEnrichResult {
     required this.igdbNotFound,
     required this.igdbRetryableFailure,
     required this.igdbPermanentFailure,
+    required this.hasMoreCandidates,
     required this.durationMs,
   });
 
@@ -183,6 +202,7 @@ class GameFinderAdminEnrichResult {
   final int metadataRetryableFailure, metadataPermanentFailure;
   final int igdbSuccess, igdbNotFound;
   final int igdbRetryableFailure, igdbPermanentFailure;
+  final bool hasMoreCandidates;
 
   int get failures => metadataRetryableFailure +
       metadataPermanentFailure +
@@ -206,6 +226,7 @@ class GameFinderAdminEnrichResult {
             (json['igdbRetryableFailure'] as num?)?.toInt() ?? 0,
         igdbPermanentFailure:
             (json['igdbPermanentFailure'] as num?)?.toInt() ?? 0,
+        hasMoreCandidates: json['hasMoreCandidates'] as bool? ?? false,
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
       );
 }

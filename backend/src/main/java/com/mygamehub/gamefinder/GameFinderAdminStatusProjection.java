@@ -5,6 +5,7 @@ public interface GameFinderAdminStatusProjection {
     long getActive();
     long getUnavailable();
     long getRemoved();
+    long getGameCatalogCount();
     long getMetadataPending();
     long getMetadataSuccess();
     long getMetadataNotFound();
@@ -15,4 +16,7 @@ public interface GameFinderAdminStatusProjection {
     long getIgdbNotFound();
     long getIgdbRetryableFailure();
     long getIgdbPermanentFailure();
+    long getGameCount();
+    long getNonGameCount();
+    long getUnclassifiedCount();
 }
