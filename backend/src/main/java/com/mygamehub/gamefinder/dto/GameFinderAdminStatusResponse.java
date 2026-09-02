@@ -1,6 +1,7 @@
 package com.mygamehub.gamefinder.dto;
 
 import com.mygamehub.gamefinder.GameFinderAdminStatusProjection;
+import java.time.Instant;
 
 public record GameFinderAdminStatusResponse(
         long total,
@@ -8,9 +9,13 @@ public record GameFinderAdminStatusResponse(
         long unavailable,
         long removed,
         EnrichmentCounts metadata,
-        EnrichmentCounts igdb
+        EnrichmentCounts igdb,
+        Checkpoint checkpoint,
+        FullCatalogSync fullCatalogSync
 ) {
-    public static GameFinderAdminStatusResponse from(GameFinderAdminStatusProjection value) {
+    public static GameFinderAdminStatusResponse from(
+            GameFinderAdminStatusProjection value, Checkpoint checkpoint,
+            FullCatalogSync fullCatalogSync) {
         return new GameFinderAdminStatusResponse(
                 value.getTotal(), value.getActive(), value.getUnavailable(), value.getRemoved(),
                 new EnrichmentCounts(value.getMetadataPending(), value.getMetadataSuccess(),
@@ -18,7 +23,7 @@ public record GameFinderAdminStatusResponse(
                         value.getMetadataPermanentFailure()),
                 new EnrichmentCounts(value.getIgdbPending(), value.getIgdbSuccess(),
                         value.getIgdbNotFound(), value.getIgdbRetryableFailure(),
-                        value.getIgdbPermanentFailure()));
+                        value.getIgdbPermanentFailure()), checkpoint, fullCatalogSync);
     }
 
     public record EnrichmentCounts(
@@ -27,5 +32,21 @@ public record GameFinderAdminStatusResponse(
             long notFound,
             long retryableFailure,
             long permanentFailure
+    ) {}
+
+    public record Checkpoint(
+            Long lastAppId,
+            Instant lastSuccessfulSyncAt,
+            String status,
+            boolean hasFailure
+    ) {}
+
+    public record FullCatalogSync(
+            String status,
+            Long lastAppId,
+            long discoveredCount,
+            Instant lastSuccessfulRunAt,
+            boolean completed,
+            boolean hasFailure
     ) {}
 }

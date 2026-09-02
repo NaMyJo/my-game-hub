@@ -6,6 +6,9 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMeResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStatusResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
+import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -51,6 +54,29 @@ public class GameFinderAdminController {
         return maintenance.tryEnrich(request.effectiveBatchSize())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER enrichment is already running"));
+    }
+
+    @PostMapping("/catalog/expand")
+    public GameFinderAdminCatalogExpandResponse expandCatalog(
+            HttpServletRequest servletRequest,
+            @Valid @RequestBody GameFinderAdminCatalogExpandRequest request) {
+        requireAdmin(servletRequest);
+        if (!request.supportedTarget()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "targetTotal must be one of 500, 1000, 5000, 10000");
+        }
+        return maintenance.tryExpandCatalog(request.targetTotal())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/catalog/full-sync")
+    public GameFinderAdminFullCatalogSyncResponse fullCatalogSync(
+            HttpServletRequest servletRequest) {
+        requireAdmin(servletRequest);
+        return maintenance.tryFullCatalogSync()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
     }
 
     private AuthenticatedUser currentUser(HttpServletRequest servletRequest) {

@@ -37,6 +37,196 @@ class SteamCatalogSyncServiceTest {
         verify(games).findIgdbCandidates(argThat(pageable -> pageable.getPageSize() == 1));
     }
 
+    @Test
+    void adminCatalogExpansionIsNoOpWhenTargetIsAlreadyReached() {
+        when(games.count()).thenReturn(1000L);
+
+        var result = service.expandCatalogTo(500);
+
+        assertTrue(result.targetReached());
+        assertEquals(0, result.fetched());
+        verifyNoInteractions(catalog);
+        verify(checkpoints, never()).save(any());
+    }
+
+    @Test
+    void adminCatalogExpansionProcessesOnlyBoundedRemainingChunk() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-expand");
+        var items = java.util.stream.LongStream.rangeClosed(101, 500)
+                .mapToObj(id -> new SteamCatalogClient.CatalogItem(id, "Game " + id, 1, 1))
+                .toList();
+        when(games.count()).thenReturn(100L, 500L);
+        when(checkpoints.findById("steam-catalog-admin-expand"))
+                .thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null, 400)).thenReturn(
+                new SteamCatalogClient.CatalogPage(items, true, 500));
+        when(persistence.upsertAll(items)).thenReturn(items.stream()
+                .map(item -> new SteamGame(item.appId(), item.name(), 1, 1)).toList());
+
+        var result = service.expandCatalogTo(500);
+
+        assertEquals(400, result.fetched());
+        assertEquals(400, result.newlySaved());
+        assertEquals(500, result.currentTotal());
+        assertTrue(result.targetReached());
+        assertEquals(500, checkpoint.getLastAppId());
+        verify(games, never()).markMissingAsRemoved(anyString());
+        verifyNoInteractions(store, igdb);
+    }
+
+    @Test
+    void tenThousandTargetStillFetchesAtMostFiveHundredApps() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-expand");
+        when(games.count()).thenReturn(100L, 600L);
+        when(checkpoints.findById("steam-catalog-admin-expand"))
+                .thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), true, 0));
+
+        service.expandCatalogTo(10000);
+
+        verify(catalog).page(0, null, 500);
+    }
+
+    @Test
+    void expansionFromNineHundredToOneThousandRequestsOnlyOneHundred() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-expand");
+        checkpoint.progress(900);
+        when(games.count()).thenReturn(900L, 1000L);
+        when(checkpoints.findById("steam-catalog-admin-expand"))
+                .thenReturn(Optional.of(checkpoint));
+        when(catalog.page(900, null, 100)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), true, 900));
+
+        var result = service.expandCatalogTo(1000);
+
+        verify(catalog).page(900, null, 100);
+        assertTrue(result.targetReached());
+    }
+
+    @Test
+    void adminCatalogCheckpointDoesNotAdvanceWhenPersistenceFails() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-expand");
+        var item = new SteamCatalogClient.CatalogItem(10, "A", 1, 1);
+        when(games.count()).thenReturn(0L);
+        when(checkpoints.findById("steam-catalog-admin-expand"))
+                .thenReturn(Optional.of(checkpoint));
+        when(catalog.page(0, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 10));
+        when(persistence.upsertAll(List.of(item))).thenThrow(new IllegalStateException("db"));
+
+        assertThrows(IllegalStateException.class, () -> service.expandCatalogTo(500));
+
+        assertEquals(0, checkpoint.getLastAppId());
+        assertEquals("FAILED", checkpoint.getStatus());
+    }
+
+    @Test
+    void fullCatalogSyncPersistsFirstBoundedPageAndAdvancesDedicatedCheckpoint() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        var item = new SteamCatalogClient.CatalogItem(500, "App", 1, 1);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(100L, 101L);
+        when(catalog.pageAllApps(0, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 500));
+        when(persistence.upsertAll(List.of(item))).thenReturn(
+                List.of(new SteamGame(500, "App", 1, 1)));
+
+        var result = service.syncFullCatalogPage();
+
+        assertEquals(1, result.fetched());
+        assertEquals(1, result.discoveredCount());
+        assertFalse(result.completed());
+        assertEquals(500, checkpoint.getLastAppId());
+        verify(games, never()).markMissingAsRemoved(anyString());
+        verifyNoInteractions(store, igdb);
+    }
+
+    @Test
+    void fullCatalogSyncResumesFromPreviousLastAppId() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        checkpoint.fullSyncPage(500, 500, false);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(checkpoint));
+        var item = new SteamCatalogClient.CatalogItem(600, "Next", 1, 1);
+        when(games.count()).thenReturn(500L, 501L);
+        when(catalog.pageAllApps(500, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 600));
+
+        var result = service.syncFullCatalogPage();
+
+        verify(catalog).pageAllApps(500, 500);
+        assertEquals(501, result.discoveredCount());
+    }
+
+    @Test
+    void fullCatalogSyncMarksCompletedFromSteamHaveMoreFlag() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        checkpoint.fullSyncPage(500, 500, false);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(500L, 500L);
+        when(catalog.pageAllApps(500, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), false, 500));
+
+        var result = service.syncFullCatalogPage();
+
+        assertTrue(result.completed());
+        assertEquals("COMPLETED", checkpoint.getStatus());
+    }
+
+    @Test
+    void completedFullCatalogSyncIsNoOp() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        checkpoint.fullSyncPage(12345, 12000, true);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(11000L);
+
+        var result = service.syncFullCatalogPage();
+
+        assertTrue(result.completed());
+        assertEquals(0, result.fetched());
+        assertEquals(12000, result.discoveredCount());
+        verifyNoInteractions(catalog);
+    }
+
+    @Test
+    void fullCatalogPersistenceFailureKeepsCursorAndDiscoveredCount() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        checkpoint.fullSyncPage(500, 500, false);
+        var item = new SteamCatalogClient.CatalogItem(600, "App", 1, 1);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(500L);
+        when(catalog.pageAllApps(500, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 600));
+        when(persistence.upsertAll(List.of(item))).thenThrow(new IllegalStateException("db"));
+
+        assertThrows(IllegalStateException.class, service::syncFullCatalogPage);
+
+        assertEquals(500, checkpoint.getLastAppId());
+        assertEquals(500, checkpoint.getProcessedCount());
+        assertEquals("FAILED", checkpoint.getStatus());
+    }
+
+    @Test
+    void fullAndTargetExpansionUseIndependentCheckpoints() {
+        var full = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
+        full.progress(700);
+        when(checkpoints.findById("steam-catalog-admin-full-sync"))
+                .thenReturn(Optional.of(full));
+        var item = new SteamCatalogClient.CatalogItem(800, "Next", 1, 1);
+        when(games.count()).thenReturn(700L, 701L);
+        when(catalog.pageAllApps(700, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), true, 800));
+
+        service.syncFullCatalogPage();
+
+        verify(checkpoints, never()).findById("steam-catalog-admin-expand");
+    }
+
     @BeforeEach
     void persistenceReturnsEntities() {
         lenient().when(persistence.upsertAll(anyCollection())).thenAnswer(invocation ->

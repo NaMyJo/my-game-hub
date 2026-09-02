@@ -18,6 +18,9 @@ import java.util.Locale;
 public class SteamCatalogSyncService {
     private static final Logger log = LoggerFactory.getLogger(SteamCatalogSyncService.class);
     private static final String CHECKPOINT_KEY = "steam-catalog";
+    static final String ADMIN_EXPAND_CHECKPOINT_KEY = "steam-catalog-admin-expand";
+    static final String ADMIN_FULL_SYNC_CHECKPOINT_KEY = "steam-catalog-admin-full-sync";
+    static final int ADMIN_EXPAND_MAX_APPS_PER_REQUEST = 500;
     private final SteamCatalogClient catalog;
     private final SteamStoreDetailClient store;
     private final SteamGameRepository games;
@@ -206,6 +209,69 @@ public class SteamCatalogSyncService {
         return EnrichmentBatchResult.from(targets.values());
     }
 
+    public CatalogExpandResult expandCatalogTo(int targetTotal) {
+        long before = games.count();
+        if (before >= targetTotal) {
+            return new CatalogExpandResult(0, 0, 0, before, targetTotal, true);
+        }
+        int requested = (int) Math.min(ADMIN_EXPAND_MAX_APPS_PER_REQUEST,
+                targetTotal - before);
+        CatalogSyncCheckpoint cp = checkpoints.findById(ADMIN_EXPAND_CHECKPOINT_KEY)
+                .orElseGet(() -> new CatalogSyncCheckpoint(ADMIN_EXPAND_CHECKPOINT_KEY));
+        cp.running();
+        checkpoints.save(cp);
+        try {
+            long start = cp.getLastAppId() == null ? 0 : cp.getLastAppId();
+            SteamCatalogClient.CatalogPage page = catalog.page(start, null, requested);
+            logPage(page, requested, start);
+            List<SteamGame> saved = persistCatalog(page.items());
+            long after = games.count();
+            if (!page.items().isEmpty()) cp.progress(page.lastAppId());
+            checkpoints.save(cp);
+            return new CatalogExpandResult(page.items().size(), saved.size(),
+                    Math.max(0, after - before), after, targetTotal, after >= targetTotal);
+        } catch (RuntimeException exception) {
+            cp.failed(exception.getClass().getSimpleName());
+            checkpoints.save(cp);
+            throw exception;
+        }
+    }
+
+    public FullCatalogSyncResult syncFullCatalogPage() {
+        CatalogSyncCheckpoint cp = checkpoints.findById(ADMIN_FULL_SYNC_CHECKPOINT_KEY)
+                .orElseGet(() -> new CatalogSyncCheckpoint(ADMIN_FULL_SYNC_CHECKPOINT_KEY));
+        long currentTotal = games.count();
+        if ("COMPLETED".equals(cp.getStatus())) {
+            return new FullCatalogSyncResult(0, 0, currentTotal,
+                    cp.getLastAppId() == null ? 0 : cp.getLastAppId(),
+                    cp.getProcessedCount() == null ? 0 : cp.getProcessedCount(), true);
+        }
+        cp.running();
+        checkpoints.save(cp);
+        try {
+            long start = cp.getLastAppId() == null ? 0 : cp.getLastAppId();
+            SteamCatalogClient.CatalogPage page = catalog.pageAllApps(
+                    start, ADMIN_EXPAND_MAX_APPS_PER_REQUEST);
+            logPage(page, ADMIN_EXPAND_MAX_APPS_PER_REQUEST, start);
+            if (page.hasMore() && (page.items().isEmpty() || page.lastAppId() <= start)) {
+                throw new IllegalStateException("Steam full catalog page made no cursor progress");
+            }
+            persistCatalog(page.items());
+            long after = games.count();
+            boolean completed = !page.hasMore();
+            long nextAppId = page.items().isEmpty() ? start : page.lastAppId();
+            cp.fullSyncPage(nextAppId, page.items().size(), completed);
+            checkpoints.save(cp);
+            return new FullCatalogSyncResult(page.items().size(),
+                    Math.max(0, after - currentTotal), after, nextAppId,
+                    cp.getProcessedCount(), completed);
+        } catch (RuntimeException exception) {
+            cp.failed(exception.getClass().getSimpleName());
+            checkpoints.save(cp);
+            throw exception;
+        }
+    }
+
     public int taxonomyBatch() {
         List<SteamGame> targets = games.findTaxonomyCandidates(PageRequest.of(0, batchSize));
         targets.forEach(tagService::rebuild);
@@ -335,6 +401,22 @@ public class SteamCatalogSyncService {
     }
 
     private record EnrichmentResult(boolean steamEnriched, boolean igdbProcessed) {}
+
+    public record CatalogExpandResult(
+            int fetched,
+            int upserted,
+            long newlySaved,
+            long currentTotal,
+            int targetTotal,
+            boolean targetReached) {}
+
+    public record FullCatalogSyncResult(
+            int fetched,
+            long newlySaved,
+            long currentCatalogTotal,
+            long lastAppId,
+            long discoveredCount,
+            boolean completed) {}
 
     public record EnrichmentBatchResult(
             int processed,

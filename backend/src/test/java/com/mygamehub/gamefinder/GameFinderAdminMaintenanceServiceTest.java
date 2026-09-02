@@ -47,6 +47,46 @@ class GameFinderAdminMaintenanceServiceTest {
         verify(sync).enrichBatch(1);
     }
 
+    @Test
+    void catalogAndEnrichmentShareOneMaintenanceLock() throws Exception {
+        var sync = mock(SteamCatalogSyncService.class);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(sync.enrichBatch(1)).thenAnswer(invocation -> {
+            entered.countDown();
+            release.await(5, TimeUnit.SECONDS);
+            return result(1);
+        });
+        var service = new GameFinderAdminMaintenanceService(sync);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> service.tryEnrich(1));
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(service.tryExpandCatalog(500)).isEmpty();
+            release.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS)).isPresent();
+        }
+    }
+
+    @Test
+    void fullCatalogSyncUsesSameMaintenanceLockAsEnrichment() throws Exception {
+        var sync = mock(SteamCatalogSyncService.class);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(sync.enrichBatch(1)).thenAnswer(invocation -> {
+            entered.countDown();
+            release.await(5, TimeUnit.SECONDS);
+            return result(1);
+        });
+        var service = new GameFinderAdminMaintenanceService(sync);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> service.tryEnrich(1));
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(service.tryFullCatalogSync()).isEmpty();
+            release.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS)).isPresent();
+        }
+    }
+
     private SteamCatalogSyncService.EnrichmentBatchResult result(int processed) {
         return new SteamCatalogSyncService.EnrichmentBatchResult(
                 processed, processed, 0, 0, 0, processed, 0, 0, 0);

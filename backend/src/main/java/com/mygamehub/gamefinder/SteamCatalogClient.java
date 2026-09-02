@@ -57,11 +57,16 @@ public class SteamCatalogClient {
 
     public CatalogPage page(long lastAppId, Long modifiedSince, int maxResults) {
         return requestPage(lastAppId, modifiedSince,
-                Math.min(Math.max(1, maxResults), 50000));
+                Math.min(Math.max(1, maxResults), 50000), false);
+    }
+
+    public CatalogPage pageAllApps(long lastAppId, int maxResults) {
+        return requestPage(lastAppId, null,
+                Math.min(Math.max(1, maxResults), 50000), true);
     }
 
     public CatalogPage diagnose() {
-        CatalogPage page = requestPage(0, null, 3);
+        CatalogPage page = requestPage(0, null, 3, false);
         log.info("steam_catalog_diagnostic_success host={} requestedMaxResults=3 returnedCount={} "
                         + "hasMore={} lastAppId={}",
                 safeHost(baseUrl), page.items().size(), page.hasMore(), page.lastAppId());
@@ -69,11 +74,16 @@ public class SteamCatalogClient {
     }
 
     private CatalogPage requestPage(long lastAppId, Long modifiedSince, int maxResults) {
+        return requestPage(lastAppId, modifiedSince, maxResults, false);
+    }
+
+    private CatalogPage requestPage(
+            long lastAppId, Long modifiedSince, int maxResults, boolean includeAllApps) {
         if (apiKey.isBlank()) {
             log.warn("steam_catalog_config apiKeyPresent=false host={}", safeHost(baseUrl));
             throw new IllegalStateException("STEAM_WEB_API_KEY 환경변수가 설정되지 않았습니다.");
         }
-        String inputJson = inputJson(lastAppId, modifiedSince, maxResults);
+        String inputJson = inputJson(lastAppId, modifiedSince, maxResults, includeAllApps);
         JsonNode root;
         try {
             root = retry.execute(() -> requestOnce(inputJson));
@@ -118,13 +128,14 @@ public class SteamCatalogClient {
                 .body(JsonNode.class);
     }
 
-    private String inputJson(long lastAppId, Long modifiedSince, int maxResults) {
+    private String inputJson(
+            long lastAppId, Long modifiedSince, int maxResults, boolean includeAllApps) {
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("include_games", true);
-        input.put("include_dlc", false);
-        input.put("include_software", false);
-        input.put("include_videos", false);
-        input.put("include_hardware", false);
+        input.put("include_dlc", includeAllApps);
+        input.put("include_software", includeAllApps);
+        input.put("include_videos", includeAllApps);
+        input.put("include_hardware", includeAllApps);
         input.put("last_appid", lastAppId);
         input.put("max_results", maxResults);
         if (modifiedSince != null && modifiedSince > 0) input.put("if_modified_since", modifiedSince);

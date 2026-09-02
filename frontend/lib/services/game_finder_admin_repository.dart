@@ -2,8 +2,8 @@ import '../models/game_finder_admin.dart';
 import 'api_client.dart';
 
 class GameFinderAdminRepository {
-  GameFinderAdminRepository._();
-  static final instance = GameFinderAdminRepository._();
+  GameFinderAdminRepository();
+  static final instance = GameFinderAdminRepository();
 
   Future<bool> isAdmin() async {
     final json = await ApiClient.instance.get('/api/admin/game-finder/me')
@@ -23,5 +23,21 @@ class GameFinderAdminRepository {
       body: {'batchSize': batchSize},
     ) as Map<String, dynamic>;
     return GameFinderAdminEnrichResult.fromJson(json);
+  }
+
+  Future<GameFinderAdminCatalogExpandResult> expandCatalog(
+      int targetTotal) async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/catalog/expand',
+      body: {'targetTotal': targetTotal},
+    ) as Map<String, dynamic>;
+    return GameFinderAdminCatalogExpandResult.fromJson(json);
+  }
+
+  Future<GameFinderAdminFullCatalogSyncResult> syncNextFullCatalogPage() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/catalog/full-sync',
+    ) as Map<String, dynamic>;
+    return GameFinderAdminFullCatalogSyncResult.fromJson(json);
   }
 }

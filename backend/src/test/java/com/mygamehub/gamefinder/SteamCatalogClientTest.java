@@ -68,4 +68,27 @@ class SteamCatalogClientTest {
         assertThrows(IllegalStateException.class, client::diagnose);
         server.verify();
     }
+
+    @Test
+    void fullCatalogPageIncludesEverySupportedAppTypeAndUsesSteamContinuationFlag() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(containsString("IStoreService/GetAppList/v1/")))
+                .andExpect(queryParam("input_json", containsString("%22last_appid%22:500")))
+                .andExpect(queryParam("input_json", containsString("%22max_results%22:500")))
+                .andExpect(queryParam("input_json", containsString("%22include_dlc%22:true")))
+                .andExpect(queryParam("input_json", containsString("%22include_software%22:true")))
+                .andExpect(queryParam("input_json", containsString("%22include_videos%22:true")))
+                .andExpect(queryParam("input_json", containsString("%22include_hardware%22:true")))
+                .andRespond(withSuccess("""
+                        {"response":{"apps":[],"have_more_results":false,"last_appid":500}}
+                        """, MediaType.APPLICATION_JSON));
+        SteamCatalogClient client = new SteamCatalogClient(builder, "test-key", 5000,
+                "https://api.steampowered.com", new ExternalApiRetry(ms -> {}));
+
+        SteamCatalogClient.CatalogPage page = client.pageAllApps(500, 500);
+
+        assertFalse(page.hasMore());
+        server.verify();
+    }
 }

@@ -19,11 +19,13 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "or metadata_status in ('PENDING','RETRYABLE_FAILURE') "
             + "or ((metadata_status = 'SUCCESS' or metadata_status is null) and metadata_updated_at < :staleBefore)) "
             + "and (lifecycle_status is null or lifecycle_status='ACTIVE') "
-            + "order by steam_app_id",nativeQuery=true)
+            + "order by case when metadata_status is null or metadata_status='PENDING' then 0 "
+            + "when metadata_status='RETRYABLE_FAILURE' then 1 else 2 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findMetadataCandidates(Instant staleBefore, Pageable pageable);
     @Query(value="select * from steam_games where metadata_updated_at is not null and store_type = 'game' and "
             + "(igdb_status is null "
-            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and (lifecycle_status is null or lifecycle_status='ACTIVE') order by steam_app_id",nativeQuery=true)
+            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and (lifecycle_status is null or lifecycle_status='ACTIVE') "
+            + "order by case when igdb_status is null or igdb_status='PENDING' then 0 else 1 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findIgdbCandidates(Pageable pageable);
     @Query(value="select g.* from steam_games g where g.metadata_updated_at is not null and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') and not exists (select 1 from steam_game_tags t where t.steam_app_id=g.steam_app_id) order by g.steam_app_id",nativeQuery=true)
     List<SteamGame> findTaxonomyCandidates(Pageable pageable);
