@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -84,6 +87,82 @@ class SteamCatalogSyncServiceTest {
         verify(store).get(1245620);
         verify(games).save(first);
         verify(games).save(second);
+    }
+
+    @Test
+    void reversedResponsesRemainAttachedToTheirRequestedApps() throws Exception {
+        var concurrentService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
+        var first = new SteamGame(10, "catalog-a", 1, 1);
+        var second = new SteamGame(20, "catalog-b", 1, 1);
+        var bothRequested = new CountDownLatch(2);
+        var secondSaved = new CountDownLatch(1);
+        var snapshots = new ConcurrentHashMap<Long, MetadataSnapshot>();
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(first, second));
+        when(games.countMetadataCandidates(any())).thenReturn(0L);
+        when(store.get(anyLong())).thenAnswer(invocation -> {
+            long appId = invocation.getArgument(0);
+            bothRequested.countDown();
+            assertTrue(bothRequested.await(2, TimeUnit.SECONDS));
+            if (appId == 10L) assertTrue(secondSaved.await(2, TimeUnit.SECONDS));
+            return Optional.of(appId == 10L
+                    ? detailFor(10, "Store A", "game", 1000)
+                    : detailFor(20, "Store B", "game", 2000));
+        });
+        when(games.save(any())).thenAnswer(invocation -> {
+            SteamGame game = invocation.getArgument(0);
+            snapshots.put(game.getSteamAppId(), new MetadataSnapshot(game.getName(),
+                    game.getStoreType(), game.getPriceCurrent(), game.getMetadataStatus()));
+            if (game.getSteamAppId() == 20L) secondSaved.countDown();
+            return game;
+        });
+
+        var result = concurrentService.enrichMetadataBatch(40);
+
+        assertEquals(2, result.processed());
+        assertEquals(new MetadataSnapshot("Store A", "game", 1000,
+                EnrichmentStatus.SUCCESS), snapshots.get(10L));
+        assertEquals(new MetadataSnapshot("Store B", "game", 2000,
+                EnrichmentStatus.SUCCESS), snapshots.get(20L));
+    }
+
+    @Test
+    void duplicateCandidateAppIdIsAssignedToOnlyOneWorker() {
+        var concurrentService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
+        var duplicate = new SteamGame(570, "Dota 2", 1, 1);
+        when(games.findMetadataCandidates(any(), any()))
+                .thenReturn(List.of(duplicate, duplicate));
+        when(store.get(570)).thenReturn(Optional.of(
+                detailFor(570, "Dota 2", "game", 0)));
+        when(games.countMetadataCandidates(any())).thenReturn(0L);
+
+        var result = concurrentService.enrichMetadataBatch(40);
+
+        assertEquals(1, result.processed());
+        verify(store, times(1)).get(570);
+        verify(games, times(1)).save(duplicate);
+    }
+
+    @Test
+    void oneWorkerFailureDoesNotChangeTheOtherAppsSuccess() {
+        var concurrentService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
+        var failed = new SteamGame(10, "A", 1, 1);
+        var succeeded = new SteamGame(20, "B", 1, 1);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(failed, succeeded));
+        when(store.get(10)).thenThrow(new IllegalStateException("network"));
+        when(store.get(20)).thenReturn(Optional.of(detailFor(20, "Store B", "game", 2000)));
+        when(games.countMetadataCandidates(any())).thenReturn(1L);
+
+        var result = concurrentService.enrichMetadataBatch(40);
+
+        assertEquals(EnrichmentStatus.RETRYABLE_FAILURE, failed.getMetadataStatus());
+        assertEquals(EnrichmentStatus.SUCCESS, succeeded.getMetadataStatus());
+        assertEquals("Store B", succeeded.getName());
+        assertEquals(2000, succeeded.getPriceCurrent());
+        assertEquals(1, result.success());
+        assertEquals(1, result.retryableFailure());
     }
 
     @Test
@@ -760,6 +839,17 @@ class SteamCatalogSyncServiceTest {
                 false, "KRW", null, null, null, 0, "NON_ADULT", null, null,
                 false, false, Set.of(), Set.of(), true, true, false, false);
     }
+
+    private static SteamStoreDetailClient.StoreDetail detailFor(
+            long appId, String name, String type, int price) {
+        return new SteamStoreDetailClient.StoreDetail(appId, name, type, null, null,
+                price == 0, "KRW", price, price, 0, 0, "NON_ADULT", null, null,
+                false, false, Set.of("Action"), Set.of("Single-player"), true,
+                false, false, false);
+    }
+
+    private record MetadataSnapshot(String name, String type, Integer price,
+            EnrichmentStatus status) {}
 
     private static SteamGame gameWithCurrentMetadata(long appId, String name, String type) {
         SteamGame game = new SteamGame(appId, name, 0, 0);

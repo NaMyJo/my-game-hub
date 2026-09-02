@@ -84,6 +84,17 @@ public class SteamGame {
             String releaseText, boolean comingSoon, Boolean earlyAccess,
             Set<String> genres, Set<String> categories, Boolean single,
             Boolean multiplayer, Boolean onlineCoop, Boolean offlineCoop) {
+        updateStoreDetail(null, type, image, description, free, currency, original, current,
+                discount, requiredAge, adult, releaseDate, releaseText, comingSoon, earlyAccess,
+                genres, categories, single, multiplayer, onlineCoop, offlineCoop);
+    }
+    public void updateStoreDetail(String storeName, String type, String image, String description,
+            Boolean free, String currency, Integer original, Integer current,
+            Integer discount, Integer requiredAge, String adult, LocalDate releaseDate,
+            String releaseText, boolean comingSoon, Boolean earlyAccess,
+            Set<String> genres, Set<String> categories, Boolean single,
+            Boolean multiplayer, Boolean onlineCoop, Boolean offlineCoop) {
+        if (storeName != null && !storeName.isBlank()) this.name = storeName;
         this.storeType = type; this.headerImageUrl = image;
         this.shortDescription = description; this.isFree = free;
         this.priceCurrency = currency; this.priceOriginal = original;

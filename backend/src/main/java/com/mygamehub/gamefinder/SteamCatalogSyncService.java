@@ -211,7 +211,7 @@ public class SteamCatalogSyncService {
         return enrichBatch(batchSize).processed();
     }
 
-    public EnrichmentBatchResult enrichBatch(int requestedBatchSize) {
+    public synchronized EnrichmentBatchResult enrichBatch(int requestedBatchSize) {
         LinkedHashMap<Long, SteamGame> targets = new LinkedHashMap<>();
         games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)), PageRequest.of(0, requestedBatchSize))
                 .forEach(game -> targets.put(game.getSteamAppId(), game));
@@ -225,10 +225,12 @@ public class SteamCatalogSyncService {
         return EnrichmentBatchResult.from(targets.values(), hasMoreCandidates);
     }
 
-    public EnrichmentStageBatchResult enrichMetadataBatch(int requestedBatchSize) {
-        List<SteamGame> targets = games.findMetadataCandidates(
-                Instant.now().minus(Duration.ofDays(7)),
-                PageRequest.of(0, requestedBatchSize));
+    public synchronized EnrichmentStageBatchResult enrichMetadataBatch(int requestedBatchSize) {
+        LinkedHashMap<Long, SteamGame> uniqueTargets = new LinkedHashMap<>();
+        games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)),
+                        PageRequest.of(0, requestedBatchSize))
+                .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
+        List<SteamGame> targets = List.copyOf(uniqueTargets.values());
         log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
         enrichMetadataTargets(targets);
         return EnrichmentStageBatchResult.from(
@@ -263,7 +265,7 @@ public class SteamCatalogSyncService {
     public int metadataConcurrency() { return metadataConcurrency; }
     public long storeRequestDelayMs() { return storeDelayMs; }
 
-    public EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
+    public synchronized EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
         List<SteamGame> targets = games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize));
         log.info("game_finder_igdb_enrichment_start candidateCount={}", targets.size());
         if (!targets.isEmpty() && igdb.configured()) {
@@ -471,7 +473,7 @@ public class SteamCatalogSyncService {
                     return new EnrichmentResult(false, false);
                 }
                 var value = detail.get();
-                game.updateStoreDetail(value.type(), value.image(), value.description(), value.free(),
+                game.updateStoreDetail(value.name(), value.type(), value.image(), value.description(), value.free(),
                         value.currency(), value.original(), value.current(), value.discount(),
                         value.requiredAge(), value.adult(), value.releaseDate(), value.releaseText(),
                         value.comingSoon(), value.earlyAccess(), value.genres(), value.categories(),
@@ -535,7 +537,7 @@ public class SteamCatalogSyncService {
                 return;
             }
             var value = detail.get();
-            game.updateStoreDetail(value.type(), value.image(), value.description(), value.free(),
+            game.updateStoreDetail(value.name(), value.type(), value.image(), value.description(), value.free(),
                     value.currency(), value.original(), value.current(), value.discount(),
                     value.requiredAge(), value.adult(), value.releaseDate(), value.releaseText(),
                     value.comingSoon(), value.earlyAccess(), value.genres(), value.categories(),

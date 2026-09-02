@@ -108,6 +108,24 @@ class SteamStoreDetailClientTest {
         server.verify();
     }
 
+    @Test
+    void rejectsResponseWhoseDataAppIdDiffersFromRequestedApp() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("https://store.steampowered.com/api/appdetails?appids=570&cc=kr&l=korean"))
+                .andRespond(withSuccess("""
+                        {"570":{"success":true,"data":{"type":"game","name":"Wrong",
+                        "steam_appid":1245620,"required_age":0,"is_free":true,
+                        "categories":[],"genres":[],
+                        "release_date":{"coming_soon":false,"date":""}}}}
+                        """, MediaType.APPLICATION_JSON));
+        SteamStoreDetailClient client = new SteamStoreDetailClient(builder, policy(0));
+
+        assertThrows(SteamStoreDetailClient.SteamStoreResponseException.class,
+                () -> client.get(570));
+        server.verify();
+    }
+
     private SteamStoreRequestPolicy policy(int maxRetries) {
         return new SteamStoreRequestPolicy(0, maxRetries, 1, 2, millis -> {});
     }

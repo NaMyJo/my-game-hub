@@ -39,7 +39,7 @@ public class GameFinderSmokeService {
             SteamGame game = games.findBySteamAppId(appId)
                     .orElseGet(() -> new SteamGame(appId, detail.name(), 0, 0));
             game.updateCatalog(detail.name(), 0, 0);
-            game.updateStoreDetail(detail.type(), detail.image(), detail.description(),
+            game.updateStoreDetail(detail.name(), detail.type(), detail.image(), detail.description(),
                     detail.free(), detail.currency(), detail.original(), detail.current(),
                     detail.discount(), detail.requiredAge(), detail.adult(),
                     detail.releaseDate(), detail.releaseText(), detail.comingSoon(),
