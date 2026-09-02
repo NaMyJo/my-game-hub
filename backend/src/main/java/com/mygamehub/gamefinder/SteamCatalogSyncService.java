@@ -264,6 +264,11 @@ public class SteamCatalogSyncService {
                 && game.getMetadataUpdatedAt().isAfter(Instant.now().minus(Duration.ofDays(7)))
                 && (game.getMetadataStatus() == null
                     || game.getMetadataStatus() == EnrichmentStatus.SUCCESS));
+        if (metadataCurrent && game.getMetadataStatus() == null
+                && game.getMetadataUpdatedAt() != null) {
+            game.normalizeLegacyMetadataStatus();
+            games.save(game);
+        }
         if (!metadataCurrent) {
             try {
                 var detail = store.get(game.getSteamAppId());
@@ -288,6 +293,10 @@ public class SteamCatalogSyncService {
                         game.getSteamAppId(), exception.getClass().getSimpleName());
                 return new EnrichmentResult(false, false);
             }
+        }
+        if (game.getIgdbStatus() == null && game.getIgdbUpdatedAt() != null) {
+            game.normalizeLegacyIgdbStatus();
+            games.save(game);
         }
         boolean igdbComplete = game.getIgdbStatus() == EnrichmentStatus.SUCCESS
                 || game.getIgdbStatus() == EnrichmentStatus.NOT_FOUND

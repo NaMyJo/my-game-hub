@@ -108,6 +108,13 @@ public class SteamGame {
     public void markMetadataFailure(boolean retryable){metadataLastAttemptAt=Instant.now();metadataStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
     public void markIgdbNotFound(){igdbLastAttemptAt=Instant.now();igdbUpdatedAt=Instant.now();igdbStatus=EnrichmentStatus.NOT_FOUND;}
     public void markIgdbFailure(boolean retryable){igdbLastAttemptAt=Instant.now();igdbStatus=retryable?EnrichmentStatus.RETRYABLE_FAILURE:EnrichmentStatus.PERMANENT_FAILURE;}
+    public void normalizeLegacyMetadataStatus(){
+        if(metadataStatus==null&&metadataUpdatedAt!=null) metadataStatus=EnrichmentStatus.SUCCESS;
+    }
+    public void normalizeLegacyIgdbStatus(){
+        if(igdbStatus==null&&igdbUpdatedAt!=null) igdbStatus=igdbGameId==null
+                ?EnrichmentStatus.NOT_FOUND:EnrichmentStatus.SUCCESS;
+    }
     public void markRemoved(){lifecycleStatus=CatalogLifecycleStatus.REMOVED;}
     public boolean isDiscoverable(){return lifecycleStatus==null||lifecycleStatus==CatalogLifecycleStatus.ACTIVE;}
     private String join(Set<String> values) { return values == null ? "" : String.join("|", values); }

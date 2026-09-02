@@ -253,6 +253,62 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
+    void legacyMetadataWithUpdatedTimestampIsNormalizedWithoutStoreCall() throws Exception {
+        SteamGame legacy = new SteamGame(10, "Legacy", 0, 0);
+        legacy.updateStoreDetail("game", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, false, false, false);
+        setField(legacy, "metadataStatus", null);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(legacy));
+
+        var result = service.enrichBatch(1);
+
+        assertEquals(1, result.processed());
+        assertEquals(EnrichmentStatus.SUCCESS, legacy.getMetadataStatus());
+        verifyNoInteractions(store);
+        verify(games).save(legacy);
+    }
+
+    @Test
+    void legacyIgdbWithUpdatedTimestampIsNormalizedWithoutIgdbCall() throws Exception {
+        SteamGame legacy = new SteamGame(570, "Legacy IGDB", 0, 0);
+        legacy.updateStoreDetail("game", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, true, false, false);
+        legacy.updateIgdb(42L, 1, 10, 10, 5, true, true, false);
+        setField(legacy, "igdbStatus", null);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(legacy));
+        when(igdb.configured()).thenReturn(true);
+
+        var result = service.enrichBatch(1);
+
+        assertEquals(1, result.processed());
+        assertEquals(EnrichmentStatus.SUCCESS, legacy.getIgdbStatus());
+        verify(igdb, never()).findBySteamAppId(anyLong());
+        verify(games).save(legacy);
+    }
+
+    @Test
+    void legacyIgdbWithoutGameIdIsNormalizedAsNotFoundWithoutIgdbCall() throws Exception {
+        SteamGame legacy = new SteamGame(4436560, "Legacy no match", 0, 0);
+        legacy.updateStoreDetail("game", null, null, false, "KRW", null, null,
+                null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
+                true, true, false, false);
+        legacy.updateIgdb(null, null, null, null, null, null, null, null);
+        setField(legacy, "igdbStatus", null);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(legacy));
+        when(igdb.configured()).thenReturn(true);
+
+        var result = service.enrichBatch(1);
+
+        assertEquals(1, result.processed());
+        assertEquals(EnrichmentStatus.NOT_FOUND, legacy.getIgdbStatus());
+        verify(igdb, never()).findBySteamAppId(anyLong());
+    }
+
+    @Test
     void completedMetadataAndIgdbAreNotCalledAgainEvenInLimitedInput() {
         SteamGame game = new SteamGame(570, "Dota 2", 0, 0);
         game.updateStoreDetail("game", null, null, true, "KRW", 0, 0, 0, 0,
@@ -320,5 +376,11 @@ class SteamCatalogSyncServiceTest {
         verify(games).markMissingAsRemoved(generation);
         assertNull(checkpoint.getReconciliationGeneration());
         assertEquals("SUCCESS", checkpoint.getStatus());
+    }
+
+    private static void setField(Object target, String name, Object value) throws Exception {
+        var field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }
