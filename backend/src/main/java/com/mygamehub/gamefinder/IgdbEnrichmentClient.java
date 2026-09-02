@@ -14,9 +14,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -90,16 +92,23 @@ public class IgdbEnrichmentClient {
         int linkCount = links.size();
         log.info("igdb_external_games_batch_result requested={} matchCount={}",
                 results.size(), linkCount);
-        Map<Long, Long> gameIdsByAppId = new LinkedHashMap<>();
+        Map<Long, LinkedHashSet<Long>> candidateGameIdsByAppId = new LinkedHashMap<>();
         if (!links.isEmpty()) {
             for (JsonNode link : links) {
                 long appId = parseLong(link.path("uid").asText(""));
                 long gameId = link.path("game").asLong(0);
                 if (results.containsKey(appId) && gameId > 0) {
-                    gameIdsByAppId.putIfAbsent(appId, gameId);
+                    candidateGameIdsByAppId.computeIfAbsent(appId,
+                            ignored -> new LinkedHashSet<>()).add(gameId);
                 }
             }
         }
+        Map<Long, Long> gameIdsByAppId = new LinkedHashMap<>();
+        candidateGameIdsByAppId.forEach((appId, gameIds) -> {
+            if (gameIds.size() == 1) gameIdsByAppId.put(appId, gameIds.iterator().next());
+            else log.warn("igdb_external_game_ambiguous appId={} matchCount={}",
+                    appId, gameIds.size());
+        });
         if (gameIdsByAppId.isEmpty()) return results;
 
         String gameIds = gameIdsByAppId.values().stream().distinct()
@@ -116,7 +125,9 @@ public class IgdbEnrichmentClient {
             if (arraySize(page) < 500) break;
             offset += 500;
         }
+        Set<Long> requestedGameIds = Set.copyOf(gameIdsByAppId.values());
         Map<Long, List<JsonNode>> modesByGameId = modes.stream()
+                .filter(mode -> requestedGameIds.contains(mode.path("game").asLong(0)))
                 .collect(Collectors.groupingBy(mode -> mode.path("game").asLong(0)));
         for (Map.Entry<Long, Long> entry : gameIdsByAppId.entrySet()) {
             long appId = entry.getKey();

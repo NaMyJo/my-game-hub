@@ -29,10 +29,14 @@ public class SteamStoreDetailClient {
     public Optional<StoreDetail> get(long appId){
         return requestPolicy.execute(() -> parse(appId, client.get().uri(b->b.path("/api/appdetails").queryParam("appids",appId).queryParam("cc","kr").queryParam("l","korean").build()).retrieve().body(JsonNode.class)));
     }
+    public Optional<StoreDetail> get(long appId, boolean initialAttempt){
+        var request=(java.util.function.Supplier<Optional<StoreDetail>>)()->parse(appId,client.get().uri(b->b.path("/api/appdetails").queryParam("appids",appId).queryParam("cc","kr").queryParam("l","korean").build()).retrieve().body(JsonNode.class));
+        return initialAttempt?requestPolicy.executeInitial(request):requestPolicy.execute(request);
+    }
     private Optional<StoreDetail> parse(long appId,JsonNode root){
         JsonNode wrapper=root==null?null:root.path(Long.toString(appId)); if(wrapper==null||!wrapper.path("success").asBoolean())return Optional.empty();
         JsonNode d=wrapper.path("data"); Set<String> genres=names(d.path("genres")); Set<String> categories=names(d.path("categories")); Set<Integer> categoryIds=ids(d.path("categories"));
-        long responseAppId=d.path("steam_appid").asLong(appId);if(responseAppId!=appId)throw new SteamStoreResponseException("Steam Store response App ID mismatch");
+        long responseAppId=d.path("steam_appid").asLong(appId);if(responseAppId!=appId)throw new SteamStoreResponseException(appId,responseAppId,d.path("name").asText(null));
         JsonNode price=d.path("price_overview"); boolean free=d.path("is_free").asBoolean(false); String currency=price.path("currency").asText(null); Integer current=free?Integer.valueOf(0):priceAmount(price,"final",currency); Integer original=free?Integer.valueOf(0):priceAmount(price,"initial",currency);
         String raw=d.path("release_date").path("date").asText(null); boolean coming=d.path("release_date").path("coming_soon").asBoolean(false);
         int age=parseAge(d.path("required_age")); String adult=age>=18?"ADULT":age==0?"NON_ADULT":"UNKNOWN";
@@ -49,6 +53,14 @@ public class SteamStoreDetailClient {
     private LocalDate parseDate(String raw){if(raw==null||raw.isBlank())return null; for(String p:List.of("yyyy년 M월 d일","d MMM, yyyy","MMM d, yyyy")){try{return LocalDate.parse(raw,DateTimeFormatter.ofPattern(p,Locale.ENGLISH));}catch(DateTimeParseException ignored){}} return null;}
     public record StoreDetail(long steamAppId,String name,String type,String image,String description,Boolean free,String currency,Integer original,Integer current,Integer discount,Integer requiredAge,String adult,LocalDate releaseDate,String releaseText,boolean comingSoon,Boolean earlyAccess,Set<String> genres,Set<String> categories,Boolean single,Boolean multiplayer,Boolean onlineCoop,Boolean offlineCoop){}
     static final class SteamStoreResponseException extends RestClientException {
-        SteamStoreResponseException(String message){super(message);}
+        private final long requestedAppId;
+        private final long responseAppId;
+        private final String responseName;
+        SteamStoreResponseException(long requestedAppId,long responseAppId,String responseName){
+            super("Steam Store response App ID mismatch");
+            this.requestedAppId=requestedAppId;this.responseAppId=responseAppId;this.responseName=responseName;
+        }
+        long requestedAppId(){return requestedAppId;} long responseAppId(){return responseAppId;}
+        String responseName(){return responseName;}
     }
 }

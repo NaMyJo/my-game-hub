@@ -16,23 +16,35 @@ import java.util.List;
 public class GameFinderCommandRunner implements ApplicationRunner {
     private final SteamCatalogSyncService sync;
     private final GameFinderSmokeService smoke;
+    private final SteamMetadataVerificationService metadataVerifier;
     private final ConfigurableApplicationContext context;
     private final String command;
     private final List<Long> smokeAppIds;
 
     public GameFinderCommandRunner(SteamCatalogSyncService sync,
-            @Lazy GameFinderSmokeService smoke, ConfigurableApplicationContext context,
+            @Lazy GameFinderSmokeService smoke,
+            @Lazy SteamMetadataVerificationService metadataVerifier,
+            ConfigurableApplicationContext context,
             @Value("${app.game-finder.command:}") String command,
             @Value("${app.game-finder.smoke-app-ids:570,1245620,4436560}")
-            String smokeAppIds) {
+            String smokeAppIds,
+            @Value("${app.game-finder.metadata-verify-sample-size:100}") int verifySampleSize,
+            @Value("${app.game-finder.metadata-verify-mode:RANDOM}") String verifyMode) {
         this.sync = sync;
         this.smoke = smoke;
+        this.metadataVerifier = metadataVerifier;
         this.context = context;
         this.command = command.trim().toLowerCase();
         this.smokeAppIds = Arrays.stream(smokeAppIds.split(","))
                 .map(String::trim).filter(value -> !value.isEmpty())
                 .map(Long::valueOf).toList();
+        this.verifySampleSize = verifySampleSize;
+        this.verifyMode = SteamMetadataVerificationService.VerificationMode.valueOf(
+                verifyMode.trim().toUpperCase());
     }
+
+    private final int verifySampleSize;
+    private final SteamMetadataVerificationService.VerificationMode verifyMode;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -45,6 +57,7 @@ public class GameFinderCommandRunner implements ApplicationRunner {
                 case "catalog-diagnostic" -> sync.catalogDiagnostic();
                 case "catalog-persist-diagnostic" -> sync.catalogPersistDiagnostic();
                 case "enrich" -> sync.enrichBatch();
+                case "metadata-verify" -> metadataVerifier.verify(verifySampleSize, verifyMode);
                 case "taxonomy" -> sync.taxonomyBatch();
                 case "reconcile" -> sync.reconcile();
                 case "sync" -> sync.syncIncremental();

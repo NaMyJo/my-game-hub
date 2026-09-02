@@ -130,7 +130,7 @@ class SteamCatalogPersistenceServiceTest {
         SteamGameRepository games = mock(SteamGameRepository.class);
         SteamGame first = new SteamGame(570, "Dota 2", 1, 1);
         SteamGame second = new SteamGame(1245620, "ELDEN RING", 1, 1);
-        when(games.findBySteamAppIdIn(List.of(570L, 1245620L)))
+        when(games.findBySteamAppIdIn(anyCollection()))
                 .thenReturn(List.of(first, second));
         var values = java.util.Map.of(
                 570L, java.util.Optional.of(new IgdbEnrichmentClient.IgdbData(
@@ -146,6 +146,29 @@ class SteamCatalogPersistenceServiceTest {
         verify(games, times(1)).findBySteamAppIdIn(anyCollection());
         verify(games, never()).save(any());
         verify(games, never()).saveAll(anyCollection());
+    }
+
+    @Test
+    void igdbPersistenceIgnoresUnrequestedRowsAndDeduplicatesRequestedRow() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        SteamGameRepository games = mock(SteamGameRepository.class);
+        SteamGame requested = new SteamGame(10, "Requested", 1, 1);
+        SteamGame unrequested = new SteamGame(999, "Unexpected", 1, 1);
+        when(games.findBySteamAppIdIn(anyCollection()))
+                .thenReturn(List.of(unrequested, requested, requested));
+        var values = java.util.Map.of(
+                10L, java.util.Optional.of(new IgdbEnrichmentClient.IgdbData(
+                        100L, 1, 1, 4, 4, 2, true, true, false)),
+                999L, java.util.Optional.of(new IgdbEnrichmentClient.IgdbData(
+                        9999L, 1, 1, 99, 99, 99, true, true, true)));
+
+        var result = new SteamCatalogPersistenceService(jdbc, games)
+                .applyIgdbResults(List.of(10L, 10L), values);
+
+        assertEquals(1, result.size());
+        assertEquals(100L, requested.getIgdbGameId());
+        assertNull(unrequested.getIgdbGameId());
+        assertNull(unrequested.getIgdbStatus());
     }
 
     private static int countOccurrences(String value, String token) {

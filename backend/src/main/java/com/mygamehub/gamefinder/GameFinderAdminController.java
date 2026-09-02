@@ -11,6 +11,8 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
+import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -74,6 +76,27 @@ public class GameFinderAdminController {
             @Valid @RequestBody GameFinderAdminEnrichRequest request) {
         requireAdmin(servletRequest);
         return maintenance.tryIgdbEnrich(request.effectiveBatchSize())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/metadata/verify")
+    public GameFinderAdminMetadataVerifyResponse verifyMetadata(
+            HttpServletRequest servletRequest,
+            @Valid @RequestBody GameFinderAdminMetadataVerifyRequest request) {
+        requireAdmin(servletRequest);
+        if (!request.supportedSampleSize()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "sampleSize must be one of 10, 50, 100, 200, 500");
+        }
+        final SteamMetadataVerificationService.VerificationMode mode;
+        try {
+            mode = request.verificationMode();
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "mode must be RANDOM or RECENT");
+        }
+        return maintenance.tryMetadataVerify(request.sampleSize(), mode)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
     }

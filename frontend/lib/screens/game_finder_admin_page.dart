@@ -19,16 +19,20 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminEnrichResult? _result;
   GameFinderAdminStageEnrichResult? _metadataResult;
   GameFinderAdminStageEnrichResult? _igdbResult;
+  GameFinderAdminMetadataVerifyResult? _metadataVerifyResult;
   GameFinderAdminCatalogExpandResult? _catalogResult;
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
   GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
   int _batchSize = 1;
   int _targetTotal = 500;
+  int _metadataVerifySampleSize = 100;
+  String _metadataVerifyMode = 'RANDOM';
   bool _loadingStatus = true;
   bool _running = false;
   bool _continuousEnrichment = false;
   bool _stopEnrichmentRequested = false;
   bool _igdbRunning = false;
+  bool _metadataVerifyRunning = false;
   bool _continuousIgdb = false;
   bool _stopIgdbRequested = false;
   bool _catalogRunning = false;
@@ -41,7 +45,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   String? _error;
 
   bool get _maintenanceRunning =>
-      _running || _igdbRunning || _catalogRunning || _fullCatalogRunning || _gameCatalogRunning;
+      _running || _igdbRunning || _metadataVerifyRunning || _catalogRunning ||
+      _fullCatalogRunning || _gameCatalogRunning;
 
   @override
   void dispose() {
@@ -133,6 +138,26 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _continuousIgdb = false;
         });
       }
+    }
+  }
+
+  Future<void> _runMetadataVerification() async {
+    if (_maintenanceRunning) return;
+    setState(() {
+      _metadataVerifyRunning = true;
+      _error = null;
+    });
+    try {
+      final value = await (widget.repository ??
+              GameFinderAdminRepository.instance)
+          .verifyMetadata(_metadataVerifySampleSize, _metadataVerifyMode);
+      if (mounted) setState(() => _metadataVerifyResult = value);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Metadata 정합성 검증 중 오류가 발생했습니다.');
+    } finally {
+      if (mounted) setState(() => _metadataVerifyRunning = false);
     }
   }
 
@@ -462,6 +487,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _stageResultPanel(_metadataResult!, panel, border),
         ],
         const SizedBox(height: 18),
+        _metadataVerificationPanel(panel, border),
+        const SizedBox(height: 18),
         _igdbEnrichmentPanel(panel, border),
         if (_igdbResult != null) ...[
           const SizedBox(height: 14),
@@ -773,6 +800,109 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           Text('$value', style: const TextStyle(fontWeight: FontWeight.w800)),
         ]),
       );
+
+  Widget _metadataVerificationPanel(Color panel, Color border) {
+    final result = _metadataVerifyResult;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Steam Metadata 정합성 검증',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 7),
+        const Text('저장된 Metadata를 Steam Store의 현재 응답과 표본 비교합니다. DB 데이터는 수정하지 않습니다.'),
+        const SizedBox(height: 16),
+        const Text('표본 크기', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [10, 50, 100, 200, 500]
+              .map((value) => ChoiceChip(
+                    label: Text('$value'),
+                    selected: _metadataVerifySampleSize == value,
+                    onSelected: _maintenanceRunning
+                        ? null
+                        : (_) => setState(
+                            () => _metadataVerifySampleSize = value),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 14),
+        const Text('선정 방식', style: TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'RANDOM', label: Text('RANDOM')),
+            ButtonSegment(value: 'RECENT', label: Text('RECENT')),
+          ],
+          selected: {_metadataVerifyMode},
+          onSelectionChanged: _maintenanceRunning
+              ? null
+              : (value) =>
+                  setState(() => _metadataVerifyMode = value.first),
+        ),
+        const SizedBox(height: 18),
+        FilledButton.icon(
+          onPressed: _maintenanceRunning ? null : _runMetadataVerification,
+          icon: _metadataVerifyRunning
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.fact_check_outlined),
+          label: Text(_metadataVerifyRunning ? '검증 중...' : '검증 시작'),
+        ),
+        if (result != null) ...[
+          const SizedBox(height: 18),
+          const Divider(),
+          const SizedBox(height: 8),
+          _line('표본', result.sampled),
+          _line('일치', result.matched),
+          _line('변경됨', result.changed),
+          _line('심각한 불일치', result.criticalMismatch),
+          _line('Store 조회 불가', result.storeUnavailable),
+          _line('검증 오류', result.verificationError),
+          const SizedBox(height: 6),
+          const Text('변경됨은 가격·할인 등 정상적인 Steam 변경일 수 있습니다.',
+              style: TextStyle(color: Color(0xFF8794A8))),
+          if (result.criticalMismatch > 0) ...[
+            const SizedBox(height: 14),
+            const Text('심각한 불일치 상세',
+                style: TextStyle(fontWeight: FontWeight.w900,
+                    color: Colors.redAccent)),
+            const SizedBox(height: 8),
+            ...result.criticalDetails.map((value) => Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: Colors.red.withValues(alpha: .22)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Steam App ID ${value.steamAppId}',
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Text('DB: ${value.dbName}'),
+                      Text('Steam 응답: ${value.responseAppId ?? '-'} · ${value.responseName ?? '-'}'),
+                      Text('불일치 필드: ${value.mismatchedFields.join(', ')}'),
+                    ],
+                  ),
+                )),
+          ],
+        ],
+      ]),
+    );
+  }
 
   Widget _igdbEnrichmentPanel(Color panel, Color border) {
     final target = _status?.igdbTargetCount ?? 0;

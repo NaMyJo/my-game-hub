@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 /** Bounded retry and globally spaced request starts for the Store endpoint. */
@@ -25,44 +26,101 @@ public class SteamStoreRequestPolicy {
     private final long maxBackoffMs;
     private final long requestDelayMs;
     private final long requestDelayNanos;
+    private final int initialMaxRetries;
     private final Sleeper sleeper;
     private long nextRequestNanos;
+    private final LongAdder executions = new LongAdder();
+    private final LongAdder attempts = new LongAdder();
+    private final LongAdder retries = new LongAdder();
+    private final LongAdder http429 = new LongAdder();
+    private final LongAdder http5xx = new LongAdder();
+    private final LongAdder network = new LongAdder();
+    private final LongAdder parsing = new LongAdder();
 
     @Autowired
     public SteamStoreRequestPolicy(
             @Value("${app.game-finder.steam-store-request-delay-ms:500}") long requestDelayMs,
             @Value("${app.game-finder.steam-store-max-retries:2}") int maxRetries,
+            @Value("${app.game-finder.steam-store-initial-max-retries:0}") int initialMaxRetries,
             @Value("${app.game-finder.steam-store-backoff-initial-ms:500}") long initialBackoffMs,
             @Value("${app.game-finder.steam-store-backoff-max-ms:10000}") long maxBackoffMs) {
-        this(requestDelayMs, maxRetries, initialBackoffMs, maxBackoffMs, Thread::sleep);
+        this(requestDelayMs, maxRetries, initialMaxRetries, initialBackoffMs,
+                maxBackoffMs, Thread::sleep);
     }
 
     SteamStoreRequestPolicy(long requestDelayMs, int maxRetries, long initialBackoffMs,
             long maxBackoffMs, Sleeper sleeper) {
+        this(requestDelayMs, maxRetries, 0, initialBackoffMs, maxBackoffMs, sleeper);
+    }
+
+    SteamStoreRequestPolicy(long requestDelayMs, int maxRetries, int initialMaxRetries,
+            long initialBackoffMs, long maxBackoffMs, Sleeper sleeper) {
         this.requestDelayMs = Math.max(0, requestDelayMs);
         this.requestDelayNanos = Duration.ofMillis(this.requestDelayMs).toNanos();
         this.maxRetries = Math.max(0, maxRetries);
+        this.initialMaxRetries = Math.max(0, initialMaxRetries);
         this.initialBackoffMs = Math.max(1, initialBackoffMs);
         this.maxBackoffMs = Math.max(this.initialBackoffMs, maxBackoffMs);
         this.sleeper = sleeper;
     }
 
     public <T> T execute(Supplier<T> action) {
+        return execute(action, maxRetries);
+    }
+
+    public <T> T executeInitial(Supplier<T> action) {
+        return execute(action, initialMaxRetries);
+    }
+
+    private <T> T execute(Supplier<T> action, int retryLimit) {
         RuntimeException last = null;
+        executions.increment();
         // Preserve the existing single-worker delay semantics. With multiple workers,
         // awaitRequestSlot additionally prevents a burst after their waits overlap.
         sleep(requestDelayMs);
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+        for (int attempt = 0; attempt <= retryLimit; attempt++) {
             try {
                 awaitRequestSlot();
+                attempts.increment();
                 return action.get();
             } catch (RuntimeException exception) {
-                if (!retryable(exception) || attempt == maxRetries) throw exception;
+                recordFailure(exception);
+                if (!retryable(exception) || attempt == retryLimit) throw exception;
                 last = exception;
-                sleep(retryDelayMs(exception, attempt));
+                retries.increment();
+                long delay = retryDelayMs(exception, attempt);
+                if (is429(exception)) deferAllRequests(delay);
+                sleep(delay);
             }
         }
         throw last;
+    }
+
+    private boolean is429(RuntimeException exception) {
+        return exception instanceof HttpClientErrorException error
+                && error.getStatusCode().value() == 429;
+    }
+
+    private void recordFailure(RuntimeException exception) {
+        String category = failureCategory(exception);
+        switch (category) {
+            case "HTTP_429" -> http429.increment();
+            case "HTTP_5XX" -> http5xx.increment();
+            case "NETWORK" -> network.increment();
+            case "PARSING" -> parsing.increment();
+            default -> { }
+        }
+    }
+
+    static String failureCategory(RuntimeException exception) {
+        if (exception instanceof HttpClientErrorException error
+                && error.getStatusCode().value() == 429) return "HTTP_429";
+        if (exception instanceof HttpServerErrorException) return "HTTP_5XX";
+        if (exception instanceof ResourceAccessException) return "NETWORK";
+        if (exception instanceof HttpClientErrorException) return "OTHER";
+        if (exception instanceof SteamStoreDetailClient.SteamStoreResponseException
+                || exception instanceof RestClientException) return "PARSING";
+        return "OTHER";
     }
 
     private boolean retryable(RuntimeException exception) {
@@ -110,6 +168,11 @@ public class SteamStoreRequestPolicy {
         nextRequestNanos = System.nanoTime() + requestDelayNanos;
     }
 
+    private synchronized void deferAllRequests(long delayMs) {
+        long deferredUntil = System.nanoTime() + Duration.ofMillis(Math.max(0, delayMs)).toNanos();
+        nextRequestNanos = Math.max(nextRequestNanos, deferredUntil);
+    }
+
     private void sleep(long millis) {
         try {
             sleeper.sleep(Math.max(0, millis));
@@ -125,4 +188,23 @@ public class SteamStoreRequestPolicy {
     int maxRetries() { return maxRetries; }
     long initialBackoffMs() { return initialBackoffMs; }
     long maxBackoffMs() { return maxBackoffMs; }
+    int initialMaxRetries() { return initialMaxRetries; }
+
+    Stats stats() {
+        return new Stats(executions.sum(), attempts.sum(), retries.sum(), http429.sum(),
+                http5xx.sum(), network.sum(), parsing.sum());
+    }
+
+    record Stats(long executions, long attempts, long retries, long http429,
+            long http5xx, long network, long parsing) {
+        Stats minus(Stats before) {
+            return new Stats(executions-before.executions, attempts-before.attempts,
+                    retries-before.retries, http429-before.http429, http5xx-before.http5xx,
+                    network-before.network, parsing-before.parsing);
+        }
+        String averageAttemptsPerApp() {
+            return executions == 0 ? "0.00"
+                    : String.format(java.util.Locale.ROOT, "%.2f", (double) attempts / executions);
+        }
+    }
 }

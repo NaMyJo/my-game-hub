@@ -10,6 +10,8 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
+import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -90,6 +92,46 @@ class GameFinderAdminControllerTest {
                 authenticated("admin-uid"), new GameFinderAdminEnrichRequest(1)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void metadataVerifyRequiresAdminValidatesInputAndReturnsConflict() {
+        var body = new GameFinderAdminMetadataVerifyRequest(100, "RANDOM");
+        assertThatThrownBy(() -> controller.verifyMetadata(new MockHttpServletRequest(), body))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.verifyMetadata(authenticated("regular-user"), body))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        assertThatThrownBy(() -> controller.verifyMetadata(authenticated("admin-uid"),
+                new GameFinderAdminMetadataVerifyRequest(25, "RANDOM")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> controller.verifyMetadata(authenticated("admin-uid"),
+                new GameFinderAdminMetadataVerifyRequest(100, "WRONG")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        when(maintenance.tryMetadataVerify(100,
+                SteamMetadataVerificationService.VerificationMode.RANDOM))
+                .thenReturn(Optional.empty());
+        assertThatThrownBy(() -> controller.verifyMetadata(authenticated("admin-uid"), body))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void adminMetadataVerifyDelegatesToSharedMaintenancePath() {
+        var body = new GameFinderAdminMetadataVerifyRequest(100, "RECENT");
+        var response = new GameFinderAdminMetadataVerifyResponse(
+                100, 90, 5, 1, 2, 2, 1000, java.util.List.of());
+        when(maintenance.tryMetadataVerify(100,
+                SteamMetadataVerificationService.VerificationMode.RECENT))
+                .thenReturn(Optional.of(response));
+
+        assertThat(controller.verifyMetadata(authenticated("admin-uid"), body))
+                .isSameAs(response);
+        verify(maintenance).tryMetadataVerify(100,
+                SteamMetadataVerificationService.VerificationMode.RECENT);
     }
 
     @Test

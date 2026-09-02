@@ -17,7 +17,7 @@ class GameFinderAdminMaintenanceServiceTest {
         var sync = mock(SteamCatalogSyncService.class);
         when(sync.enrichBatch(1)).thenReturn(result(1));
 
-        var response = new GameFinderAdminMaintenanceService(sync).tryEnrich(1).orElseThrow();
+        var response = service(sync).tryEnrich(1).orElseThrow();
 
         assertThat(response.requestedBatchSize()).isEqualTo(1);
         assertThat(response.processed()).isEqualTo(1);
@@ -31,7 +31,7 @@ class GameFinderAdminMaintenanceServiceTest {
                 1, 1, 0, 0, 0, false);
         when(sync.enrichMetadataBatch(1)).thenReturn(stage);
         when(sync.enrichIgdbBatch(1)).thenReturn(stage);
-        var service = new GameFinderAdminMaintenanceService(sync);
+        var service = service(sync);
 
         assertThat(service.tryMetadataEnrich(1).orElseThrow().stage()).isEqualTo("metadata");
         assertThat(service.tryIgdbEnrich(1).orElseThrow().stage()).isEqualTo("igdb");
@@ -49,7 +49,7 @@ class GameFinderAdminMaintenanceServiceTest {
             release.await(5, TimeUnit.SECONDS);
             return result(1);
         });
-        var service = new GameFinderAdminMaintenanceService(sync);
+        var service = service(sync);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> service.tryEnrich(1));
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
@@ -72,7 +72,7 @@ class GameFinderAdminMaintenanceServiceTest {
             release.await(5, TimeUnit.SECONDS);
             return result(1);
         });
-        var service = new GameFinderAdminMaintenanceService(sync);
+        var service = service(sync);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> service.tryEnrich(1));
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
@@ -92,7 +92,7 @@ class GameFinderAdminMaintenanceServiceTest {
             release.await(5, TimeUnit.SECONDS);
             return result(1);
         });
-        var service = new GameFinderAdminMaintenanceService(sync);
+        var service = service(sync);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> service.tryEnrich(1));
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
@@ -112,7 +112,7 @@ class GameFinderAdminMaintenanceServiceTest {
             release.await(5, TimeUnit.SECONDS);
             return result(1);
         });
-        var service = new GameFinderAdminMaintenanceService(sync);
+        var service = service(sync);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> service.tryEnrich(1));
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
@@ -125,5 +125,35 @@ class GameFinderAdminMaintenanceServiceTest {
     private SteamCatalogSyncService.EnrichmentBatchResult result(int processed) {
         return new SteamCatalogSyncService.EnrichmentBatchResult(
                 processed, processed, 0, 0, 0, processed, 0, 0, 0, false);
+    }
+
+    @Test
+    void metadataVerificationReusesVerifierAndSharesMaintenanceLock() throws Exception {
+        var sync = mock(SteamCatalogSyncService.class);
+        var verifier = mock(SteamMetadataVerificationService.class);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(verifier.verify(100, SteamMetadataVerificationService.VerificationMode.RANDOM))
+                .thenAnswer(invocation -> {
+                    entered.countDown();
+                    release.await(5, TimeUnit.SECONDS);
+                    return new SteamMetadataVerificationService.VerificationSummary(
+                            1, 1, 0, 0, 0, 0, java.util.List.of());
+                });
+        var service = new GameFinderAdminMaintenanceService(sync, verifier);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> service.tryMetadataVerify(
+                    100, SteamMetadataVerificationService.VerificationMode.RANDOM));
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(service.tryMetadataEnrich(1)).isEmpty();
+            release.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS).orElseThrow().matched()).isEqualTo(1);
+        }
+        verify(verifier).verify(100, SteamMetadataVerificationService.VerificationMode.RANDOM);
+    }
+
+    private GameFinderAdminMaintenanceService service(SteamCatalogSyncService sync) {
+        return new GameFinderAdminMaintenanceService(sync,
+                mock(SteamMetadataVerificationService.class));
     }
 }

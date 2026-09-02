@@ -109,7 +109,12 @@ public class SteamCatalogPersistenceService {
     public List<SteamGame> applyIgdbResults(
             Collection<Long> appIds,
             Map<Long, Optional<IgdbEnrichmentClient.IgdbData>> results) {
-        List<SteamGame> targets = games.findBySteamAppIdIn(appIds);
+        java.util.Set<Long> requestedAppIds = new java.util.LinkedHashSet<>(appIds);
+        Map<Long, SteamGame> uniqueTargets = new LinkedHashMap<>();
+        games.findBySteamAppIdIn(requestedAppIds).stream()
+                .filter(game -> requestedAppIds.contains(game.getSteamAppId()))
+                .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
+        List<SteamGame> targets = List.copyOf(uniqueTargets.values());
         for (SteamGame game : targets) {
             var value = results.getOrDefault(game.getSteamAppId(), Optional.empty());
             if (value.isPresent()) {

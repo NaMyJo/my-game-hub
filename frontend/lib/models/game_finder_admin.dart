@@ -304,3 +304,67 @@ class GameFinderAdminStageEnrichResult {
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
       );
 }
+
+class GameFinderAdminMetadataVerifyResult {
+  const GameFinderAdminMetadataVerifyResult({
+    required this.sampled,
+    required this.matched,
+    required this.changed,
+    required this.criticalMismatch,
+    required this.storeUnavailable,
+    required this.verificationError,
+    required this.durationMs,
+    required this.criticalDetails,
+  });
+
+  final int sampled, matched, changed, criticalMismatch;
+  final int storeUnavailable, verificationError, durationMs;
+  final List<GameFinderMetadataCriticalDetail> criticalDetails;
+
+  factory GameFinderAdminMetadataVerifyResult.fromJson(
+          Map<String, dynamic> json) =>
+      GameFinderAdminMetadataVerifyResult(
+        sampled: (json['sampled'] as num?)?.toInt() ?? 0,
+        matched: (json['matched'] as num?)?.toInt() ?? 0,
+        changed: (json['changed'] as num?)?.toInt() ?? 0,
+        criticalMismatch:
+            (json['criticalMismatch'] as num?)?.toInt() ?? 0,
+        storeUnavailable:
+            (json['storeUnavailable'] as num?)?.toInt() ?? 0,
+        verificationError:
+            (json['verificationError'] as num?)?.toInt() ?? 0,
+        durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+        criticalDetails: (json['criticalDetails'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(GameFinderMetadataCriticalDetail.fromJson)
+            .toList(growable: false),
+      );
+}
+
+class GameFinderMetadataCriticalDetail {
+  const GameFinderMetadataCriticalDetail({
+    required this.steamAppId,
+    required this.dbName,
+    required this.responseAppId,
+    required this.responseName,
+    required this.mismatchedFields,
+  });
+
+  final int steamAppId;
+  final String dbName;
+  final int? responseAppId;
+  final String? responseName;
+  final List<String> mismatchedFields;
+
+  factory GameFinderMetadataCriticalDetail.fromJson(
+          Map<String, dynamic> json) =>
+      GameFinderMetadataCriticalDetail(
+        steamAppId: (json['steamAppId'] as num?)?.toInt() ?? 0,
+        dbName: json['dbName'] as String? ?? '',
+        responseAppId: (json['responseAppId'] as num?)?.toInt(),
+        responseName: json['responseName'] as String?,
+        mismatchedFields: (json['mismatchedFields'] as List<dynamic>? ?? const [])
+            .whereType<String>()
+            .toList(growable: false),
+      );
+}

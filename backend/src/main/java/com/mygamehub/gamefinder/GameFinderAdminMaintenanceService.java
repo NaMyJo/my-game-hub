@@ -5,6 +5,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,10 +18,33 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class GameFinderAdminMaintenanceService {
     private static final Logger log = LoggerFactory.getLogger(GameFinderAdminMaintenanceService.class);
     private final SteamCatalogSyncService syncService;
+    private final SteamMetadataVerificationService metadataVerifier;
     private final AtomicBoolean maintenanceRunning = new AtomicBoolean(false);
 
-    public GameFinderAdminMaintenanceService(SteamCatalogSyncService syncService) {
+    public GameFinderAdminMaintenanceService(SteamCatalogSyncService syncService,
+            SteamMetadataVerificationService metadataVerifier) {
         this.syncService = syncService;
+        this.metadataVerifier = metadataVerifier;
+    }
+
+    public Optional<GameFinderAdminMetadataVerifyResponse> tryMetadataVerify(
+            int sampleSize, SteamMetadataVerificationService.VerificationMode mode) {
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            log.warn("game_finder_admin_metadata_verify_rejected reason=maintenance_running");
+            return Optional.empty();
+        }
+        long startedAt = System.nanoTime();
+        log.info("game_finder_admin_metadata_verify_start sampleSize={} mode={}", sampleSize, mode);
+        try {
+            var result = metadataVerifier.verify(sampleSize, mode);
+            long durationMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            log.info("game_finder_admin_metadata_verify_complete sampled={} matched={} "
+                            + "criticalMismatch={} durationMs={}", result.sampled(),
+                    result.matched(), result.criticalMismatch(), durationMs);
+            return Optional.of(GameFinderAdminMetadataVerifyResponse.from(result, durationMs));
+        } finally {
+            maintenanceRunning.set(false);
+        }
     }
 
     public Optional<GameFinderAdminEnrichResponse> tryEnrich(int batchSize) {

@@ -31,20 +31,20 @@ class SteamCatalogSyncServiceTest {
     void configuredBatchSizeIsUsedByEnrichmentQuery() {
         var single = new SteamCatalogSyncService(catalog, store, games, persistence,
                 checkpoints, igdb, tagService, 1, 2, 0, 0, 0);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of());
 
         single.enrichBatch();
 
-        verify(games).findMetadataCandidates(any(), argThat(pageable -> pageable.getPageSize() == 1));
+        verify(games).findMetadataCandidates(any(), any(), argThat(pageable -> pageable.getPageSize() == 1));
         verify(games).findIgdbCandidates(argThat(pageable -> pageable.getPageSize() == 1));
     }
 
     @Test
     void enrichmentResponseUsesActualCandidateQueryForCompletion() {
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of());
-        when(games.countEnrichmentCandidates(any())).thenReturn(0L, 3L);
+        when(games.countEnrichmentCandidates(any(), any())).thenReturn(0L, 3L);
         when(igdb.configured()).thenReturn(true);
 
         var completed = service.enrichBatch(1);
@@ -58,16 +58,16 @@ class SteamCatalogSyncServiceTest {
     @Test
     void metadataStageDoesNotCallIgdb() {
         var pending = new SteamGame(570, "Dota 2", 1, 1);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(pending));
-        when(store.get(570)).thenReturn(Optional.of(detail("game")));
-        when(games.countMetadataCandidates(any())).thenReturn(0L);
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(pending));
+        when(store.get(570, true)).thenReturn(Optional.of(detail("game")));
+        when(games.countMetadataCandidates(any(), any())).thenReturn(0L);
 
         var result = service.enrichMetadataBatch(1);
 
         assertEquals(1, result.processed());
         assertEquals(1, result.success());
         verifyNoInteractions(igdb);
-        verify(store).get(570);
+        verify(store).get(570, true);
     }
 
     @Test
@@ -76,15 +76,15 @@ class SteamCatalogSyncServiceTest {
                 checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
         var first = new SteamGame(570, "Dota 2", 1, 1);
         var second = new SteamGame(1245620, "ELDEN RING", 1, 1);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(first, second));
-        when(store.get(anyLong())).thenReturn(Optional.of(detail("game")));
-        when(games.countMetadataCandidates(any())).thenReturn(0L);
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(first, second));
+        when(store.get(anyLong(), eq(true))).thenReturn(Optional.of(detail("game")));
+        when(games.countMetadataCandidates(any(), any())).thenReturn(0L);
 
         var result = concurrentService.enrichMetadataBatch(40);
 
         assertEquals(2, result.processed());
-        verify(store).get(570);
-        verify(store).get(1245620);
+        verify(store).get(570, true);
+        verify(store).get(1245620, true);
         verify(games).save(first);
         verify(games).save(second);
     }
@@ -98,9 +98,9 @@ class SteamCatalogSyncServiceTest {
         var bothRequested = new CountDownLatch(2);
         var secondSaved = new CountDownLatch(1);
         var snapshots = new ConcurrentHashMap<Long, MetadataSnapshot>();
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(first, second));
-        when(games.countMetadataCandidates(any())).thenReturn(0L);
-        when(store.get(anyLong())).thenAnswer(invocation -> {
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(first, second));
+        when(games.countMetadataCandidates(any(), any())).thenReturn(0L);
+        when(store.get(anyLong(), eq(true))).thenAnswer(invocation -> {
             long appId = invocation.getArgument(0);
             bothRequested.countDown();
             assertTrue(bothRequested.await(2, TimeUnit.SECONDS));
@@ -131,16 +131,16 @@ class SteamCatalogSyncServiceTest {
         var concurrentService = new SteamCatalogSyncService(catalog, store, games, persistence,
                 checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
         var duplicate = new SteamGame(570, "Dota 2", 1, 1);
-        when(games.findMetadataCandidates(any(), any()))
+        when(games.findMetadataCandidates(any(), any(), any()))
                 .thenReturn(List.of(duplicate, duplicate));
-        when(store.get(570)).thenReturn(Optional.of(
+        when(store.get(570, true)).thenReturn(Optional.of(
                 detailFor(570, "Dota 2", "game", 0)));
-        when(games.countMetadataCandidates(any())).thenReturn(0L);
+        when(games.countMetadataCandidates(any(), any())).thenReturn(0L);
 
         var result = concurrentService.enrichMetadataBatch(40);
 
         assertEquals(1, result.processed());
-        verify(store, times(1)).get(570);
+        verify(store, times(1)).get(570, true);
         verify(games, times(1)).save(duplicate);
     }
 
@@ -150,10 +150,10 @@ class SteamCatalogSyncServiceTest {
                 checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
         var failed = new SteamGame(10, "A", 1, 1);
         var succeeded = new SteamGame(20, "B", 1, 1);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(failed, succeeded));
-        when(store.get(10)).thenThrow(new IllegalStateException("network"));
-        when(store.get(20)).thenReturn(Optional.of(detailFor(20, "Store B", "game", 2000)));
-        when(games.countMetadataCandidates(any())).thenReturn(1L);
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(failed, succeeded));
+        when(store.get(10, true)).thenThrow(new IllegalStateException("network"));
+        when(store.get(20, true)).thenReturn(Optional.of(detailFor(20, "Store B", "game", 2000)));
+        when(games.countMetadataCandidates(any(), any())).thenReturn(1L);
 
         var result = concurrentService.enrichMetadataBatch(40);
 
@@ -616,7 +616,7 @@ class SteamCatalogSyncServiceTest {
                 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 true, false, false, false);
         SteamGame pending = new SteamGame(24, "Pending", 0, 0);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(pending));
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(pending));
         when(games.findIgdbCandidates(any())).thenReturn(List.of());
         when(store.get(24L)).thenReturn(Optional.empty());
 
@@ -634,7 +634,7 @@ class SteamCatalogSyncServiceTest {
         noMatch.updateStoreDetail("game", null, null, false, "KRW", null, null,
                 null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 true, true, false, false);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(noMatch));
         when(igdb.configured()).thenReturn(true);
         when(igdb.findBySteamAppId(4436560L)).thenReturn(Optional.empty());
@@ -652,7 +652,7 @@ class SteamCatalogSyncServiceTest {
         dlc.updateStoreDetail("dlc", null, null, false, "KRW", null, null,
                 null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 false, false, false, false);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(dlc));
         when(igdb.configured()).thenReturn(true);
 
@@ -669,7 +669,7 @@ class SteamCatalogSyncServiceTest {
         game.updateStoreDetail("game", null, null, false, "KRW", null, null,
                 null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 true, true, false, false);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(game));
         when(igdb.configured()).thenReturn(true);
         when(igdb.findBySteamAppId(570L)).thenReturn(Optional.empty());
@@ -685,7 +685,7 @@ class SteamCatalogSyncServiceTest {
         game.updateStoreDetail("game", null, null, true, "KRW", 0, 0, 0, 0,
                 "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 false, true, true, false);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(game));
         when(igdb.configured()).thenReturn(true);
         when(igdb.findBySteamAppId(570L))
@@ -709,7 +709,7 @@ class SteamCatalogSyncServiceTest {
                 null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 true, false, false, false);
         setField(legacy, "metadataStatus", null);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(legacy));
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of(legacy));
 
         var result = service.enrichBatch(1);
 
@@ -727,7 +727,7 @@ class SteamCatalogSyncServiceTest {
                 true, true, false, false);
         legacy.updateIgdb(42L, 1, 10, 10, 5, true, true, false);
         setField(legacy, "igdbStatus", null);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(legacy));
         when(igdb.configured()).thenReturn(true);
 
@@ -747,7 +747,7 @@ class SteamCatalogSyncServiceTest {
                 true, true, false, false);
         legacy.updateIgdb(null, null, null, null, null, null, null, null);
         setField(legacy, "igdbStatus", null);
-        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of());
+        when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(legacy));
         when(igdb.configured()).thenReturn(true);
 

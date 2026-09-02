@@ -60,13 +60,17 @@ app:
     steam-store-request-delay-ms: ${GAME_FINDER_STEAM_STORE_REQUEST_DELAY_MS:500}
     steam-metadata-concurrency: ${GAME_FINDER_STEAM_METADATA_CONCURRENCY:1}
     steam-store-max-retries: ${GAME_FINDER_STEAM_STORE_MAX_RETRIES:2}
+    steam-store-initial-max-retries: ${GAME_FINDER_STEAM_STORE_INITIAL_MAX_RETRIES:0}
     steam-store-backoff-initial-ms: ${GAME_FINDER_STEAM_STORE_BACKOFF_INITIAL_MS:500}
     steam-store-backoff-max-ms: ${GAME_FINDER_STEAM_STORE_BACKOFF_MAX_MS:10000}
     steam-store-connect-timeout-ms: ${GAME_FINDER_STEAM_STORE_CONNECT_TIMEOUT_MS:5000}
     steam-store-read-timeout-ms: ${GAME_FINDER_STEAM_STORE_READ_TIMEOUT_MS:10000}
+    metadata-retry-cooldown-ms: ${GAME_FINDER_METADATA_RETRY_COOLDOWN_MS:1200000}
     igdb-request-interval-ms: ${GAME_FINDER_IGDB_REQUEST_INTERVAL_MS:260}
     bootstrap-max-apps: ${GAME_FINDER_BOOTSTRAP_MAX_APPS:0}
     bootstrap-on-start: ${GAME_FINDER_BOOTSTRAP_ON_START:false}
     command: ${GAME_FINDER_COMMAND:}
     smoke-app-ids: ${GAME_FINDER_SMOKE_APP_IDS:570,1245620,4436560}
+    metadata-verify-sample-size: ${GAME_FINDER_METADATA_VERIFY_SAMPLE_SIZE:100}
+    metadata-verify-mode: ${GAME_FINDER_METADATA_VERIFY_MODE:RANDOM}
     admin-uids: ${GAME_FINDER_ADMIN_UIDS:}

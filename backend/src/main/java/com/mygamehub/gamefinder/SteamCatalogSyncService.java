@@ -37,6 +37,8 @@ public class SteamCatalogSyncService {
     private final long storeDelayMs;
     private final int metadataConcurrency;
     private final long igdbIntervalMs;
+    private final long metadataRetryCooldownMs;
+    private final SteamStoreRequestPolicy storeRequestPolicy;
 
     @Autowired
     public SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
@@ -47,7 +49,9 @@ public class SteamCatalogSyncService {
             @Value("${app.game-finder.bootstrap-max-apps:0}") int bootstrapMaxApps,
             @Value("${app.game-finder.steam-store-request-delay-ms:500}") long storeDelayMs,
             @Value("${app.game-finder.steam-metadata-concurrency:1}") int metadataConcurrency,
-            @Value("${app.game-finder.igdb-request-interval-ms:260}") long igdbIntervalMs) {
+            @Value("${app.game-finder.igdb-request-interval-ms:260}") long igdbIntervalMs,
+            @Value("${app.game-finder.metadata-retry-cooldown-ms:1200000}") long metadataRetryCooldownMs,
+            SteamStoreRequestPolicy storeRequestPolicy) {
         this.catalog = catalog;
         this.store = store;
         this.games = games;
@@ -61,6 +65,8 @@ public class SteamCatalogSyncService {
         this.storeDelayMs = storeDelayMs;
         this.metadataConcurrency = Math.max(1, Math.min(4, metadataConcurrency));
         this.igdbIntervalMs = igdbIntervalMs;
+        this.metadataRetryCooldownMs = Math.max(0, metadataRetryCooldownMs);
+        this.storeRequestPolicy = storeRequestPolicy;
     }
 
     SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
@@ -69,14 +75,28 @@ public class SteamCatalogSyncService {
             GameTagService tagService, int batchSize, int pagesPerRun, int bootstrapMaxApps,
             long storeDelayMs, long igdbIntervalMs) {
         this(catalog, store, games, persistence, checkpoints, igdb, tagService, batchSize,
-                pagesPerRun, bootstrapMaxApps, storeDelayMs, 1, igdbIntervalMs);
+                pagesPerRun, bootstrapMaxApps, storeDelayMs, 1, igdbIntervalMs,
+                1_200_000, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
+    }
+
+    SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
+            SteamGameRepository games, SteamCatalogPersistenceService persistence,
+            CatalogSyncCheckpointRepository checkpoints, IgdbEnrichmentClient igdb,
+            GameTagService tagService, int batchSize, int pagesPerRun, int bootstrapMaxApps,
+            long storeDelayMs, int metadataConcurrency, long igdbIntervalMs) {
+        this(catalog, store, games, persistence, checkpoints, igdb, tagService, batchSize,
+                pagesPerRun, bootstrapMaxApps, storeDelayMs, metadataConcurrency, igdbIntervalMs,
+                1_200_000, new SteamStoreRequestPolicy(0, 2, 1, 2, millis -> {}));
     }
 
     @PostConstruct
     void logConfiguration() {
         log.info("game_finder_bootstrap_config catalogPageSize={} pagesPerRun={} storeDelayMs={} "
-                        + "metadataConcurrency={} igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
+                        + "metadataConcurrency={} metadataRetryCooldownMs={} storeMaxRetries={} "
+                        + "storeInitialMaxRetries={} igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
                 catalog.pageSize(), pagesPerRun, storeDelayMs, metadataConcurrency,
+                metadataRetryCooldownMs, storeRequestPolicy.maxRetries(),
+                storeRequestPolicy.initialMaxRetries(),
                 igdbIntervalMs <= 0 ? "unlimited"
                         : String.format(Locale.ROOT, "%.2f", 1000.0 / igdbIntervalMs),
                 batchSize, bootstrapMaxApps);
@@ -213,7 +233,7 @@ public class SteamCatalogSyncService {
 
     public synchronized EnrichmentBatchResult enrichBatch(int requestedBatchSize) {
         LinkedHashMap<Long, SteamGame> targets = new LinkedHashMap<>();
-        games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)), PageRequest.of(0, requestedBatchSize))
+        games.findMetadataCandidates(staleBefore(), retryBefore(), PageRequest.of(0, requestedBatchSize))
                 .forEach(game -> targets.put(game.getSteamAppId(), game));
         if (targets.size() < requestedBatchSize) {
             games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize - targets.size()))
@@ -227,15 +247,20 @@ public class SteamCatalogSyncService {
 
     public synchronized EnrichmentStageBatchResult enrichMetadataBatch(int requestedBatchSize) {
         LinkedHashMap<Long, SteamGame> uniqueTargets = new LinkedHashMap<>();
-        games.findMetadataCandidates(Instant.now().minus(Duration.ofDays(7)),
+        games.findMetadataCandidates(staleBefore(), retryBefore(),
                         PageRequest.of(0, requestedBatchSize))
                 .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
         List<SteamGame> targets = List.copyOf(uniqueTargets.values());
         log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
+        SteamStoreRequestPolicy.Stats before = storeRequestPolicy.stats();
         enrichMetadataTargets(targets);
+        SteamStoreRequestPolicy.Stats stats = storeRequestPolicy.stats().minus(before);
+        log.info("game_finder_metadata_batch_http_stats apps={} attempts={} retries={} "
+                        + "http429={} http5xx={} network={} parsing={} averageAttemptsPerApp={}",
+                stats.executions(), stats.attempts(), stats.retries(), stats.http429(),
+                stats.http5xx(), stats.network(), stats.parsing(), stats.averageAttemptsPerApp());
         return EnrichmentStageBatchResult.from(
-                targets, true, games.countMetadataCandidates(
-                        Instant.now().minus(Duration.ofDays(7))) > 0);
+                targets, true, games.countMetadataCandidates(staleBefore(), retryBefore()) > 0);
     }
 
     private void enrichMetadataTargets(List<SteamGame> targets) {
@@ -292,12 +317,12 @@ public class SteamCatalogSyncService {
     public long remainingEnrichmentCandidates() {
         Instant staleBefore = Instant.now().minus(Duration.ofDays(7));
         return igdb.configured()
-                ? games.countEnrichmentCandidates(staleBefore)
-                : games.countMetadataCandidates(staleBefore);
+                ? games.countEnrichmentCandidates(staleBefore, retryBefore())
+                : games.countMetadataCandidates(staleBefore, retryBefore());
     }
 
     public long remainingMetadataCandidates() {
-        return games.countMetadataCandidates(Instant.now().minus(Duration.ofDays(7)));
+        return games.countMetadataCandidates(staleBefore(), retryBefore());
     }
 
     public long remainingIgdbCandidates() {
@@ -530,7 +555,10 @@ public class SteamCatalogSyncService {
 
     private void enrichMetadataOne(SteamGame game) {
         try {
-            var detail = store.get(game.getSteamAppId());
+            boolean initialAttempt = game.getMetadataUpdatedAt() == null
+                    && (game.getMetadataStatus() == null
+                        || game.getMetadataStatus() == EnrichmentStatus.PENDING);
+            var detail = store.get(game.getSteamAppId(), initialAttempt);
             if (detail.isEmpty()) {
                 game.markMetadataNotFound();
                 games.save(game);
@@ -549,10 +577,14 @@ public class SteamCatalogSyncService {
         } catch (RuntimeException exception) {
             game.markMetadataFailure(retryable(exception));
             games.save(game);
-            log.warn("game_finder_metadata_failed appId={} errorType={}",
-                    game.getSteamAppId(), exception.getClass().getSimpleName());
+            log.warn("game_finder_metadata_failed appId={} reason={} errorType={}",
+                    game.getSteamAppId(), SteamStoreRequestPolicy.failureCategory(exception),
+                    exception.getClass().getSimpleName());
         }
     }
+
+    private Instant staleBefore() { return Instant.now().minus(Duration.ofDays(7)); }
+    private Instant retryBefore() { return Instant.now().minusMillis(metadataRetryCooldownMs); }
 
     private boolean retryable(RuntimeException exception) {
         if (exception instanceof ExternalApiRetry.RetryableFailure failure) return failure.isRetryable();

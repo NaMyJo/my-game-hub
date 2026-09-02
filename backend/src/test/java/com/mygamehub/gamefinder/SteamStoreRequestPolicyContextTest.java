@@ -24,6 +24,7 @@ class SteamStoreRequestPolicyContextTest {
             SteamStoreRequestPolicy policy = context.getBean(SteamStoreRequestPolicy.class);
             assertThat(policy.requestDelayMs()).isEqualTo(500);
             assertThat(policy.maxRetries()).isEqualTo(2);
+            assertThat(policy.initialMaxRetries()).isZero();
             assertThat(policy.initialBackoffMs()).isEqualTo(500);
             assertThat(policy.maxBackoffMs()).isEqualTo(10_000);
 

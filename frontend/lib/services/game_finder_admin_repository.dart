@@ -42,6 +42,15 @@ class GameFinderAdminRepository {
     return GameFinderAdminStageEnrichResult.fromJson(json);
   }
 
+  Future<GameFinderAdminMetadataVerifyResult> verifyMetadata(
+      int sampleSize, String mode) async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/metadata/verify',
+      body: {'sampleSize': sampleSize, 'mode': mode},
+    ) as Map<String, dynamic>;
+    return GameFinderAdminMetadataVerifyResult.fromJson(json);
+  }
+
   Future<GameFinderAdminCatalogExpandResult> expandCatalog(
       int targetTotal) async {
     final json = await ApiClient.instance.post(
