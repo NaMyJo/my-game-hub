@@ -58,6 +58,10 @@ app:
     catalog-page-size: ${GAME_FINDER_CATALOG_PAGE_SIZE:5000}
     catalog-pages-per-run: ${GAME_FINDER_CATALOG_PAGES_PER_RUN:4}
     steam-store-request-delay-ms: ${GAME_FINDER_STEAM_STORE_REQUEST_DELAY_MS:500}
+    steam-metadata-concurrency: ${GAME_FINDER_STEAM_METADATA_CONCURRENCY:1}
+    steam-store-max-retries: ${GAME_FINDER_STEAM_STORE_MAX_RETRIES:2}
+    steam-store-backoff-initial-ms: ${GAME_FINDER_STEAM_STORE_BACKOFF_INITIAL_MS:500}
+    steam-store-backoff-max-ms: ${GAME_FINDER_STEAM_STORE_BACKOFF_MAX_MS:10000}
     steam-store-connect-timeout-ms: ${GAME_FINDER_STEAM_STORE_CONNECT_TIMEOUT_MS:5000}
     steam-store-read-timeout-ms: ${GAME_FINDER_STEAM_STORE_READ_TIMEOUT_MS:10000}
     igdb-request-interval-ms: ${GAME_FINDER_IGDB_REQUEST_INTERVAL_MS:260}

@@ -21,7 +21,7 @@ class SteamStoreDetailClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         String url = "https://store.steampowered.com/api/appdetails?appids=570&cc=kr&l=korean";
         for (int i = 0; i < 3; i++) server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.valueOf(status)));
-        SteamStoreDetailClient client = new SteamStoreDetailClient(builder, new ExternalApiRetry(ms -> {}));
+        SteamStoreDetailClient client = new SteamStoreDetailClient(builder, policy(2));
         assertThrows(RuntimeException.class, () -> client.get(570));
         server.verify();
     }
@@ -43,7 +43,7 @@ class SteamStoreDetailClientTest {
                         "release_date":{"coming_soon":true,"date":"2026년 9월 1일"}}}}
                         """, MediaType.APPLICATION_JSON));
         SteamStoreDetailClient client = new SteamStoreDetailClient(builder,
-                new ExternalApiRetry());
+                policy(2));
 
         var detail = client.get(4436560).orElseThrow();
 
@@ -74,7 +74,7 @@ class SteamStoreDetailClientTest {
                         "release_date":{"coming_soon":false,"date":"2013년 7월 9일"}}}}
                         """, MediaType.APPLICATION_JSON));
         SteamStoreDetailClient client = new SteamStoreDetailClient(builder,
-                new ExternalApiRetry());
+                policy(2));
 
         var detail = client.get(570).orElseThrow();
 
@@ -97,7 +97,7 @@ class SteamStoreDetailClientTest {
                         "release_date":{"coming_soon":true,"date":"2026년 9월 1일"}}}}
                         """, MediaType.APPLICATION_JSON));
         SteamStoreDetailClient client = new SteamStoreDetailClient(builder,
-                new ExternalApiRetry());
+                policy(2));
 
         var detail = client.get(4436560).orElseThrow();
 
@@ -106,5 +106,9 @@ class SteamStoreDetailClientTest {
         assertNull(detail.current());
         assertTrue(detail.comingSoon());
         server.verify();
+    }
+
+    private SteamStoreRequestPolicy policy(int maxRetries) {
+        return new SteamStoreRequestPolicy(0, maxRetries, 1, 2, millis -> {});
     }
 }

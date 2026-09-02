@@ -68,6 +68,25 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
+    void metadataConcurrencyIsBoundedAndStillPersistsEveryApp() {
+        var concurrentService = new SteamCatalogSyncService(catalog, store, games, persistence,
+                checkpoints, igdb, tagService, 40, 2, 0, 500, 2, 260);
+        var first = new SteamGame(570, "Dota 2", 1, 1);
+        var second = new SteamGame(1245620, "ELDEN RING", 1, 1);
+        when(games.findMetadataCandidates(any(), any())).thenReturn(List.of(first, second));
+        when(store.get(anyLong())).thenReturn(Optional.of(detail("game")));
+        when(games.countMetadataCandidates(any())).thenReturn(0L);
+
+        var result = concurrentService.enrichMetadataBatch(40);
+
+        assertEquals(2, result.processed());
+        verify(store).get(570);
+        verify(store).get(1245620);
+        verify(games).save(first);
+        verify(games).save(second);
+    }
+
+    @Test
     void igdbStageUsesOneBatchClientCallAndDoesNotCallSteamStore() {
         var first = gameWithCurrentMetadata(570, "Dota 2", "game");
         var second = gameWithCurrentMetadata(1245620, "ELDEN RING", "game");

@@ -46,6 +46,8 @@ public class GameFinderAdminStatusService {
         return GameFinderAdminStatusResponse.from(
                 games.adminStatus(), checkpoint, fullSync, gameOnlySync, remainingCandidates,
                 syncService.remainingMetadataCandidates(),
-                syncService.remainingIgdbCandidates());
+                syncService.remainingIgdbCandidates(),
+                new GameFinderAdminStatusResponse.MetadataRuntimeConfig(
+                        syncService.metadataConcurrency(), syncService.storeRequestDelayMs()));
     }
 }

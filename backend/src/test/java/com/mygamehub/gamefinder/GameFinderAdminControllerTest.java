@@ -117,6 +117,7 @@ class GameFinderAdminControllerTest {
         var status = new GameFinderAdminStatusResponse(
                 15, 13, 1, 1, counts, counts,
                 4, 4, 3, 11, 8, 2, 10, 7, 9, 10, 3, 2,
+                new GameFinderAdminStatusResponse.MetadataRuntimeConfig(1, 500),
                 checkpoint, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);
 

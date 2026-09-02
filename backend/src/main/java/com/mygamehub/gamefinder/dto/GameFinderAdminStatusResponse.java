@@ -22,6 +22,7 @@ public record GameFinderAdminStatusResponse(
         long gameCount,
         long nonGameCount,
         long unclassifiedCount,
+        MetadataRuntimeConfig metadataRuntimeConfig,
         Checkpoint checkpoint,
         FullCatalogSync fullCatalogSync,
         FullCatalogSync gameOnlyCatalogSync
@@ -30,7 +31,7 @@ public record GameFinderAdminStatusResponse(
             GameFinderAdminStatusProjection value, Checkpoint checkpoint,
             FullCatalogSync fullCatalogSync, FullCatalogSync gameOnlyCatalogSync,
             long remainingCandidates, long remainingMetadataCandidates,
-            long remainingIgdbCandidates) {
+            long remainingIgdbCandidates, MetadataRuntimeConfig metadataRuntimeConfig) {
         return new GameFinderAdminStatusResponse(
                 value.getTotal(), value.getActive(), value.getUnavailable(), value.getRemoved(),
                 new EnrichmentCounts(value.getMetadataPending(), value.getMetadataSuccess(),
@@ -44,7 +45,7 @@ public record GameFinderAdminStatusResponse(
                 value.getStoreUnavailableCount(), value.getIgdbTargetCount(),
                 value.getIgdbTerminalCount(), value.getFinderEligibleCount(),
                 value.getGameCount(), value.getNonGameCount(), value.getUnclassifiedCount(),
-                checkpoint, fullCatalogSync, gameOnlyCatalogSync);
+                metadataRuntimeConfig, checkpoint, fullCatalogSync, gameOnlyCatalogSync);
     }
 
     public record EnrichmentCounts(
@@ -70,4 +71,6 @@ public record GameFinderAdminStatusResponse(
             boolean completed,
             boolean hasFailure
     ) {}
+
+    public record MetadataRuntimeConfig(int concurrency, long requestDelayMs) {}
 }

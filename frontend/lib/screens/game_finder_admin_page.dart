@@ -369,6 +369,13 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                 const SizedBox(height: 4),
                 Text('게임 ${_status!.gameCount} · Non-game ${_status!.nonGameCount} '
                     '· 미분류 ${_status!.unclassifiedCount}'),
+                const SizedBox(height: 4),
+                Text('운영 설정: concurrency ${_status!.metadataConcurrency} '
+                    '· 요청 시작 간격 ${_status!.metadataRequestDelayMs}ms'),
+                if (_metadataEta() != null) ...[
+                  const SizedBox(height: 4),
+                  Text('최근 처리 속도 기준 예상 남은 시간: ${_metadataEta()}'),
+                ],
                 const SizedBox(height: 6),
                 LinearProgressIndicator(
                   value: _status!.gameCatalogCount == 0
@@ -834,6 +841,17 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           Text('처리 속도 ${value.itemsPerSecond.toStringAsFixed(2)} apps/s · ${value.durationMs}ms'),
         ]),
       );
+
+  String? _metadataEta() {
+    final result = _metadataResult;
+    final remaining = _status?.remainingMetadataCandidates ?? 0;
+    if (result == null || result.processed < 2 || result.itemsPerSecond <= 0 ||
+        remaining <= 0) return null;
+    final seconds = (remaining / result.itemsPerSecond).ceil();
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    return hours > 0 ? '${hours}시간 ${minutes}분' : '${minutes}분';
+  }
 
   Widget _resultPanel(GameFinderAdminEnrichResult value, Color panel, Color border) =>
       Container(

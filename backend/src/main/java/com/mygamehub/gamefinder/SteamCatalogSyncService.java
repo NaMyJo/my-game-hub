@@ -13,6 +13,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 
 @Service
 public class SteamCatalogSyncService {
@@ -33,6 +35,7 @@ public class SteamCatalogSyncService {
     private final int pagesPerRun;
     private final int bootstrapMaxApps;
     private final long storeDelayMs;
+    private final int metadataConcurrency;
     private final long igdbIntervalMs;
 
     @Autowired
@@ -43,6 +46,7 @@ public class SteamCatalogSyncService {
             @Value("${app.game-finder.catalog-pages-per-run:4}") int pagesPerRun,
             @Value("${app.game-finder.bootstrap-max-apps:0}") int bootstrapMaxApps,
             @Value("${app.game-finder.steam-store-request-delay-ms:500}") long storeDelayMs,
+            @Value("${app.game-finder.steam-metadata-concurrency:1}") int metadataConcurrency,
             @Value("${app.game-finder.igdb-request-interval-ms:260}") long igdbIntervalMs) {
         this.catalog = catalog;
         this.store = store;
@@ -55,14 +59,24 @@ public class SteamCatalogSyncService {
         this.pagesPerRun = pagesPerRun;
         this.bootstrapMaxApps = Math.max(0, bootstrapMaxApps);
         this.storeDelayMs = storeDelayMs;
+        this.metadataConcurrency = Math.max(1, Math.min(4, metadataConcurrency));
         this.igdbIntervalMs = igdbIntervalMs;
+    }
+
+    SteamCatalogSyncService(SteamCatalogClient catalog, SteamStoreDetailClient store,
+            SteamGameRepository games, SteamCatalogPersistenceService persistence,
+            CatalogSyncCheckpointRepository checkpoints, IgdbEnrichmentClient igdb,
+            GameTagService tagService, int batchSize, int pagesPerRun, int bootstrapMaxApps,
+            long storeDelayMs, long igdbIntervalMs) {
+        this(catalog, store, games, persistence, checkpoints, igdb, tagService, batchSize,
+                pagesPerRun, bootstrapMaxApps, storeDelayMs, 1, igdbIntervalMs);
     }
 
     @PostConstruct
     void logConfiguration() {
         log.info("game_finder_bootstrap_config catalogPageSize={} pagesPerRun={} storeDelayMs={} "
-                        + "igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
-                catalog.pageSize(), pagesPerRun, storeDelayMs,
+                        + "metadataConcurrency={} igdbMaxRps={} batchSize={} bootstrapMaxApps={}",
+                catalog.pageSize(), pagesPerRun, storeDelayMs, metadataConcurrency,
                 igdbIntervalMs <= 0 ? "unlimited"
                         : String.format(Locale.ROOT, "%.2f", 1000.0 / igdbIntervalMs),
                 batchSize, bootstrapMaxApps);
@@ -216,11 +230,38 @@ public class SteamCatalogSyncService {
                 Instant.now().minus(Duration.ofDays(7)),
                 PageRequest.of(0, requestedBatchSize));
         log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
-        for (SteamGame game : targets) enrichMetadataOne(game);
+        enrichMetadataTargets(targets);
         return EnrichmentStageBatchResult.from(
                 targets, true, games.countMetadataCandidates(
                         Instant.now().minus(Duration.ofDays(7))) > 0);
     }
+
+    private void enrichMetadataTargets(List<SteamGame> targets) {
+        if (metadataConcurrency == 1 || targets.size() < 2) {
+            targets.forEach(this::enrichMetadataOne);
+            return;
+        }
+        try (var executor = Executors.newFixedThreadPool(
+                Math.min(metadataConcurrency, targets.size()))) {
+            var futures = targets.stream()
+                    .map(game -> executor.submit(() -> enrichMetadataOne(game)))
+                    .toList();
+            for (var future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Steam metadata batch was interrupted", exception);
+                } catch (ExecutionException exception) {
+                    throw new IllegalStateException("Steam metadata worker failed",
+                            exception.getCause());
+                }
+            }
+        }
+    }
+
+    public int metadataConcurrency() { return metadataConcurrency; }
+    public long storeRequestDelayMs() { return storeDelayMs; }
 
     public EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
         List<SteamGame> targets = games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize));
