@@ -3,6 +3,7 @@ package com.mygamehub.gamefinder;
 import com.mygamehub.gamefinder.dto.MetadataRunnerStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -32,6 +33,7 @@ public class SteamMetadataMaintenanceRunner {
     private final Object scheduleMonitor = new Object();
     private ScheduledFuture<?> scheduled;
 
+    @Autowired
     public SteamMetadataMaintenanceRunner(MaintenanceJobStateService states,
             SteamCatalogSyncService sync, GameFinderAdminMaintenanceService maintenance,
             @Qualifier("gameFinderMaintenanceTaskScheduler") TaskScheduler scheduler,
