@@ -24,7 +24,7 @@ class GameFinderHardFilterTest {
         assertThat(filter.playersMatch(game(false,0,0,null,null),1,15)).isTrue();
     }
     @Test void adultUnknownIsAllowedButReliableAdultIsExcluded(){
-        var request=new GameFinderRecommendRequest(List.of(1L),0,100000,false,1,15,List.of());
+        var request=new GameFinderRecommendRequest(List.of(1L),List.of(),0,100000,false,1,15,List.of());
         var adult=game(false,0,0,null,null);adult.updateStoreDetail("game",null,null,false,"KRW",0,0,0,18,"ADULT",null,null,false,false,Set.of(),Set.of(),null,null,null,null);
         assertThat(filter.matches(adult,request)).isFalse();
         assertThat(filter.adultMatches(game(false,0,0,null,null),false)).isTrue();

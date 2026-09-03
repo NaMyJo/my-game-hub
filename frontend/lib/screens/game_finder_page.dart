@@ -25,10 +25,48 @@ class _GameFinderPageState extends State<GameFinderPage> {
   Timer? debounce;
   List<SteamGameSearchItem> searchResults = [];
   final selected = <SteamGameSearchItem>[];
+  final recent = <SteamGameSearchItem>[];
+  final availableTags = <GameFinderTag>[];
+  final selectedTags = <String>{};
   final shown = <int>{};
   List<GameFinderRecommendation> recommendations = [];
   bool loading = false;
   String? error;
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final prefs = await GameFinderRepository.instance.preferences();
+      final tags = await GameFinderRepository.instance.tags();
+      if (!mounted) return;
+      setState(() {
+        selected
+          ..clear()
+          ..addAll(prefs.selectedGames.take(10));
+        recent
+          ..clear()
+          ..addAll(prefs.recentGames);
+        selectedTags
+          ..clear()
+          ..addAll(prefs.preferredTags);
+        price =
+            RangeValues(prefs.priceMin.toDouble(), prefs.priceMax.toDouble());
+        players =
+            RangeValues(prefs.playerMin.toDouble(), prefs.playerMax.toDouble());
+        includeAdult = prefs.includeAdult;
+        availableTags
+          ..clear()
+          ..addAll(tags);
+      });
+    } catch (_) {
+      // 저장 조건을 불러오지 못해도 Finder 기본값으로 계속 이용합니다.
+    }
+  }
+
   @override
   void dispose() {
     debounce?.cancel();
@@ -56,7 +94,10 @@ class _GameFinderPageState extends State<GameFinderPage> {
   }
 
   Future<void> recommend({bool more = false}) async {
-    if (selected.isEmpty) return;
+    if (!canRequestGameFinderRecommendation(
+        selected.map((game) => game.appId), selectedTags)) {
+      return;
+    }
     setState(() {
       loading = true;
       error = null;
@@ -64,14 +105,26 @@ class _GameFinderPageState extends State<GameFinderPage> {
     try {
       final result = await GameFinderRepository.instance.recommend(
           likedIds: selected.map((e) => e.appId).toList(),
+          preferredTags: selectedTags.toList(),
           priceMin: price.start.round(),
           priceMax: price.end.round(),
           includeAdult: includeAdult,
           playerMin: players.start.round(),
           playerMax: players.end.round(),
           excluded: more ? shown : <int>{});
+      final saved = await GameFinderRepository.instance.savePreferences(
+          selectedIds: selected.map((e) => e.appId).toList(),
+          preferredTags: selectedTags.toList(),
+          priceMin: price.start.round(),
+          priceMax: price.end.round(),
+          includeAdult: includeAdult,
+          playerMin: players.start.round(),
+          playerMax: players.end.round());
       if (mounted) {
         setState(() {
+          recent
+            ..clear()
+            ..addAll(saved.recentGames);
           recommendations = result;
           shown.addAll(result.map((e) => e.appId));
           step = 3;
@@ -180,7 +233,11 @@ class _GameFinderPageState extends State<GameFinderPage> {
               onPressed: () => setState(() => step = 1),
               child: const Text('취향 게임 수정')),
           FilledButton.icon(
-              onPressed: selected.isEmpty || loading ? null : () => recommend(),
+              onPressed: !canRequestGameFinderRecommendation(
+                          selected.map((game) => game.appId), selectedTags) ||
+                      loading
+                  ? null
+                  : () => recommend(),
               icon: const Icon(Icons.auto_awesome),
               label: const Text('게임 추천받기'))
         ])
@@ -212,6 +269,25 @@ class _GameFinderPageState extends State<GameFinderPage> {
                       onDeleted: () => setState(() => selected.remove(g))))
                   .toList())
         ],
+        if (recent.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const Text('최근 선택한 취향 게임',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: recent
+                  .where((g) => !selected.any((s) => s.appId == g.appId))
+                  .take(20)
+                  .map((g) => ActionChip(
+                      avatar: const Icon(Icons.history, size: 16),
+                      label: Text(g.name),
+                      onPressed: selected.length >= 10
+                          ? null
+                          : () => setState(() => selected.add(g))))
+                  .toList()),
+        ],
         const SizedBox(height: 14),
         if (!loading &&
             searchController.text.length >= 2 &&
@@ -227,12 +303,40 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 onTap: selected.length >= 10
                     ? null
                     : () => setState(() => selected.add(g)))),
+        const Divider(height: 34),
+        Row(children: [
+          const Expanded(
+              child: Text('선호 태그',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900))),
+          Text('${selectedTags.length} / 10'),
+        ]),
+        const SizedBox(height: 6),
+        const Text('태그는 제외 조건이 아니라 추천 점수를 높이는 선호도로 반영됩니다.'),
+        const SizedBox(height: 10),
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: availableTags.map((tag) {
+              final active = selectedTags.contains(tag.canonicalName);
+              return FilterChip(
+                  label: Text(tag.displayName),
+                  selected: active,
+                  onSelected: (value) => setState(() {
+                        if (value && selectedTags.length < 10) {
+                          selectedTags.add(tag.canonicalName);
+                        } else if (!value) {
+                          selectedTags.remove(tag.canonicalName);
+                        }
+                      }));
+            }).toList()),
         const SizedBox(height: 16),
         Align(
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
-                onPressed:
-                    selected.isEmpty ? null : () => setState(() => step = 2),
+                onPressed: !canRequestGameFinderRecommendation(
+                        selected.map((game) => game.appId), selectedTags)
+                    ? null
+                    : () => setState(() => step = 2),
                 icon: const Icon(Icons.arrow_forward),
                 label: const Text('조건 설정')))
       ]));

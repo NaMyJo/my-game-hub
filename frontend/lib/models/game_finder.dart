@@ -1,3 +1,7 @@
+bool canRequestGameFinderRecommendation(
+        Iterable<int> seedAppIds, Iterable<String> preferredTags) =>
+    seedAppIds.isNotEmpty || preferredTags.isNotEmpty;
+
 class SteamGameSearchItem {
   const SteamGameSearchItem(
       {required this.appId, required this.name, this.imageUrl});
@@ -9,6 +13,52 @@ class SteamGameSearchItem {
           appId: (json['steamAppId'] as num).toInt(),
           name: json['name'] as String? ?? '',
           imageUrl: json['headerImageUrl'] as String?);
+}
+
+class GameFinderTag {
+  const GameFinderTag(
+      {required this.canonicalName,
+      required this.displayName,
+      required this.type});
+  final String canonicalName, displayName, type;
+  factory GameFinderTag.fromJson(Map<String, dynamic> json) => GameFinderTag(
+      canonicalName: json['canonicalName'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? '',
+      type: json['type'] as String? ?? 'TAG');
+}
+
+class GameFinderPreferences {
+  const GameFinderPreferences(
+      {required this.selectedGames,
+      required this.preferredTags,
+      required this.priceMin,
+      required this.priceMax,
+      required this.includeAdult,
+      required this.playerMin,
+      required this.playerMax,
+      required this.recentGames});
+  final List<SteamGameSearchItem> selectedGames, recentGames;
+  final List<String> preferredTags;
+  final int priceMin, priceMax, playerMin, playerMax;
+  final bool includeAdult;
+  factory GameFinderPreferences.fromJson(Map<String, dynamic> json) =>
+      GameFinderPreferences(
+          selectedGames: (json['selectedGames'] as List<dynamic>? ?? const [])
+              .map((v) =>
+                  SteamGameSearchItem.fromJson(v as Map<String, dynamic>))
+              .toList(),
+          preferredTags: (json['preferredTags'] as List<dynamic>? ?? const [])
+              .map((v) => v.toString())
+              .toList(),
+          priceMin: (json['priceMin'] as num?)?.toInt() ?? 0,
+          priceMax: (json['priceMax'] as num?)?.toInt() ?? 100000,
+          includeAdult: json['includeAdult'] as bool? ?? false,
+          playerMin: (json['playerMin'] as num?)?.toInt() ?? 1,
+          playerMax: (json['playerMax'] as num?)?.toInt() ?? 15,
+          recentGames: (json['recentGames'] as List<dynamic>? ?? const [])
+              .map((v) =>
+                  SteamGameSearchItem.fromJson(v as Map<String, dynamic>))
+              .toList());
 }
 
 class GameFinderRecommendation {
@@ -83,7 +133,11 @@ class GameFinderTagSearchResult {
   final int appId;
   final String name, storeUrl;
   final String? imageUrl;
-  final int? currentPrice, originalPrice, discountPercent, minPlayers, maxPlayers;
+  final int? currentPrice,
+      originalPrice,
+      discountPercent,
+      minPlayers,
+      maxPlayers;
   final bool isFree, comingSoon;
   final bool? multiplayer, onlineCoop;
   final List<String> canonicalTags;

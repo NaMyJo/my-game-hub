@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
+import com.mygamehub.auth.AuthenticatedUser;
+import com.mygamehub.auth.FirebaseAuthInterceptor;
 import java.util.List;
 @Validated
 @RestController @RequestMapping("/api/game-finder")
@@ -13,7 +16,8 @@ public class GameFinderController {
     private final GameFinderRecommendationService service;
     private final GameFinderTagSearchService tagSearch;
     private final GameFinderCatalogQueryService catalogQuery;
-    public GameFinderController(GameFinderRecommendationService service,GameFinderTagSearchService tagSearch,GameFinderCatalogQueryService catalogQuery){this.service=service;this.tagSearch=tagSearch;this.catalogQuery=catalogQuery;}
+    private final GameFinderPreferenceService preferences;
+    public GameFinderController(GameFinderRecommendationService service,GameFinderTagSearchService tagSearch,GameFinderCatalogQueryService catalogQuery,GameFinderPreferenceService preferences){this.service=service;this.tagSearch=tagSearch;this.catalogQuery=catalogQuery;this.preferences=preferences;}
     @GetMapping("/search") public List<GameFinderSearchResponse> search(@RequestParam String q){return service.search(q);}
     @PostMapping("/recommend") public List<GameFinderRecommendationResponse> recommend(@Valid @RequestBody GameFinderRecommendRequest body){return service.recommend(body);}
     @PostMapping("/search") public List<GameFinderTagSearchResponse> tagSearch(@Valid @RequestBody GameFinderTagSearchRequest body){return tagSearch.search(body);}
@@ -52,5 +56,22 @@ public class GameFinderController {
             @RequestParam(defaultValue="0") @Min(0) int page,
             @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
         return catalogQuery.autocomplete(q,page,size);
+    }
+
+    @GetMapping("/v1/me/preferences")
+    public GameFinderPreferenceResponse preference(HttpServletRequest request) {
+        return preferences.get(currentUser(request).uid());
+    }
+
+    @PutMapping("/v1/me/preferences")
+    public GameFinderPreferenceResponse preference(@Valid @RequestBody GameFinderPreferenceRequest body,
+            HttpServletRequest request) {
+        return preferences.save(currentUser(request).uid(), body);
+    }
+
+    private AuthenticatedUser currentUser(HttpServletRequest request) {
+        Object value = request.getAttribute(FirebaseAuthInterceptor.USER_ATTRIBUTE);
+        if (value instanceof AuthenticatedUser user) return user;
+        throw new IllegalStateException("인증 사용자 정보가 없습니다.");
     }
 }
