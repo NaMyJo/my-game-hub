@@ -20,6 +20,7 @@ public class GameFinderAdminMaintenanceService {
     private final SteamCatalogSyncService syncService;
     private final SteamMetadataVerificationService metadataVerifier;
     private final AtomicBoolean maintenanceRunning = new AtomicBoolean(false);
+    private final AtomicBoolean metadataRunnerOwned = new AtomicBoolean(false);
 
     public GameFinderAdminMaintenanceService(SteamCatalogSyncService syncService,
             SteamMetadataVerificationService metadataVerifier) {
@@ -66,8 +67,38 @@ public class GameFinderAdminMaintenanceService {
     }
 
     public Optional<GameFinderAdminStageEnrichResponse> tryMetadataEnrich(int batchSize) {
+        if (metadataRunnerOwned.get()) {
+            log.warn("game_finder_admin_stage_enrich_rejected stage=metadata reason=runner_active");
+            return Optional.empty();
+        }
         return tryStageEnrich("metadata", batchSize, true);
     }
+
+    boolean claimMetadataRunner() {
+        if (!metadataRunnerOwned.compareAndSet(false, true)) return false;
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            metadataRunnerOwned.set(false);
+            return false;
+        }
+        maintenanceRunning.set(false);
+        return true;
+    }
+
+    void releaseMetadataRunner() { metadataRunnerOwned.set(false); }
+
+    Optional<SteamCatalogSyncService.EnrichmentStageBatchResult> tryMetadataRunnerBatch(
+            int batchSize) {
+        if (!metadataRunnerOwned.get() || !maintenanceRunning.compareAndSet(false, true)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(syncService.enrichInitialMetadataBatch(batchSize));
+        } finally {
+            maintenanceRunning.set(false);
+        }
+    }
+
+    boolean metadataRunnerActive() { return metadataRunnerOwned.get(); }
 
     public Optional<GameFinderAdminStageEnrichResponse> tryIgdbEnrich(int batchSize) {
         return tryStageEnrich("igdb", batchSize, false);

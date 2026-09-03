@@ -42,6 +42,27 @@ class GameFinderAdminRepository {
     return GameFinderAdminStageEnrichResult.fromJson(json);
   }
 
+  Future<GameFinderMetadataRunnerStatus> metadataRunnerStatus() async {
+    final json = await ApiClient.instance.get(
+      '/api/admin/game-finder/metadata-runner/status',
+    ) as Map<String, dynamic>;
+    return GameFinderMetadataRunnerStatus.fromJson(json);
+  }
+
+  Future<GameFinderMetadataRunnerStatus> startMetadataRunner() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/metadata-runner/start',
+    ) as Map<String, dynamic>;
+    return GameFinderMetadataRunnerStatus.fromJson(json);
+  }
+
+  Future<GameFinderMetadataRunnerStatus> stopMetadataRunner() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/metadata-runner/stop',
+    ) as Map<String, dynamic>;
+    return GameFinderMetadataRunnerStatus.fromJson(json);
+  }
+
   Future<GameFinderAdminMetadataVerifyResult> verifyMetadata(
       int sampleSize, String mode) async {
     final json = await ApiClient.instance.post(

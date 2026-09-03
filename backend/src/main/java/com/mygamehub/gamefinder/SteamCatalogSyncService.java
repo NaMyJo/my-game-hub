@@ -256,6 +256,19 @@ public class SteamCatalogSyncService {
                         PageRequest.of(0, requestedBatchSize))
                 .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
         List<SteamGame> targets = List.copyOf(uniqueTargets.values());
+        return executeMetadataBatch(targets, false);
+    }
+
+    public synchronized EnrichmentStageBatchResult enrichInitialMetadataBatch(
+            int requestedBatchSize) {
+        LinkedHashMap<Long, SteamGame> uniqueTargets = new LinkedHashMap<>();
+        games.findInitialMetadataCandidates(retryBefore(), PageRequest.of(0, requestedBatchSize))
+                .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
+        return executeMetadataBatch(List.copyOf(uniqueTargets.values()), true);
+    }
+
+    private EnrichmentStageBatchResult executeMetadataBatch(
+            List<SteamGame> targets, boolean initialPopulation) {
         log.info("game_finder_metadata_enrichment_start candidateCount={}", targets.size());
         SteamStoreRequestPolicy.Stats before = storeRequestPolicy.stats();
         MetadataBatchExecution execution = enrichMetadataTargets(targets);
@@ -270,7 +283,8 @@ public class SteamCatalogSyncService {
         }
         return EnrichmentStageBatchResult.from(
                 execution.attempted(), true,
-                games.countMetadataCandidates(staleBefore(), retryBefore()) > 0,
+                initialPopulation ? games.countInitialMetadataIncomplete() > 0
+                        : games.countMetadataCandidates(staleBefore(), retryBefore()) > 0,
                 execution.rateLimited());
     }
 
@@ -350,6 +364,16 @@ public class SteamCatalogSyncService {
     public long remainingMetadataCandidates() {
         return games.countMetadataCandidates(staleBefore(), retryBefore());
     }
+
+    public long remainingInitialMetadataCandidates() { return games.countInitialMetadataIncomplete(); }
+    public long coolingMetadataRetryableCount() {
+        return games.countCoolingMetadataRetryable(retryBefore());
+    }
+    public java.util.Optional<Instant> nextMetadataRetryAt() {
+        return games.findOldestCoolingMetadataAttempt(retryBefore())
+                .map(value -> value.plusMillis(metadataRetryCooldownMs));
+    }
+    public long remainingStoreRateLimitMs() { return storeRequestPolicy.remainingGlobalBackoffMs(); }
 
     public long remainingIgdbCandidates() {
         return igdb.configured() ? games.countIgdbCandidates() : 0;

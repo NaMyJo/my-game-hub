@@ -222,6 +222,12 @@ public class SteamStoreRequestPolicy {
     long maxBackoffMs() { return maxBackoffMs; }
     int initialMaxRetries() { return initialMaxRetries; }
     long rateLimitCooldownMs() { return rateLimitCooldownMs; }
+    long remainingGlobalBackoffMs() {
+        synchronized (this) {
+            long remaining = Math.max(0, nextRequestNanos - nanoTime.getAsLong());
+            return Duration.ofNanos(remaining).toMillis();
+        }
+    }
 
     Stats stats() {
         return new Stats(executions.sum(), attempts.sum(), retries.sum(), http429.sum(),

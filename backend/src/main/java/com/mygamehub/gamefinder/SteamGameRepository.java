@@ -32,6 +32,24 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "order by case when metadata_status is null or metadata_status='PENDING' then 0 "
             + "when metadata_status='SUCCESS' then 1 else 2 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findMetadataCandidates(Instant staleBefore, Instant retryBefore, Pageable pageable);
+    @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
+            + "or metadata_status='PENDING' "
+            + "or (metadata_status='RETRYABLE_FAILURE' and (metadata_last_attempt_at is null or metadata_last_attempt_at < :retryBefore))) "
+            + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE') "
+            + "order by case when metadata_status is null or metadata_status='PENDING' then 0 else 1 end, steam_app_id",nativeQuery=true)
+    List<SteamGame> findInitialMetadataCandidates(Instant retryBefore, Pageable pageable);
+    @Query(value="select count(*) from steam_games where ((metadata_status is null and metadata_updated_at is null) "
+            + "or metadata_status='PENDING' or metadata_status='RETRYABLE_FAILURE') "
+            + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE')",nativeQuery=true)
+    long countInitialMetadataIncomplete();
+    @Query(value="select count(*) from steam_games where metadata_status='RETRYABLE_FAILURE' "
+            + "and metadata_last_attempt_at is not null and metadata_last_attempt_at >= :retryBefore "
+            + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE')",nativeQuery=true)
+    long countCoolingMetadataRetryable(Instant retryBefore);
+    @Query(value="select min(metadata_last_attempt_at) from steam_games where metadata_status='RETRYABLE_FAILURE' "
+            + "and metadata_last_attempt_at is not null and metadata_last_attempt_at >= :retryBefore "
+            + "and game_catalog_eligible=true and (lifecycle_status is null or lifecycle_status='ACTIVE')",nativeQuery=true)
+    Optional<Instant> findOldestCoolingMetadataAttempt(Instant retryBefore);
     @Query(value="select * from steam_games where metadata_updated_at is not null and store_type='game' and metadata_status='SUCCESS' and "
             + "((igdb_status is null and igdb_updated_at is null) "
             + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and game_catalog_eligible=true "

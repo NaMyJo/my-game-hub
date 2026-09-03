@@ -156,4 +156,38 @@ class GameFinderAdminMaintenanceServiceTest {
         return new GameFinderAdminMaintenanceService(sync,
                 mock(SteamMetadataVerificationService.class));
     }
+
+    @Test
+    void activeRunnerBlocksManualMetadataButAllowsItsOwnedBatch() {
+        var sync = mock(SteamCatalogSyncService.class);
+        var stage = new SteamCatalogSyncService.EnrichmentStageBatchResult(
+                1, 1, 0, 0, 0, true, false);
+        when(sync.enrichInitialMetadataBatch(40)).thenReturn(stage);
+        var service = service(sync);
+
+        assertThat(service.claimMetadataRunner()).isTrue();
+        assertThat(service.tryMetadataEnrich(1)).isEmpty();
+        assertThat(service.tryMetadataRunnerBatch(40)).contains(stage);
+        service.releaseMetadataRunner();
+    }
+
+    @Test
+    void manualBatchInProgressPreventsRunnerOwnership() throws Exception {
+        var sync = mock(SteamCatalogSyncService.class);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        when(sync.enrichMetadataBatch(1)).thenAnswer(invocation -> {
+            entered.countDown(); release.await(5, TimeUnit.SECONDS);
+            return new SteamCatalogSyncService.EnrichmentStageBatchResult(
+                    1, 1, 0, 0, 0, false, false);
+        });
+        var service = service(sync);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var manual = executor.submit(() -> service.tryMetadataEnrich(1));
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(service.claimMetadataRunner()).isFalse();
+            release.countDown();
+            assertThat(manual.get(5, TimeUnit.SECONDS)).isPresent();
+        }
+    }
 }

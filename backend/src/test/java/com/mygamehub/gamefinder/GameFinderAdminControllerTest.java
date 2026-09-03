@@ -29,8 +29,10 @@ class GameFinderAdminControllerTest {
     private final GameFinderAdminAuthorizer authorizer = new GameFinderAdminAuthorizer("admin-uid");
     private final GameFinderAdminMaintenanceService maintenance = mock(GameFinderAdminMaintenanceService.class);
     private final GameFinderAdminStatusService statusService = mock(GameFinderAdminStatusService.class);
+    private final SteamMetadataMaintenanceRunner metadataRunner =
+            mock(SteamMetadataMaintenanceRunner.class);
     private final GameFinderAdminController controller =
-            new GameFinderAdminController(authorizer, maintenance, statusService);
+            new GameFinderAdminController(authorizer, maintenance, statusService, metadataRunner);
 
     @Test
     void unauthenticatedRequestIsRejected() {
@@ -38,6 +40,25 @@ class GameFinderAdminControllerTest {
                 new MockHttpServletRequest(), new GameFinderAdminEnrichRequest(1)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+    }
+
+    @Test
+    void metadataRunnerEndpointsKeepAdminAuthAndDelegateToExistingRunner() {
+        var response = new com.mygamehub.gamefinder.dto.MetadataRunnerStatusResponse(
+                "RUNNING", 0, 0, 0, 0, 0, null, null, null,
+                null, 0, 10, 0, false, null);
+        when(metadataRunner.start()).thenReturn(Optional.of(response));
+        when(metadataRunner.stop()).thenReturn(response);
+        when(metadataRunner.status()).thenReturn(response);
+        var admin = authenticated("admin-uid");
+
+        assertThat(controller.startMetadataRunner(admin)).isSameAs(response);
+        assertThat(controller.stopMetadataRunner(admin)).isSameAs(response);
+        assertThat(controller.metadataRunnerStatus(admin)).isSameAs(response);
+        assertThatThrownBy(() -> controller.metadataRunnerStatus(
+                authenticated("regular-user")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }
 
     @Test

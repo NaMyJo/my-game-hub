@@ -13,6 +13,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
+import com.mygamehub.gamefinder.dto.MetadataRunnerStatusResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -29,14 +30,36 @@ public class GameFinderAdminController {
     private final GameFinderAdminAuthorizer authorizer;
     private final GameFinderAdminMaintenanceService maintenance;
     private final GameFinderAdminStatusService statusService;
+    private final SteamMetadataMaintenanceRunner metadataRunner;
 
     public GameFinderAdminController(
             GameFinderAdminAuthorizer authorizer,
             GameFinderAdminMaintenanceService maintenance,
-            GameFinderAdminStatusService statusService) {
+            GameFinderAdminStatusService statusService,
+            SteamMetadataMaintenanceRunner metadataRunner) {
         this.authorizer = authorizer;
         this.maintenance = maintenance;
         this.statusService = statusService;
+        this.metadataRunner = metadataRunner;
+    }
+
+    @PostMapping("/metadata-runner/start")
+    public MetadataRunnerStatusResponse startMetadataRunner(HttpServletRequest request) {
+        requireAdmin(request);
+        return metadataRunner.start().orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.CONFLICT, "Metadata runner or maintenance is already running"));
+    }
+
+    @PostMapping("/metadata-runner/stop")
+    public MetadataRunnerStatusResponse stopMetadataRunner(HttpServletRequest request) {
+        requireAdmin(request);
+        return metadataRunner.stop();
+    }
+
+    @GetMapping("/metadata-runner/status")
+    public MetadataRunnerStatusResponse metadataRunnerStatus(HttpServletRequest request) {
+        requireAdmin(request);
+        return metadataRunner.status();
     }
 
     @GetMapping("/me")

@@ -10,6 +10,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 class SteamGameRepositoryMetadataCandidateTest {
@@ -31,6 +32,27 @@ class SteamGameRepositoryMetadataCandidateTest {
                 .map(SteamGame::getSteamAppId).toList());
         assertEquals(3, games.countMetadataCandidates(now.minusSeconds(7 * 86_400),
                 now.minusSeconds(20 * 60)));
+    }
+
+    @Test
+    void initialPopulationExcludesStaleSuccessAndReportsCoolingRetryTimestamp() {
+        Instant now = Instant.now();
+        insert(1, "pending", "PENDING", null, null);
+        insert(2, "terminal", "SUCCESS", now.minusSeconds(30 * 86_400), now.minusSeconds(60));
+        insert(3, "ready-retry", "RETRYABLE_FAILURE", null, now.minusSeconds(21 * 60));
+        insert(4, "cooling-retry", "RETRYABLE_FAILURE", null, now.minusSeconds(5 * 60));
+
+        var candidates = games.findInitialMetadataCandidates(now.minusSeconds(20 * 60),
+                PageRequest.of(0, 10));
+
+        assertEquals(java.util.List.of(1L, 3L), candidates.stream()
+                .map(SteamGame::getSteamAppId).toList());
+        assertEquals(3, games.countInitialMetadataIncomplete());
+        assertEquals(1, games.countCoolingMetadataRetryable(now.minusSeconds(20 * 60)));
+        long secondsAgo = now.getEpochSecond()
+                - games.findOldestCoolingMetadataAttempt(now.minusSeconds(20 * 60))
+                    .orElseThrow().getEpochSecond();
+        assertTrue(secondsAgo >= 299 && secondsAgo <= 301);
     }
 
     private void insert(long appId, String name, String status, Instant updatedAt,

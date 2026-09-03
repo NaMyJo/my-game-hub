@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/game_finder_admin.dart';
@@ -20,6 +22,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminStageEnrichResult? _metadataResult;
   GameFinderAdminStageEnrichResult? _igdbResult;
   GameFinderAdminMetadataVerifyResult? _metadataVerifyResult;
+  GameFinderMetadataRunnerStatus? _metadataRunner;
+  Timer? _metadataRunnerPoll;
   GameFinderAdminCatalogExpandResult? _catalogResult;
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
   GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
@@ -50,6 +54,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   @override
   void dispose() {
+    _metadataRunnerPoll?.cancel();
     _stopFullCatalogRequested = true;
     _stopEnrichmentRequested = true;
     _stopIgdbRequested = true;
@@ -61,6 +66,47 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   void initState() {
     super.initState();
     _loadStatus();
+    _loadMetadataRunnerStatus();
+    _metadataRunnerPoll = Timer.periodic(const Duration(seconds: 5),
+        (_) => _loadMetadataRunnerStatus(silent: true));
+  }
+
+  Future<void> _loadMetadataRunnerStatus({bool silent = false}) async {
+    try {
+      final value = await
+          (widget.repository ?? GameFinderAdminRepository.instance)
+              .metadataRunnerStatus();
+      if (mounted) setState(() => _metadataRunner = value);
+    } on ApiException catch (error) {
+      if (!silent && mounted) setState(() => _error = _message(error));
+    }
+  }
+
+  Future<void> _startMetadataRunner() async {
+    try {
+      final value = await
+          (widget.repository ?? GameFinderAdminRepository.instance)
+              .startMetadataRunner();
+      if (mounted) {
+        setState(() {
+          _metadataRunner = value;
+          _error = null;
+        });
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    }
+  }
+
+  Future<void> _stopMetadataRunner() async {
+    try {
+      final value = await
+          (widget.repository ?? GameFinderAdminRepository.instance)
+              .stopMetadataRunner();
+      if (mounted) setState(() => _metadataRunner = value);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    }
   }
 
   Future<void> _loadStatus() async {
@@ -375,6 +421,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const Text('STEAM METADATA',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
+        _metadataRunnerPanel(panel, border),
+        const SizedBox(height: 14),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(22),
@@ -467,21 +515,6 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                     : const Icon(Icons.auto_awesome_rounded),
                 label: Text(_running ? '게임 데이터를 불러오고 있습니다' : 'Enrichment 실행'),
               ),
-              if (!_running)
-                OutlinedButton.icon(
-                  onPressed: _maintenanceRunning
-                      ? null
-                      : () => _runEnrichment(continuous: true),
-                  icon: const Icon(Icons.repeat_rounded),
-                  label: const Text('연속 Enrichment'),
-                )
-              else if (_continuousEnrichment)
-                OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => _stopEnrichmentRequested = true),
-                  icon: const Icon(Icons.stop_circle_outlined),
-                  label: const Text('현재 요청 후 중지'),
-                ),
               ]),
             ],
           ),
@@ -525,6 +558,83 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           ]),
         ]),
       );
+
+  Widget _metadataRunnerPanel(Color panel, Color border) {
+    final runner = _metadataRunner;
+    final active = runner?.active ?? false;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('METADATA RUNNER',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        Text(_metadataRunnerDescription(runner)),
+        if (runner != null) ...[
+          const SizedBox(height: 14),
+          Wrap(spacing: 20, runSpacing: 8, children: [
+            Text('처리 ${runner.processedCount}'),
+            Text('SUCCESS ${runner.successCount}'),
+            Text('NOT_FOUND ${runner.notFoundCount}'),
+            Text('재시도 ${runner.retryableFailureCount}'),
+            Text('남은 초기 대상 ${runner.remainingMetadataCandidates}'),
+            Text('cooldown ${runner.cooldownRetryableCount}'),
+          ]),
+          if (runner.nextRunAt != null) ...[
+            const SizedBox(height: 8),
+            Text('다음 자동 실행: ${_runnerCountdown(runner.nextRunAt!)}'),
+          ],
+          if (runner.lastError?.isNotEmpty ?? false) ...[
+            const SizedBox(height: 8),
+            Text(runner.lastError!, style: const TextStyle(color: Colors.redAccent)),
+          ],
+        ],
+        const SizedBox(height: 16),
+        Wrap(spacing: 10, runSpacing: 10, children: [
+          FilledButton.icon(
+            onPressed: active || _maintenanceRunning ? null : _startMetadataRunner,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('START'),
+          ),
+          OutlinedButton.icon(
+            onPressed: active ? _stopMetadataRunner : null,
+            icon: const Icon(Icons.stop_rounded),
+            label: const Text('STOP'),
+          ),
+          IconButton(
+            tooltip: '새로고침',
+            onPressed: () => _loadMetadataRunnerStatus(),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  String _metadataRunnerDescription(GameFinderMetadataRunnerStatus? runner) {
+    switch (runner?.status) {
+      case 'RUNNING': return 'Steam Metadata 연속 수집 중';
+      case 'WAITING_RATE_LIMIT': return 'Steam 요청 제한 감지 · 서버에서 자동 재개 대기 중';
+      case 'WAITING_RETRY': return '일시 실패 게임의 retry cooldown 대기 중';
+      case 'STOP_REQUESTED': return '현재 batch 완료 후 중지 예정';
+      case 'STOPPED': return 'Steam Metadata 연속 수집 중지됨';
+      case 'COMPLETED': return '초기 Steam Metadata 수집 완료';
+      case 'FAILED': return 'Metadata runner 실행 실패';
+      default: return '브라우저를 닫아도 서버가 작은 batch 단위로 수집을 이어갑니다.';
+    }
+  }
+
+  String _runnerCountdown(DateTime target) {
+    final seconds = target.toUtc().difference(DateTime.now().toUtc()).inSeconds;
+    if (seconds <= 0) return '곧 재개';
+    final minutes = seconds ~/ 60;
+    return '${minutes.toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')} 후';
+  }
 
   Widget _catalogPanel(Color panel, Color border) {
     final current = _status?.total ?? 0;

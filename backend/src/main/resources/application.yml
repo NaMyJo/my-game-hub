@@ -68,6 +68,8 @@ app:
     steam-store-read-timeout-ms: ${GAME_FINDER_STEAM_STORE_READ_TIMEOUT_MS:10000}
     metadata-retry-cooldown-ms: ${GAME_FINDER_METADATA_RETRY_COOLDOWN_MS:1200000}
     metadata-429-abort-threshold: ${GAME_FINDER_METADATA_429_ABORT_THRESHOLD:3}
+    metadata-runner-batch-size: ${GAME_FINDER_METADATA_RUNNER_BATCH_SIZE:40}
+    metadata-runner-iteration-delay-ms: ${GAME_FINDER_METADATA_RUNNER_ITERATION_DELAY_MS:250}
     igdb-request-interval-ms: ${GAME_FINDER_IGDB_REQUEST_INTERVAL_MS:260}
     bootstrap-max-apps: ${GAME_FINDER_BOOTSTRAP_MAX_APPS:0}
     bootstrap-on-start: ${GAME_FINDER_BOOTSTRAP_ON_START:false}

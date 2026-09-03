@@ -344,6 +344,65 @@ class GameFinderAdminMetadataVerifyResult {
       );
 }
 
+class GameFinderMetadataRunnerStatus {
+  const GameFinderMetadataRunnerStatus({
+    required this.status,
+    required this.processedCount,
+    required this.successCount,
+    required this.notFoundCount,
+    required this.retryableFailureCount,
+    required this.permanentFailureCount,
+    required this.consecutiveRateLimitCount,
+    required this.remainingMetadataCandidates,
+    required this.cooldownRetryableCount,
+    required this.initialPopulationComplete,
+    this.startedAt,
+    this.updatedAt,
+    this.nextRunAt,
+    this.lastBatchDurationMs,
+    this.lastError,
+  });
+
+  final String status;
+  final int processedCount, successCount, notFoundCount;
+  final int retryableFailureCount, permanentFailureCount;
+  final int consecutiveRateLimitCount, remainingMetadataCandidates;
+  final int cooldownRetryableCount;
+  final bool initialPopulationComplete;
+  final DateTime? startedAt, updatedAt, nextRunAt;
+  final int? lastBatchDurationMs;
+  final String? lastError;
+
+  bool get active => const {
+        'RUNNING', 'WAITING_RATE_LIMIT', 'WAITING_RETRY', 'STOP_REQUESTED'
+      }.contains(status);
+
+  factory GameFinderMetadataRunnerStatus.fromJson(Map<String, dynamic> json) =>
+      GameFinderMetadataRunnerStatus(
+        status: json['status'] as String? ?? 'IDLE',
+        processedCount: (json['processedCount'] as num?)?.toInt() ?? 0,
+        successCount: (json['successCount'] as num?)?.toInt() ?? 0,
+        notFoundCount: (json['notFoundCount'] as num?)?.toInt() ?? 0,
+        retryableFailureCount:
+            (json['retryableFailureCount'] as num?)?.toInt() ?? 0,
+        permanentFailureCount:
+            (json['permanentFailureCount'] as num?)?.toInt() ?? 0,
+        consecutiveRateLimitCount:
+            (json['consecutiveRateLimitCount'] as num?)?.toInt() ?? 0,
+        remainingMetadataCandidates:
+            (json['remainingMetadataCandidates'] as num?)?.toInt() ?? 0,
+        cooldownRetryableCount:
+            (json['cooldownRetryableCount'] as num?)?.toInt() ?? 0,
+        initialPopulationComplete:
+            json['initialPopulationComplete'] as bool? ?? false,
+        startedAt: DateTime.tryParse(json['startedAt'] as String? ?? ''),
+        updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
+        nextRunAt: DateTime.tryParse(json['nextRunAt'] as String? ?? ''),
+        lastBatchDurationMs: (json['lastBatchDurationMs'] as num?)?.toInt(),
+        lastError: json['lastError'] as String?,
+      );
+}
+
 class GameFinderMetadataCriticalDetail {
   const GameFinderMetadataCriticalDetail({
     required this.steamAppId,
