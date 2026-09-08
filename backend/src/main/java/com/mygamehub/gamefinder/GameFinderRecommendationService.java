@@ -2,7 +2,11 @@ package com.mygamehub.gamefinder;
 
 import com.mygamehub.gamefinder.dto.*;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
@@ -10,16 +14,26 @@ import java.time.temporal.ChronoUnit;
 
 @Service
 public class GameFinderRecommendationService {
+    private static final Logger log = LoggerFactory.getLogger(GameFinderRecommendationService.class);
+    static final String CANDIDATE_STRATEGY = "full-catalog-ranked-v2";
     static final int MAX_CANDIDATE_POOL = 2_000;
     private final SteamGameRepository repository;
     private final SteamGameTagRepository relations;
     private final GameTagTaxonomy taxonomy;
+    @Value("${app.game-finder.recommendation-diagnostics-enabled:false}")
+    private boolean diagnosticsEnabled;
 
     public GameFinderRecommendationService(SteamGameRepository repository,
             SteamGameTagRepository relations, GameTagTaxonomy taxonomy) {
         this.repository = repository;
         this.relations = relations;
         this.taxonomy = taxonomy;
+    }
+
+    @PostConstruct
+    void logCandidateStrategy() {
+        log.info("game_finder_recommendation_strategy strategy={} candidateLimit={}",
+                CANDIDATE_STRATEGY, MAX_CANDIDATE_POOL);
     }
 
     public List<GameFinderSearchResponse> search(String query) {
@@ -55,7 +69,8 @@ public class GameFinderRecommendationService {
         if (liked.size() != new HashSet<>(request.likedSteamAppIds()).size()) {
             throw new IllegalArgumentException("선택한 Steam 게임 정보를 찾을 수 없습니다.");
         }
-        Set<String> taste = tagsByAppIds(request.likedSteamAppIds()).values().stream()
+        Map<Long, Set<String>> seedTags = tagsByAppIds(request.likedSteamAppIds());
+        Set<String> taste = seedTags.values().stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (taste.isEmpty()) liked.forEach(game -> taste.addAll(taxonomy.fromSteam(game)));
@@ -64,6 +79,9 @@ public class GameFinderRecommendationService {
         boolean playersUnrestricted = request.playerMin() == 1 && request.playerMax() == 15;
         Set<String> retrievalTags = new LinkedHashSet<>(taste);
         retrievalTags.addAll(preferred);
+        if (diagnosticsEnabled) {
+            logRequestDiagnostics(request, preferred, seedTags, retrievalTags);
+        }
         List<GameFinderRecommendationCandidate> candidates = candidates(request, retrievalTags,
                 priceUnrestricted, playersUnrestricted);
         Map<Long, Set<String>> candidateTags = tagsByAppIds(
@@ -84,7 +102,13 @@ public class GameFinderRecommendationService {
                 .toList();
 
         int offset = page * size;
-        List<GameFinderRecommendationResponse> pageValues = diversify(scored).stream()
+        List<Scored> diversified = diversify(scored);
+        if (diagnosticsEnabled) {
+            logCandidateDiagnostics(candidates, candidateTags, retrievalTags);
+            logFinalDiagnostics(scored, diversified, taste, preferred,
+                    ReleasePreference.defaultIfNull(request.releasePreference()));
+        }
+        List<GameFinderRecommendationResponse> pageValues = diversified.stream()
                 .skip(offset).limit(size + 1L).map(this::response).toList();
         return GameFinderPageResponse.from(pageValues, page, size);
     }
@@ -96,6 +120,11 @@ public class GameFinderRecommendationService {
         long tieSeed = candidateTieSeed(request, retrievalTags);
         boolean preferRecent = ReleasePreference.defaultIfNull(request.releasePreference())
                 == ReleasePreference.RECENT;
+        if (diagnosticsEnabled) {
+            log.info("game_finder_recommendation_repository strategy={} method=findRankedRecommendationAppIds "
+                            + "preferRecent={} candidateLimit={} tieSeed={}",
+                    CANDIDATE_STRATEGY, preferRecent, MAX_CANDIDATE_POOL, tieSeed);
+        }
         List<Long> rankedIds = relations.findRankedRecommendationAppIds(queryTags,
                 request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
                 request.playerMin(), request.playerMax(), playersUnrestricted,
@@ -151,6 +180,105 @@ public class GameFinderRecommendationService {
         long ageDays = Math.max(0, ChronoUnit.DAYS.between(releaseDate, LocalDate.now()));
         double freshness = ageDays <= 730 ? 1.0 : ageDays <= 1825 ? 0.6 : ageDays <= 3650 ? 0.25 : 0;
         return freshness * (mode == ReleasePreference.RECENT ? 0.08 : 0.03);
+    }
+
+    private void logRequestDiagnostics(GameFinderRecommendRequest request, Set<String> preferred,
+            Map<Long, Set<String>> seedTags, Set<String> retrievalTags) {
+        log.info("game_finder_recommendation_request releasePreference={} likedSteamAppIds={} "
+                        + "preferredTags={} priceMin={} priceMax={} playerMin={} playerMax={} "
+                        + "includeAdult={} excludeAppIds={}",
+                ReleasePreference.defaultIfNull(request.releasePreference()),
+                summarizeIds(request.likedSteamAppIds()), preferred, request.priceMin(),
+                request.priceMax(), request.playerMin(), request.playerMax(), request.includeAdult(),
+                summarizeIds(request.excludeAppIds()));
+        seedTags.forEach((appId, tags) -> log.info(
+                "game_finder_recommendation_seed appId={} canonicalTags={}", appId, tags));
+        log.info("game_finder_recommendation_retrieval_tags tags={}", retrievalTags);
+    }
+
+    private void logCandidateDiagnostics(List<GameFinderRecommendationCandidate> candidates,
+            Map<Long, Set<String>> candidateTags, Set<String> retrievalTags) {
+        log.info("game_finder_recommendation_candidate_distribution total={} years={}",
+                candidates.size(), candidateYearDistribution(candidates));
+        for (int i = 0; i < Math.min(30, candidates.size()); i++) {
+            var candidate = candidates.get(i);
+            Set<String> tags = candidateTags.getOrDefault(candidate.steamAppId(), Set.of());
+            log.info("game_finder_recommendation_candidate rank={} appId={} name={} "
+                            + "tagMatchCount={} releaseDate={}",
+                    i + 1, candidate.steamAppId(), safeName(candidate.name()),
+                    retrievalTags.stream().filter(tags::contains).count(), candidate.releaseDate());
+        }
+    }
+
+    private void logFinalDiagnostics(List<Scored> scored, List<Scored> diversified,
+            Set<String> taste, Set<String> preferred, ReleasePreference preference) {
+        Map<Long, String> buckets = diversityBuckets(scored);
+        for (int i = 0; i < Math.min(30, diversified.size()); i++) {
+            Scored value = diversified.get(i);
+            double seedSimilarity = similarity(taste, value.tags());
+            double preferredScore = preferred.isEmpty() ? 0
+                    : preferred.stream().filter(value.tags()::contains).count()
+                            / (double) preferred.size();
+            double boost = releaseBoost(value.game().releaseDate(), preference);
+            log.info("game_finder_recommendation_final rank={} appId={} name={} releaseDate={} "
+                            + "tagMatchCount={} seedSimilarity={} preferredTagScore={} "
+                            + "releaseBoost={} finalScore={} diversityBucket={}",
+                    i + 1, value.game().steamAppId(), safeName(value.game().name()),
+                    value.game().releaseDate(),
+                    union(taste, preferred).stream().filter(value.tags()::contains).count(),
+                    round(seedSimilarity), round(preferredScore), round(boost), round(value.score()),
+                    buckets.getOrDefault(value.game().steamAppId(), "UNKNOWN"));
+        }
+    }
+
+    Map<String, Long> candidateYearDistribution(List<GameFinderRecommendationCandidate> candidates) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (String key : List.of("2026", "2025", "2024", "2020-2023",
+                "2010-2019", "2009_OR_EARLIER", "FUTURE", "NULL")) result.put(key, 0L);
+        for (var candidate : candidates) {
+            LocalDate date = candidate.releaseDate();
+            String key;
+            if (date == null) key = "NULL";
+            else if (date.isAfter(LocalDate.now())) key = "FUTURE";
+            else if (date.getYear() == 2026) key = "2026";
+            else if (date.getYear() == 2025) key = "2025";
+            else if (date.getYear() == 2024) key = "2024";
+            else if (date.getYear() >= 2020) key = "2020-2023";
+            else if (date.getYear() >= 2010) key = "2010-2019";
+            else key = "2009_OR_EARLIER";
+            result.compute(key, (ignored, count) -> count + 1);
+        }
+        return result;
+    }
+
+    private Map<Long, String> diversityBuckets(List<Scored> scored) {
+        Map<Long, String> result = new HashMap<>();
+        int highEnd = Math.max(1, (int) (scored.size() * 0.35));
+        int mediumEnd = Math.max(highEnd, (int) (scored.size() * 0.75));
+        for (int i = 0; i < scored.size(); i++) {
+            result.put(scored.get(i).game().steamAppId(),
+                    i < highEnd ? "HIGH" : i < mediumEnd ? "MEDIUM" : "DISCOVERY");
+        }
+        return result;
+    }
+
+    private Set<String> union(Set<String> left, Set<String> right) {
+        Set<String> result = new LinkedHashSet<>(left);
+        result.addAll(right);
+        return result;
+    }
+
+    private String summarizeIds(List<Long> ids) {
+        if (ids == null) return "[]";
+        return ids.size() <= 50 ? ids.toString() : ids.subList(0, 50) + "...(count=" + ids.size() + ")";
+    }
+
+    private double round(double value) {
+        return Math.round(value * 10_000.0) / 10_000.0;
+    }
+
+    private String safeName(String value) {
+        return value == null ? "" : value.replace('\r', ' ').replace('\n', ' ');
     }
 
     Set<String> normalizePreferredTags(List<String> values) {

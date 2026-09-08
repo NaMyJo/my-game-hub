@@ -105,6 +105,29 @@ class GameFinderRecommendationServiceTest {
     }
 
     @Test
+    void diagnosticYearDistributionSeparatesMissingAndFutureReleaseDates() {
+        Fixture fixture = new Fixture();
+        var distribution = fixture.service.candidateYearDistribution(List.of(
+                candidate(1, "2026", 0, LocalDate.of(2026, 1, 1)),
+                candidate(2, "2025", 0, LocalDate.of(2025, 1, 1)),
+                candidate(3, "2024", 0, LocalDate.of(2024, 1, 1)),
+                candidate(4, "modern", 0, LocalDate.of(2022, 1, 1)),
+                candidate(5, "old", 0, LocalDate.of(2015, 1, 1)),
+                candidate(6, "classic", 0, LocalDate.of(2008, 1, 1)),
+                candidate(7, "future", 0, LocalDate.now().plusYears(2)),
+                candidate(8, "missing", 0, null)));
+
+        assertThat(distribution).containsEntry("2026", 1L)
+                .containsEntry("2025", 1L)
+                .containsEntry("2024", 1L)
+                .containsEntry("2020-2023", 1L)
+                .containsEntry("2010-2019", 1L)
+                .containsEntry("2009_OR_EARLIER", 1L)
+                .containsEntry("FUTURE", 1L)
+                .containsEntry("NULL", 1L);
+    }
+
+    @Test
     void recommendationPagesAreDeterministicAndDoNotOverlap() {
         Fixture fixture = new Fixture();
         var candidates = new ArrayList<GameFinderRecommendationCandidate>();
