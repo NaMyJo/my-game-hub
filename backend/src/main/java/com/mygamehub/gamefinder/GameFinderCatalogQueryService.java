@@ -3,7 +3,6 @@ package com.mygamehub.gamefinder;
 import com.mygamehub.gamefinder.dto.GameFinderGameResponse;
 import com.mygamehub.gamefinder.dto.GameFinderPageResponse;
 import com.mygamehub.gamefinder.dto.GameFinderTagResponse;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -35,13 +34,16 @@ public class GameFinderCatalogQueryService {
     public GameFinderPageResponse<GameFinderTagResponse> autocomplete(
             String query, int page, int size) {
         int offset = page * size;
-        String normalizedQuery = taxonomy.normalize(query).orElse(query == null ? "" : query.trim());
-        List<GameFinderTagResponse> values = tags.autocomplete(
-                        normalizedQuery,
-                        PageRequest.of(0, offset + size + 1))
-                .stream().skip(offset)
-                .map(tag -> new GameFinderTagResponse(
-                        tag.getCanonicalName(), tag.getDisplayNameKo(), tag.getType()))
+        String normalizedQuery = taxonomy.normalize(query)
+                .orElse(query == null ? "" : query.trim().toLowerCase());
+        List<GameFinderTagResponse> values = taxonomy.currentCanonicalNames().stream()
+                .sorted()
+                .filter(canonical -> normalizedQuery.isBlank()
+                        || canonical.contains(normalizedQuery)
+                        || taxonomy.display(canonical).toLowerCase().contains(normalizedQuery))
+                .skip(offset).limit(size + 1L)
+                .map(canonical -> new GameFinderTagResponse(canonical,
+                        taxonomy.display(canonical), taxonomy.type(canonical)))
                 .toList();
         return GameFinderPageResponse.from(values, page, size);
     }

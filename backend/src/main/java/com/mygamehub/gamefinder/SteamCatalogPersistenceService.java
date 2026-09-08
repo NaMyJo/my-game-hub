@@ -3,6 +3,7 @@ package com.mygamehub.gamefinder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,10 +52,23 @@ public class SteamCatalogPersistenceService {
 
     private final JdbcTemplate jdbc;
     private final SteamGameRepository games;
+    private final IgdbRawTaxonomyPersistenceService rawTaxonomy;
+    private final GameTagService gameTags;
+
+    @Autowired
+    public SteamCatalogPersistenceService(JdbcTemplate jdbc, SteamGameRepository games,
+            IgdbRawTaxonomyPersistenceService rawTaxonomy, GameTagService gameTags) {
+        this.jdbc = jdbc;
+        this.games = games;
+        this.rawTaxonomy = rawTaxonomy;
+        this.gameTags = gameTags;
+    }
 
     public SteamCatalogPersistenceService(JdbcTemplate jdbc, SteamGameRepository games) {
         this.jdbc = jdbc;
         this.games = games;
+        this.rawTaxonomy = null;
+        this.gameTags = null;
     }
 
     @Transactional
@@ -115,6 +129,7 @@ public class SteamCatalogPersistenceService {
                 .filter(game -> requestedAppIds.contains(game.getSteamAppId()))
                 .forEach(game -> uniqueTargets.putIfAbsent(game.getSteamAppId(), game));
         List<SteamGame> targets = List.copyOf(uniqueTargets.values());
+        Map<SteamGame, List<IgdbTaxonomyValue>> rawByGame = new LinkedHashMap<>();
         for (SteamGame game : targets) {
             var value = results.getOrDefault(game.getSteamAppId(), Optional.empty());
             if (value.isPresent()) {
@@ -122,8 +137,19 @@ public class SteamCatalogPersistenceService {
                 game.updateIgdb(data.gameId(), data.minPlayers(), data.maxPlayers(),
                         data.onlineMax(), data.coopMax(), data.multiplayer(),
                         data.onlineCoop(), data.offlineCoop());
+                rawByGame.put(game, data.taxonomyTerms());
             } else {
                 game.markIgdbNotFound();
+                rawByGame.put(game, List.of());
+            }
+        }
+        if (rawTaxonomy != null && gameTags != null) {
+            rawTaxonomy.syncBatch(rawByGame);
+            for (SteamGame game : targets) {
+                Optional<IgdbEnrichmentClient.IgdbData> value = results.getOrDefault(
+                        game.getSteamAppId(), Optional.empty());
+                if (value.isPresent()) gameTags.rebuildWithIgdb(game, value.get().taxonomyTerms());
+                else gameTags.rebuild(game);
             }
         }
         return targets;

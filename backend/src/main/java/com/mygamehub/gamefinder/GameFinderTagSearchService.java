@@ -5,19 +5,18 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 @Service
 public class GameFinderTagSearchService {
-    private final SteamGameRepository games;private final SteamGameTagRepository relations;private final GameTagTaxonomy taxonomy;private final GameFinderHardFilter filter;
-    public GameFinderTagSearchService(SteamGameRepository games,SteamGameTagRepository relations,GameTagTaxonomy taxonomy,GameFinderHardFilter filter){this.games=games;this.relations=relations;this.taxonomy=taxonomy;this.filter=filter;}
+    private final SteamGameRepository games;private final SteamGameTagRepository relations;private final GameTagTaxonomy taxonomy;
+    public GameFinderTagSearchService(SteamGameRepository games,SteamGameTagRepository relations,GameTagTaxonomy taxonomy){this.games=games;this.relations=relations;this.taxonomy=taxonomy;}
     public List<GameFinderTagSearchResponse> search(GameFinderTagSearchRequest request){return searchPage(request).items();}
     public GameFinderPageResponse<GameFinderTagSearchResponse> searchPage(GameFinderTagSearchRequest request){
         if(request.priceMin()>request.priceMax()||request.playerMin()>request.playerMax())throw new IllegalArgumentException("invalid filter range");
         Set<String> requested=taxonomy.parse(request.query(),request.tags());
         if(requested.isEmpty())return new GameFinderPageResponse<>(List.of(),request.page(),request.size(),false);
-        int offset=request.page()*request.size();
-        int candidateLimit=Math.min(10000,Math.max(request.size()+1,(offset+request.size()+1)*3));
-        List<Long> ids=relations.findAppIdsMatchingAll(requested,requested.size(),PageRequest.of(0,candidateLimit));
+        boolean priceUnrestricted=request.priceMin()==0&&request.priceMax()==100000;
+        boolean playersUnrestricted=request.playerMin()==1&&request.playerMax()==15;
+        List<Long> ids=relations.findFilteredAppIdsMatchingAll(requested,requested.size(),request.priceMin(),request.priceMax(),priceUnrestricted,request.includeAdult(),request.playerMin(),request.playerMax(),playersUnrestricted,request.playerMax()==15,PageRequest.of(request.page(),request.size()+1));
         Map<Long,SteamGame> byId=new HashMap<>();games.findBySteamAppIdIn(ids).forEach(g->byId.put(g.getSteamAppId(),g));
         List<GameFinderTagSearchResponse> values=ids.stream().map(byId::get).filter(Objects::nonNull)
-                .filter(g->filter.matches(g,request)).skip(offset).limit(request.size()+1L)
                 .map(g->response(g,requested)).toList();
         return GameFinderPageResponse.from(values,request.page(),request.size());
     }

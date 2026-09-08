@@ -34,7 +34,7 @@ class GameFinderCatalogQueryServiceTest {
         var games = mock(SteamGameRepository.class);
         var relations = mock(SteamGameTagRepository.class);
         var tags = mock(GameTagRepository.class);
-        when(tags.autocomplete(eq("coop"), any(Pageable.class))).thenReturn(List.of(
+        when(tags.autocomplete(eq("coop"), any(), any(Pageable.class))).thenReturn(List.of(
                 new GameTag("coop", "협동", "FEATURE"),
                 new GameTag("online-coop", "온라인 협동", "FEATURE")));
 
@@ -43,5 +43,19 @@ class GameFinderCatalogQueryServiceTest {
 
         assertThat(result.items()).extracting(value -> value.canonicalName()).containsExactly("coop");
         assertThat(result.hasNext()).isTrue();
+    }
+
+    @Test
+    void activeTagApiSourceExposesExactlyFortySevenAndExcludesLegacyOnlyTags() {
+        var service = new GameFinderCatalogQueryService(mock(SteamGameRepository.class),
+                mock(SteamGameTagRepository.class), mock(GameTagRepository.class),
+                new GameTagTaxonomy());
+
+        var result = service.autocomplete("", 0, 100);
+
+        assertThat(result.items()).hasSize(47);
+        assertThat(result.items()).extracting(value -> value.canonicalName())
+                .contains("horror", "moba", "fps", "choices-matter")
+                .doesNotContain("deckbuilder", "card-game", "zombies", "difficult");
     }
 }

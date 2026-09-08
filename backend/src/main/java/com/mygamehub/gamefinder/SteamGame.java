@@ -12,7 +12,9 @@ import java.util.stream.Collectors;
 @Table(name = "steam_games", indexes = {
         @Index(name = "idx_steam_games_name", columnList = "name"),
         @Index(name = "idx_steam_games_candidate", columnList = "store_type, metadata_updated_at"),
-        @Index(name = "idx_steam_games_game_catalog", columnList = "game_catalog_eligible, lifecycle_status, metadata_status")
+        @Index(name = "idx_steam_games_game_catalog", columnList = "game_catalog_eligible, lifecycle_status, metadata_status"),
+        @Index(name = "idx_steam_games_taxonomy_version", columnList = "taxonomy_version, steam_app_id"),
+        @Index(name = "idx_steam_games_igdb_taxonomy_version", columnList = "igdb_taxonomy_version, steam_app_id")
 })
 public class SteamGame {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,6 +63,9 @@ public class SteamGame {
     @Column(name = "online_coop_max_players") private Integer onlineCoopMaxPlayers;
     @Column(columnDefinition = "TEXT") private String genres;
     @Column(columnDefinition = "TEXT") private String categories;
+    @Column(name = "taxonomy_version", length = 30) private String taxonomyVersion;
+    @Column(name = "steam_taxonomy_version", length = 30) private String steamTaxonomyVersion;
+    @Column(name = "igdb_taxonomy_version", length = 30) private String igdbTaxonomyVersion;
 
     protected SteamGame() {}
     public SteamGame(long steamAppId, String name, long lastModified, long priceChangeNumber) {
@@ -162,4 +167,10 @@ public class SteamGame {
     public CatalogLifecycleStatus getLifecycleStatus(){return lifecycleStatus;} public Instant getLastSeenAt(){return lastSeenAt;}
     public String getReconciliationGeneration(){return reconciliationGeneration;}
     public Boolean getGameCatalogEligible(){return gameCatalogEligible;}
+    public String getTaxonomyVersion(){return taxonomyVersion;}
+    public void markTaxonomyVersion(String version){this.taxonomyVersion=version;}
+    public String getSteamTaxonomyVersion(){return steamTaxonomyVersion;}
+    public String getIgdbTaxonomyVersion(){return igdbTaxonomyVersion;}
+    public void markSteamTaxonomyVersion(String version){this.steamTaxonomyVersion=version;}
+    public void markIgdbTaxonomyVersion(String version){this.igdbTaxonomyVersion=version;}
 }

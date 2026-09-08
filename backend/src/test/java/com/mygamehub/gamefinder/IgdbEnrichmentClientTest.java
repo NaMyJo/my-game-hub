@@ -29,6 +29,9 @@ class IgdbEnrichmentClientTest {
                 .andExpect(content().string(containsString("uid = (\"570\")")))
                 .andRespond(withSuccess("[{\"id\":100,\"game\":42,\"external_game_source\":1,\"uid\":\"570\"}]",
                         MediaType.APPLICATION_JSON));
+        expectTaxonomy(context.server(), "42", """
+                [{"id":42,"themes":[{"id":19,"name":"Horror","slug":"horror"}]}]
+                """);
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
                 .andExpect(content().string(containsString("where game = (42)")))
                 .andRespond(withSuccess("""
@@ -61,6 +64,11 @@ class IgdbEnrichmentClientTest {
                 .andRespond(withSuccess("""
                         [{"game":42,"uid":"570"},{"game":119133,"uid":"1245620"}]
                         """, MediaType.APPLICATION_JSON));
+        expectTaxonomy(context.server(), "42,119133", """
+                [{"id":119133,"themes":[{"id":17,"name":"Fantasy","slug":"fantasy"}]},
+                 {"id":42,"genres":[{"id":5,"name":"Shooter","slug":"shooter"}],
+                  "player_perspectives":[{"id":1,"name":"First person","slug":"first-person"}]}]
+                """);
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
                 .andExpect(content().string(containsString("where game = (42,119133)")))
                 .andExpect(content().string(containsString("limit 500; offset 0")))
@@ -86,6 +94,11 @@ class IgdbEnrichmentClientTest {
                 .andRespond(withSuccess("""
                         [{"game":300,"uid":"30"},{"game":100,"uid":"10"}]
                         """, MediaType.APPLICATION_JSON));
+        expectTaxonomy(context.server(), "300,100", """
+                [{"id":100,"themes":[{"id":19,"name":"Horror","slug":"horror"}]},
+                 {"id":999,"themes":[{"id":38,"name":"Open world","slug":"open-world"}]},
+                 {"id":300,"keywords":[{"id":17326,"name":"soulslike","slug":"soulslike"}]}]
+                """);
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
                 .andRespond(withSuccess("""
                         [{"game":300,"onlinemax":4},{"game":100,"onlinemax":2},
@@ -131,6 +144,7 @@ class IgdbEnrichmentClientTest {
                 .andRespond(withSuccess("""
                         [{"game":100,"uid":"10"},{"game":100,"uid":"20"}]
                         """, MediaType.APPLICATION_JSON));
+        expectTaxonomy(context.server(), "100", "[{\"id\":100}]");
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
                 .andExpect(content().string(containsString("where game = (100)")))
                 .andRespond(withSuccess("[{\"game\":100,\"onlinemax\":4}]",
@@ -158,6 +172,10 @@ class IgdbEnrichmentClientTest {
                 .andExpect(content().string(containsString("offset 500")))
                 .andRespond(withSuccess("[{\"game\":200,\"uid\":\"20\"}]",
                         MediaType.APPLICATION_JSON));
+        expectTaxonomy(context.server(), "100,200", """
+                [{"id":200,"keywords":[{"id":416,"name":"roguelike","slug":"roguelike"}]},
+                 {"id":100,"themes":[{"id":19,"name":"Horror","slug":"horror"}]}]
+                """);
         context.server().expect(requestTo("https://api.igdb.com/v4/multiplayer_modes"))
                 .andExpect(content().string(containsString("offset 0")))
                 .andRespond(withSuccess(repeatedJson("{\"game\":100,\"onlinemax\":2}", 500),
@@ -248,6 +266,14 @@ class IgdbEnrichmentClientTest {
         server.expect(requestTo("https://api.igdb.com/v4/external_game_sources"))
                 .andExpect(content().string(containsString("where name = \"Steam\"")))
                 .andRespond(withSuccess("[{\"id\":1,\"name\":\"Steam\"}]", MediaType.APPLICATION_JSON));
+    }
+
+    private static void expectTaxonomy(MockRestServiceServer server, String gameIds, String response) {
+        server.expect(requestTo("https://api.igdb.com/v4/games"))
+                .andExpect(content().string(containsString("where id = (" + gameIds + ")")))
+                .andExpect(content().string(containsString("genres.id")))
+                .andExpect(content().string(containsString("player_perspectives.id")))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
     }
 
     private static String repeatedJson(String value, int count) {

@@ -20,8 +20,30 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     List<SteamGame> findMetadataVerificationRecentSample(Pageable pageable);
     @Query("select g from SteamGame g where lower(g.name) like lower(concat('%',:query,'%')) and g.gameCatalogEligible = true and g.storeType = 'game' and g.metadataUpdatedAt is not null and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE) order by lower(g.name), g.steamAppId")
     List<SteamGame> findActiveByName(@org.springframework.data.repository.query.Param("query") String query, Pageable pageable);
-    @Query("select g from SteamGame g where g.gameCatalogEligible = true and g.metadataUpdatedAt is not null and g.storeType = 'game' and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE)")
-    List<SteamGame> findRecommendationCandidates();
+    @Query("select new com.mygamehub.gamefinder.GameFinderRecommendationCandidate("
+            + "g.steamAppId, g.name, g.headerImageUrl, g.priceCurrent, g.priceOriginal, "
+            + "g.discountPercent, g.priceCurrency, g.isFree, g.releaseDate, g.releaseDateText, "
+            + "g.comingSoon, g.singlePlayer, g.multiplayer, g.onlineCoop, g.maxPlayers, g.genres) "
+            + "from SteamGame g where g.gameCatalogEligible = true "
+            + "and g.metadataStatus = com.mygamehub.gamefinder.EnrichmentStatus.SUCCESS "
+            + "and g.metadataUpdatedAt is not null and g.storeType = 'game' "
+            + "and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE) "
+            + "and (:priceUnrestricted = true or ((case when g.isFree = true then 0 else g.priceCurrent end) "
+            + "between :priceMin and :priceMax)) "
+            + "and (:includeAdult = true or g.adultStatus is null or g.adultStatus <> 'ADULT') "
+            + "and (:playersUnrestricted = true or (g.minPlayers is not null and g.maxPlayers is not null "
+            + "and g.maxPlayers >= :playerMin and (:playerUpperOpen = true or g.minPlayers <= :playerMax))) "
+            + "order by g.steamAppId")
+    List<GameFinderRecommendationCandidate> findRecommendationCandidates(
+            @org.springframework.data.repository.query.Param("priceMin") int priceMin,
+            @org.springframework.data.repository.query.Param("priceMax") int priceMax,
+            @org.springframework.data.repository.query.Param("priceUnrestricted") boolean priceUnrestricted,
+            @org.springframework.data.repository.query.Param("includeAdult") boolean includeAdult,
+            @org.springframework.data.repository.query.Param("playerMin") int playerMin,
+            @org.springframework.data.repository.query.Param("playerMax") int playerMax,
+            @org.springframework.data.repository.query.Param("playersUnrestricted") boolean playersUnrestricted,
+            @org.springframework.data.repository.query.Param("playerUpperOpen") boolean playerUpperOpen,
+            Pageable pageable);
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
     @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
@@ -52,13 +74,19 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     Optional<Instant> findOldestCoolingMetadataAttempt(Instant retryBefore);
     @Query(value="select * from steam_games where metadata_updated_at is not null and store_type='game' and metadata_status='SUCCESS' and "
             + "((igdb_status is null and igdb_updated_at is null) "
-            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE')) and game_catalog_eligible=true "
+            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE') "
+            + "or (igdb_status='SUCCESS' and igdb_game_id is not null and "
+            + "(igdb_taxonomy_version is null or igdb_taxonomy_version<>'igdb-v2-28'))) and game_catalog_eligible=true "
             + "and (lifecycle_status is null or lifecycle_status='ACTIVE') "
-            + "order by case when igdb_status is null or igdb_status='PENDING' then 0 else 1 end, steam_app_id",nativeQuery=true)
+            + "order by case when igdb_status is null or igdb_status='PENDING' then 0 "
+            + "when igdb_status='RETRYABLE_FAILURE' then 1 else 2 end, steam_app_id",nativeQuery=true)
     List<SteamGame> findIgdbCandidates(Pageable pageable);
     @Query(value="select count(*) from steam_games where game_catalog_eligible=true "
             + "and metadata_status='SUCCESS' and metadata_updated_at is not null "
-            + "and store_type='game' and ((igdb_status is null and igdb_updated_at is null) or igdb_status in ('PENDING','RETRYABLE_FAILURE')) "
+            + "and store_type='game' and ((igdb_status is null and igdb_updated_at is null) "
+            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE') "
+            + "or (igdb_status='SUCCESS' and igdb_game_id is not null and "
+            + "(igdb_taxonomy_version is null or igdb_taxonomy_version<>'igdb-v2-28'))) "
             + "and (lifecycle_status is null or lifecycle_status='ACTIVE')", nativeQuery=true)
     long countIgdbCandidates();
     @Query(value="select count(*) from steam_games where game_catalog_eligible=true "
@@ -68,7 +96,9 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "or metadata_status='SUCCESS' and metadata_updated_at < :staleBefore) "
             + "or (metadata_status='SUCCESS' and metadata_updated_at is not null and store_type='game' "
             + "and ((igdb_status is null and igdb_updated_at is null) "
-            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE'))))", nativeQuery=true)
+            + "or igdb_status in ('PENDING','RETRYABLE_FAILURE') "
+            + "or (igdb_status='SUCCESS' and igdb_game_id is not null and "
+            + "(igdb_taxonomy_version is null or igdb_taxonomy_version<>'igdb-v2-28')))))", nativeQuery=true)
     long countEnrichmentCandidates(Instant staleBefore, Instant retryBefore);
     @Query(value="select count(*) from steam_games where ((metadata_status is null and metadata_updated_at is null) "
             + "or metadata_status='PENDING' "
@@ -78,6 +108,14 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
     long countMetadataCandidates(Instant staleBefore, Instant retryBefore);
     @Query(value="select g.* from steam_games g where g.game_catalog_eligible=true and g.metadata_updated_at is not null and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') and not exists (select 1 from steam_game_tags t where t.steam_app_id=g.steam_app_id) order by g.steam_app_id",nativeQuery=true)
     List<SteamGame> findTaxonomyCandidates(Pageable pageable);
+    @Query(value="select * from steam_games where game_catalog_eligible=true "
+            + "and metadata_status='SUCCESS' and metadata_updated_at is not null "
+            + "and store_type='game' and (lifecycle_status is null or lifecycle_status='ACTIVE') "
+            + "and (coalesce(steam_taxonomy_version,taxonomy_version) is null "
+            + "or coalesce(steam_taxonomy_version,taxonomy_version)<>:version) order by steam_app_id", nativeQuery=true)
+    List<SteamGame> findTaxonomyVersionCandidates(
+            @org.springframework.data.repository.query.Param("version") String version,
+            Pageable pageable);
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.transaction.annotation.Transactional
     @Query(value="update steam_games set lifecycle_status='REMOVED' where (lifecycle_status is null or lifecycle_status='ACTIVE') and (reconciliation_generation is null or reconciliation_generation<>:generation)",nativeQuery=true)

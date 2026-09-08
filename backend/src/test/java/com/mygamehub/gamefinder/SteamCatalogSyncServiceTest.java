@@ -712,6 +712,10 @@ class SteamCatalogSyncServiceTest {
         when(games.findIgdbCandidates(any())).thenReturn(List.of(noMatch));
         when(igdb.configured()).thenReturn(true);
         when(igdb.findBySteamAppId(4436560L)).thenReturn(Optional.empty());
+        when(persistence.applyIgdbResults(anyCollection(), anyMap())).thenAnswer(invocation -> {
+            noMatch.markIgdbNotFound();
+            return List.of(noMatch);
+        });
 
         assertEquals(1, service.enrichBatch());
 
@@ -766,6 +770,14 @@ class SteamCatalogSyncServiceTest {
                 .thenThrow(new IgdbEnrichmentClient.IgdbRequestException("external_games", 429, 0L))
                 .thenReturn(Optional.of(new IgdbEnrichmentClient.IgdbData(
                         42L, 1, 1, 10, 10, 5, true, true, false)));
+        when(persistence.applyIgdbResults(anyCollection(), anyMap())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            var values = (java.util.Map<Long, Optional<IgdbEnrichmentClient.IgdbData>>) invocation.getArgument(1);
+            var data = values.get(570L).orElseThrow();
+            game.updateIgdb(data.gameId(), data.minPlayers(), data.maxPlayers(), data.onlineMax(),
+                    data.coopMax(), data.multiplayer(), data.onlineCoop(), data.offlineCoop());
+            return List.of(game);
+        });
 
         service.enrichBatch();
         assertEquals(EnrichmentStatus.RETRYABLE_FAILURE, game.getIgdbStatus());
@@ -794,7 +806,7 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
-    void legacyIgdbWithUpdatedTimestampIsNormalizedWithoutIgdbCall() throws Exception {
+    void legacyIgdbSuccessIsSelectedForTaxonomyBackfill() throws Exception {
         SteamGame legacy = new SteamGame(570, "Legacy IGDB", 0, 0);
         legacy.updateStoreDetail("game", null, null, false, "KRW", null, null,
                 null, 0, "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
@@ -804,13 +816,22 @@ class SteamCatalogSyncServiceTest {
         when(games.findMetadataCandidates(any(), any(), any())).thenReturn(List.of());
         when(games.findIgdbCandidates(any())).thenReturn(List.of(legacy));
         when(igdb.configured()).thenReturn(true);
+        var data = new IgdbEnrichmentClient.IgdbData(
+                42L, 1, 1, 10, 10, 5, true, true, false);
+        when(igdb.findBySteamAppId(570L)).thenReturn(Optional.of(data));
+        when(persistence.applyIgdbResults(anyCollection(), anyMap())).thenAnswer(invocation -> {
+            legacy.updateIgdb(data.gameId(), data.minPlayers(), data.maxPlayers(), data.onlineMax(),
+                    data.coopMax(), data.multiplayer(), data.onlineCoop(), data.offlineCoop());
+            legacy.markIgdbTaxonomyVersion(GameTagTaxonomy.IGDB_VERSION);
+            return List.of(legacy);
+        });
 
         var result = service.enrichBatch(1);
 
         assertEquals(1, result.processed());
         assertEquals(EnrichmentStatus.SUCCESS, legacy.getIgdbStatus());
-        verify(igdb, never()).findBySteamAppId(anyLong());
-        verify(games).save(legacy);
+        assertEquals(GameTagTaxonomy.IGDB_VERSION, legacy.getIgdbTaxonomyVersion());
+        verify(igdb).findBySteamAppId(570L);
     }
 
     @Test
@@ -839,6 +860,7 @@ class SteamCatalogSyncServiceTest {
                 "NON_ADULT", null, null, false, false, Set.of(), Set.of(),
                 false, true, true, false);
         game.updateIgdb(42L, 1, 10, 10, 5, true, true, false);
+        game.markIgdbTaxonomyVersion(GameTagTaxonomy.IGDB_VERSION);
         CatalogSyncCheckpoint checkpoint = new CatalogSyncCheckpoint("steam-catalog");
         var item = new SteamCatalogClient.CatalogItem(570, "Dota 2", 0, 0);
         when(checkpoints.findById("steam-catalog")).thenReturn(Optional.of(checkpoint));

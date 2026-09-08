@@ -77,4 +77,5 @@ app:
     smoke-app-ids: ${GAME_FINDER_SMOKE_APP_IDS:570,1245620,4436560}
     metadata-verify-sample-size: ${GAME_FINDER_METADATA_VERIFY_SAMPLE_SIZE:100}
     metadata-verify-mode: ${GAME_FINDER_METADATA_VERIFY_MODE:RANDOM}
+    taxonomy-batch-size: ${GAME_FINDER_TAXONOMY_BATCH_SIZE:200}
     admin-uids: ${GAME_FINDER_ADMIN_UIDS:}

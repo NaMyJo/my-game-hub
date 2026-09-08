@@ -62,6 +62,21 @@ public class IgdbEnrichmentClient {
         return !clientId.isBlank() && !secret.isBlank();
     }
 
+    /**
+     * Executes a bounded, read-only IGDB query through the same OAuth cache,
+     * retry policy and request pacing used by enrichment.
+     */
+    public JsonNode queryReadOnly(String endpoint, String body) {
+        if (!Set.of("genres", "themes", "keywords", "player_perspectives",
+                "game_modes", "games", "multiquery").contains(endpoint)) {
+            throw new IllegalArgumentException("Unsupported read-only IGDB endpoint: " + endpoint);
+        }
+        if (!configured()) {
+            throw new IllegalStateException("IGDB credentials are not configured");
+        }
+        return post(endpoint, body, token(), null);
+    }
+
     public Optional<IgdbData> findBySteamAppId(long appId) {
         return findBySteamAppIds(List.of(appId)).getOrDefault(appId, Optional.empty());
     }
@@ -113,6 +128,28 @@ public class IgdbEnrichmentClient {
 
         String gameIds = gameIdsByAppId.values().stream().distinct()
                 .map(String::valueOf).collect(Collectors.joining(","));
+        List<JsonNode> taxonomyGames = new ArrayList<>();
+        int gameOffset = 0;
+        while (true) {
+            JsonNode page = post("games",
+                    "fields id,genres.id,genres.name,genres.slug,themes.id,themes.name,themes.slug,"
+                            + "keywords.id,keywords.name,keywords.slug,player_perspectives.id,"
+                            + "player_perspectives.name,player_perspectives.slug,game_modes.id,"
+                            + "game_modes.name,game_modes.slug; where id = (" + gameIds
+                            + "); limit 500; offset " + gameOffset + ";",
+                    bearer, null);
+            if (page != null && page.isArray()) page.forEach(taxonomyGames::add);
+            if (arraySize(page) < 500) break;
+            gameOffset += 500;
+        }
+        Set<Long> requestedGameIds = Set.copyOf(gameIdsByAppId.values());
+        Map<Long, List<IgdbTaxonomyValue>> taxonomyByGameId = new LinkedHashMap<>();
+        for (JsonNode game : taxonomyGames) {
+            long gameId = game.path("id").asLong(0);
+            if (requestedGameIds.contains(gameId)) {
+                taxonomyByGameId.computeIfAbsent(gameId, ignored -> parseTaxonomy(game));
+            }
+        }
         List<JsonNode> modes = new ArrayList<>();
         int offset = 0;
         while (true) {
@@ -125,7 +162,6 @@ public class IgdbEnrichmentClient {
             if (arraySize(page) < 500) break;
             offset += 500;
         }
-        Set<Long> requestedGameIds = Set.copyOf(gameIdsByAppId.values());
         Map<Long, List<JsonNode>> modesByGameId = modes.stream()
                 .filter(mode -> requestedGameIds.contains(mode.path("game").asLong(0)))
                 .collect(Collectors.groupingBy(mode -> mode.path("game").asLong(0)));
@@ -150,11 +186,34 @@ public class IgdbEnrichmentClient {
             results.put(appId, Optional.of(new IgdbData(gameId, gameModes.size(),
                     min == Integer.MAX_VALUE ? null : min, max == 0 ? null : max,
                     onlineMax == 0 ? null : onlineMax, coopMax == 0 ? null : coopMax,
-                    !gameModes.isEmpty(), onlineCoop, offlineCoop)));
+                    !gameModes.isEmpty(), onlineCoop, offlineCoop,
+                    taxonomyByGameId.getOrDefault(gameId, List.of()))));
         }
         log.info("igdb_batch_complete requested={} mapped={} multiplayerModes={}",
                 results.size(), gameIdsByAppId.size(), modes.size());
         return results;
+    }
+
+    private static List<IgdbTaxonomyValue> parseTaxonomy(JsonNode game) {
+        LinkedHashMap<String, IgdbTaxonomyValue> values = new LinkedHashMap<>();
+        addTaxonomy(values, game.path("genres"), IgdbTaxonomySourceType.GENRE);
+        addTaxonomy(values, game.path("themes"), IgdbTaxonomySourceType.THEME);
+        addTaxonomy(values, game.path("keywords"), IgdbTaxonomySourceType.KEYWORD);
+        addTaxonomy(values, game.path("player_perspectives"), IgdbTaxonomySourceType.PERSPECTIVE);
+        addTaxonomy(values, game.path("game_modes"), IgdbTaxonomySourceType.GAME_MODE);
+        return List.copyOf(values.values());
+    }
+
+    private static void addTaxonomy(Map<String, IgdbTaxonomyValue> target, JsonNode nodes,
+            IgdbTaxonomySourceType sourceType) {
+        if (!nodes.isArray()) return;
+        for (JsonNode node : nodes) {
+            long id = node.path("id").asLong(0);
+            if (id <= 0) continue;
+            IgdbTaxonomyValue value = new IgdbTaxonomyValue(sourceType, id,
+                    node.path("name").asText(""), node.path("slug").asText(""));
+            target.putIfAbsent(sourceType.name() + ":" + id, value);
+        }
     }
 
     private static long parseLong(String value) {
@@ -264,5 +323,15 @@ public class IgdbEnrichmentClient {
 
     public record IgdbData(Long gameId, Integer multiplayerModeCount, Integer minPlayers,
             Integer maxPlayers, Integer onlineMax, Integer coopMax, Boolean multiplayer,
-            Boolean onlineCoop, Boolean offlineCoop) {}
+            Boolean onlineCoop, Boolean offlineCoop, List<IgdbTaxonomyValue> taxonomyTerms) {
+        public IgdbData(Long gameId, Integer multiplayerModeCount, Integer minPlayers,
+                Integer maxPlayers, Integer onlineMax, Integer coopMax, Boolean multiplayer,
+                Boolean onlineCoop, Boolean offlineCoop) {
+            this(gameId, multiplayerModeCount, minPlayers, maxPlayers, onlineMax, coopMax,
+                    multiplayer, onlineCoop, offlineCoop, List.of());
+        }
+        public IgdbData {
+            taxonomyTerms = taxonomyTerms == null ? List.of() : List.copyOf(taxonomyTerms);
+        }
+    }
 }

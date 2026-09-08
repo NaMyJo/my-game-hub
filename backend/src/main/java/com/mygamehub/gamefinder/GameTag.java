@@ -10,6 +10,7 @@ public class GameTag {
     @Column(nullable=false,length=20) private String type;
     protected GameTag(){}
     public GameTag(String canonical,String display,String type){canonicalName=canonical;displayNameKo=display;this.type=type;}
+    public void updatePresentation(String display,String type){this.displayNameKo=display;this.type=type;}
     public Long getId(){return id;} public String getCanonicalName(){return canonicalName;}
     public String getDisplayNameKo(){return displayNameKo;} public String getType(){return type;}
 }

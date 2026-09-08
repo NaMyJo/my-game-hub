@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
@@ -338,7 +339,6 @@ public class SteamCatalogSyncService {
             try {
                 var values = igdb.findBySteamAppIds(appIds);
                 targets = persistence.applyIgdbResults(appIds, values);
-                targets.forEach(tagService::rebuild);
             } catch (RuntimeException exception) {
                 boolean retryable = retryable(exception);
                 targets = persistence.markIgdbBatchFailure(appIds, retryable);
@@ -576,7 +576,8 @@ public class SteamCatalogSyncService {
             }
             return new EnrichmentResult(steamEnriched, false);
         }
-        boolean igdbComplete = game.getIgdbStatus() == EnrichmentStatus.SUCCESS
+        boolean igdbComplete = (game.getIgdbStatus() == EnrichmentStatus.SUCCESS
+                && GameTagTaxonomy.IGDB_VERSION.equals(game.getIgdbTaxonomyVersion()))
                 || game.getIgdbStatus() == EnrichmentStatus.NOT_FOUND
                 || game.getIgdbStatus() == EnrichmentStatus.PERMANENT_FAILURE
                 || (game.getIgdbStatus() == null && game.getIgdbUpdatedAt() != null);
@@ -584,15 +585,8 @@ public class SteamCatalogSyncService {
             try {
                 igdbProcessed = true;
                 var result = igdb.findBySteamAppId(game.getSteamAppId());
-                if (result.isPresent()) {
-                    var data = result.get();
-                    game.updateIgdb(data.gameId(), data.minPlayers(), data.maxPlayers(),
-                            data.onlineMax(), data.coopMax(), data.multiplayer(),
-                            data.onlineCoop(), data.offlineCoop());
-                } else {
-                    game.markIgdbNotFound();
-                }
-                games.save(game);
+                persistence.applyIgdbResults(List.of(game.getSteamAppId()),
+                        Map.of(game.getSteamAppId(), result));
             } catch (RuntimeException exception) {
                 game.markIgdbFailure(retryable(exception));
                 games.save(game);

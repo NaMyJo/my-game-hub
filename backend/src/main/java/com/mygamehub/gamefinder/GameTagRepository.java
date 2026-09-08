@@ -7,6 +7,7 @@ import java.util.*;
 public interface GameTagRepository extends JpaRepository<GameTag,Long>{
     List<GameTag> findByCanonicalNameIn(Collection<String> names);
 
-    @Query("select t from GameTag t where :query = '' or lower(t.canonicalName) like lower(concat('%', :query, '%')) or lower(t.displayNameKo) like lower(concat('%', :query, '%')) order by t.canonicalName")
-    List<GameTag> autocomplete(@Param("query") String query, Pageable pageable);
+    @Query("select t from GameTag t where t.canonicalName in :activeNames and (:query = '' or lower(t.canonicalName) like lower(concat('%', :query, '%')) or lower(t.displayNameKo) like lower(concat('%', :query, '%'))) order by t.canonicalName")
+    List<GameTag> autocomplete(@Param("query") String query,
+            @Param("activeNames") Collection<String> activeNames, Pageable pageable);
 }

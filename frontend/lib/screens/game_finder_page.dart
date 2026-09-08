@@ -313,22 +313,11 @@ class _GameFinderPageState extends State<GameFinderPage> {
         const SizedBox(height: 6),
         const Text('태그는 제외 조건이 아니라 추천 점수를 높이는 선호도로 반영됩니다.'),
         const SizedBox(height: 10),
-        Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: availableTags.map((tag) {
-              final active = selectedTags.contains(tag.canonicalName);
-              return FilterChip(
-                  label: Text(tag.displayName),
-                  selected: active,
-                  onSelected: (value) => setState(() {
-                        if (value && selectedTags.length < 10) {
-                          selectedTags.add(tag.canonicalName);
-                        } else if (!value) {
-                          selectedTags.remove(tag.canonicalName);
-                        }
-                      }));
-            }).toList()),
+        _tagGroup('장르', 'GENRE'),
+        _tagGroup('플레이 방식', 'FEATURE'),
+        _tagGroup('테마 / 분위기', 'THEME'),
+        _tagGroup('게임 스타일', 'STYLE'),
+        _tagGroup('기타', 'TAG'),
         const SizedBox(height: 16),
         Align(
             alignment: Alignment.centerRight,
@@ -340,6 +329,35 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 icon: const Icon(Icons.arrow_forward),
                 label: const Text('조건 설정')))
       ]));
+
+  Widget _tagGroup(String title, String type) {
+    final group = availableTags.where((tag) => tag.type == type).toList();
+    if (group.isEmpty) return const SizedBox.shrink();
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 7),
+          Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: group.map((tag) {
+                final active = selectedTags.contains(tag.canonicalName);
+                return FilterChip(
+                    label: Text(tag.displayName),
+                    selected: active,
+                    onSelected: (value) => setState(() {
+                          if (value && selectedTags.length < 10) {
+                            selectedTags.add(tag.canonicalName);
+                          } else if (!value) {
+                            selectedTags.remove(tag.canonicalName);
+                          }
+                        }));
+              }).toList())
+        ]));
+  }
+
   Widget _results() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _panel(Wrap(spacing: 14, runSpacing: 8, children: [
