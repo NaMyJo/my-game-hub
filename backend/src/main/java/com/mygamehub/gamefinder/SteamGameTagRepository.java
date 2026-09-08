@@ -32,20 +32,27 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             @Param("includeAdult") boolean includeAdult, @Param("playerMin") int playerMin,
             @Param("playerMax") int playerMax, @Param("playersUnrestricted") boolean playersUnrestricted,
             @Param("playerUpperOpen") boolean playerUpperOpen, Pageable pageable);
-    @Query(value="select s.steam_app_id from steam_game_tags s join game_tags t on t.id=s.tag_id "
-            + "join steam_games g on g.steam_app_id=s.steam_app_id "
-            + "where t.canonical_name in (:tags) and g.game_catalog_eligible=true "
+    @Query(value="select g.steam_app_id from steam_games g "
+            + "left join steam_game_tags s on s.steam_app_id=g.steam_app_id and s.tag_id in "
+            + "(select t.id from game_tags t where t.canonical_name in (:tags)) "
+            + "where g.game_catalog_eligible=true "
             + "and g.metadata_status='SUCCESS' and g.metadata_updated_at is not null "
             + "and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') "
             + "and (:priceUnrestricted=true or (case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
             + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT') "
             + "and (:playersUnrestricted=true or (g.min_players is not null and g.max_players is not null "
             + "and g.max_players>=:playerMin and (:playerUpperOpen=true or g.min_players<=:playerMax))) "
-            + "group by s.steam_app_id order by count(distinct t.canonical_name) desc, s.steam_app_id",nativeQuery=true)
-    List<Long> findRelevantRecommendationAppIds(@Param("tags") Collection<String> tags,
+            + "group by g.steam_app_id,g.release_date "
+            + "order by count(distinct s.tag_id) desc, "
+            + "case when :preferRecent=true and g.release_date is not null "
+            + "and g.release_date<=current_date then g.release_date end desc nulls last, "
+            + "mod(g.steam_app_id*1103515245+:tieSeed,2147483647),g.steam_app_id",nativeQuery=true)
+    List<Long> findRankedRecommendationAppIds(@Param("tags") Collection<String> tags,
             @Param("priceMin") int priceMin, @Param("priceMax") int priceMax,
             @Param("priceUnrestricted") boolean priceUnrestricted,
             @Param("includeAdult") boolean includeAdult, @Param("playerMin") int playerMin,
             @Param("playerMax") int playerMax, @Param("playersUnrestricted") boolean playersUnrestricted,
-            @Param("playerUpperOpen") boolean playerUpperOpen, Pageable pageable);
+            @Param("playerUpperOpen") boolean playerUpperOpen,
+            @Param("preferRecent") boolean preferRecent, @Param("tieSeed") long tieSeed,
+            Pageable pageable);
 }

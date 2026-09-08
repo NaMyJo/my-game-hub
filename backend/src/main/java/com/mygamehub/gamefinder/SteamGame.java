@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
         @Index(name = "idx_steam_games_name", columnList = "name"),
         @Index(name = "idx_steam_games_candidate", columnList = "store_type, metadata_updated_at"),
         @Index(name = "idx_steam_games_game_catalog", columnList = "game_catalog_eligible, lifecycle_status, metadata_status"),
+        @Index(name = "idx_steam_games_recommendation", columnList = "game_catalog_eligible, metadata_status, store_type, lifecycle_status, steam_app_id"),
         @Index(name = "idx_steam_games_taxonomy_version", columnList = "taxonomy_version, steam_app_id"),
         @Index(name = "idx_steam_games_igdb_taxonomy_version", columnList = "igdb_taxonomy_version, steam_app_id")
 })

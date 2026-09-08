@@ -21,9 +21,10 @@ class GameFinderRecommendationServiceTest {
         var result = fixture.service.recommend(request);
 
         assertThat(result).extracting(value -> value.steamAppId()).containsExactly(2L);
-        verify(fixture.relations).findRelevantRecommendationAppIds(anyCollection(), eq(0),
+        verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), eq(0),
                 eq(10000), eq(false), eq(false), eq(2), eq(4), eq(false), eq(false),
-                argThat(page -> page.getPageSize() == GameFinderRecommendationService.RELEVANCE_CANDIDATE_LIMIT));
+                eq(true), anyLong(),
+                argThat(page -> page.getPageSize() == GameFinderRecommendationService.MAX_CANDIDATE_POOL));
     }
 
     @Test
@@ -40,22 +41,14 @@ class GameFinderRecommendationServiceTest {
     }
 
     @Test
-    void mergedCandidatePoolIsDeduplicatedAndNeverExceedsTwoThousand() {
+    void databaseRankedCandidatePoolIsDeduplicatedAndNeverExceedsTwoThousand() {
         Fixture fixture = new Fixture();
-        var relevant = new ArrayList<GameFinderRecommendationCandidate>();
-        for (int i = 1; i <= 1600; i++) {
-            relevant.add(candidate(i, "relevant-" + i, 0));
+        var candidates = new ArrayList<GameFinderRecommendationCandidate>();
+        for (int i = 1; i <= 2100; i++) {
+            candidates.add(candidate(i, "candidate-" + i, 0));
             fixture.tag(i, "action");
         }
-        fixture.candidates(relevant);
-        var discovery = new ArrayList<GameFinderRecommendationCandidate>();
-        for (int i = 1501; i <= 2100; i++) {
-            discovery.add(candidate(i, "discovery-" + i, 0));
-            fixture.tag(i, "action");
-        }
-        when(fixture.games.findDiscoveryCandidatesFrom(anyLong(), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), any()))
-                .thenReturn(discovery);
+        fixture.candidates(candidates);
 
         fixture.service.recommend(request(List.of(), List.of("action"),
                 0, 100000, true, 1, 15, List.of()));
@@ -63,9 +56,11 @@ class GameFinderRecommendationServiceTest {
         ArgumentCaptor<Collection<Long>> ids = ArgumentCaptor.forClass(Collection.class);
         verify(fixture.relations).findCanonicalNamesBySteamAppIds(ids.capture());
         assertThat(ids.getValue()).hasSize(2000).doesNotHaveDuplicates();
-        verify(fixture.games).findDiscoveryCandidatesFrom(anyLong(), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(),
-                argThat(page -> page.getPageSize() == GameFinderRecommendationService.DISCOVERY_CANDIDATE_LIMIT));
+        verify(fixture.games, never()).findAll();
+        verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), anyInt(),
+                anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
+                anyBoolean(), anyBoolean(), anyLong(),
+                argThat(page -> page.getPageSize() == GameFinderRecommendationService.MAX_CANDIDATE_POOL));
     }
 
     @Test
@@ -81,6 +76,32 @@ class GameFinderRecommendationServiceTest {
                 0, 100000, false, 1, 15, List.of(), ReleasePreference.ANY));
 
         assertThat(result).extracting(value -> value.steamAppId()).containsExactly(1L, 2L);
+        verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), anyInt(),
+                anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
+                anyBoolean(), eq(false), anyLong(), any());
+    }
+
+    @Test
+    void balancedUsesWeakerReleaseBoostThanRecent() {
+        Fixture recentFixture = new Fixture();
+        Fixture balancedFixture = new Fixture();
+        var fresh = candidate(2, "fresh", 0, LocalDate.now().minusMonths(3));
+        recentFixture.candidates(List.of(fresh));
+        balancedFixture.candidates(List.of(fresh));
+        recentFixture.tag(2, "action");
+        balancedFixture.tag(2, "action");
+
+        int recentScore = recentFixture.service.recommend(request(List.of(),
+                List.of("action", "rpg"), 0, 100000, false, 1, 15, List.of(),
+                ReleasePreference.RECENT)).getFirst().matchScore();
+        int balancedScore = balancedFixture.service.recommend(request(List.of(),
+                List.of("action", "rpg"), 0, 100000, false, 1, 15, List.of(),
+                ReleasePreference.BALANCED)).getFirst().matchScore();
+
+        assertThat(recentScore).isGreaterThan(balancedScore);
+        verify(balancedFixture.relations).findRankedRecommendationAppIds(anyCollection(),
+                anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(),
+                anyBoolean(), anyBoolean(), eq(false), anyLong(), any());
     }
 
     @Test
@@ -127,9 +148,10 @@ class GameFinderRecommendationServiceTest {
                 List.of(), List.of("rpg"), 0, 100000, false, 1, 15, List.of()));
 
         assertThat(result).extracting(value -> value.steamAppId()).contains(900_000L);
-        verify(fixture.relations).findRelevantRecommendationAppIds(
+        verify(fixture.relations).findRankedRecommendationAppIds(
                 argThat(tags -> tags.contains("rpg")), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), any());
+                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyLong(), any());
     }
 
     @Test
@@ -161,9 +183,10 @@ class GameFinderRecommendationServiceTest {
                 List.of(1L), List.of(), 0, 100000, false, 1, 15, List.of()));
 
         assertThat(result).extracting(value -> value.steamAppId()).contains(2L);
-        verify(fixture.relations).findRelevantRecommendationAppIds(
+        verify(fixture.relations).findRankedRecommendationAppIds(
                 argThat(tags -> tags.contains("action")), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), any());
+                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyLong(), any());
     }
 
     @Test
@@ -250,20 +273,23 @@ class GameFinderRecommendationServiceTest {
                         Collection<Long> ids = invocation.getArgument(0);
                         return tagValues.stream().filter(value -> ids.contains(value.getSteamAppId())).toList();
                     });
-            when(games.findDiscoveryCandidatesFrom(anyLong(), anyInt(), anyInt(), anyBoolean(),
-                    anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), any()))
-                    .thenReturn(List.of());
-            when(games.findDiscoveryCandidatesBefore(anyLong(), anyInt(), anyInt(), anyBoolean(),
-                    anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), any()))
-                    .thenReturn(List.of());
         }
 
         void candidates(List<GameFinderRecommendationCandidate> values) {
-            List<Long> ids = values.stream().map(GameFinderRecommendationCandidate::steamAppId).toList();
-            when(relations.findRelevantRecommendationAppIds(anyCollection(), anyInt(), anyInt(),
+            Map<Long, GameFinderRecommendationCandidate> byId = values.stream().collect(
+                    java.util.stream.Collectors.toMap(GameFinderRecommendationCandidate::steamAppId,
+                            value -> value, (left, right) -> left));
+            when(relations.findRankedRecommendationAppIds(anyCollection(), anyInt(), anyInt(),
                     anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(),
-                    any(Pageable.class))).thenReturn(ids);
-            when(games.findRecommendationCandidatesByAppIds(ids)).thenReturn(values);
+                    anyBoolean(), anyLong(), any(Pageable.class))).thenAnswer(invocation -> {
+                        Pageable page = invocation.getArgument(11);
+                        return values.stream().map(GameFinderRecommendationCandidate::steamAppId)
+                                .distinct().limit(page.getPageSize()).toList();
+                    });
+            when(games.findRecommendationCandidatesByAppIds(anyCollection())).thenAnswer(invocation -> {
+                Collection<Long> ids = invocation.getArgument(0);
+                return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
+            });
         }
 
         void tag(long appId, String... names) {

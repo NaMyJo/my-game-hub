@@ -11,9 +11,6 @@ import java.time.temporal.ChronoUnit;
 @Service
 public class GameFinderRecommendationService {
     static final int MAX_CANDIDATE_POOL = 2_000;
-    static final int RELEVANCE_CANDIDATE_LIMIT = 1_600;
-    static final int DISCOVERY_CANDIDATE_LIMIT = 400;
-    private static final long DISCOVERY_ANCHOR_RANGE = 4_000_000L;
     private final SteamGameRepository repository;
     private final SteamGameTagRepository relations;
     private final GameTagTaxonomy taxonomy;
@@ -94,51 +91,29 @@ public class GameFinderRecommendationService {
 
     private List<GameFinderRecommendationCandidate> candidates(GameFinderRecommendRequest request,
             Set<String> retrievalTags, boolean priceUnrestricted, boolean playersUnrestricted) {
-        LinkedHashMap<Long, GameFinderRecommendationCandidate> pool = new LinkedHashMap<>();
-        if (!retrievalTags.isEmpty()) {
-            List<Long> relevantIds = relations.findRelevantRecommendationAppIds(retrievalTags,
-                    request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
-                    request.playerMin(), request.playerMax(), playersUnrestricted,
-                    request.playerMax() == 15, PageRequest.of(0, RELEVANCE_CANDIDATE_LIMIT));
-            repository.findRecommendationCandidatesByAppIds(relevantIds).stream()
-                    .sorted(Comparator.comparingLong(GameFinderRecommendationCandidate::steamAppId))
-                    .forEach(value -> pool.put(value.steamAppId(), value));
-        }
-
-        long anchor = discoveryAnchor(request, retrievalTags);
-        int discoveryAdded = addDiscovery(pool, repository.findDiscoveryCandidatesFrom(anchor, request.priceMin(),
-                request.priceMax(), priceUnrestricted, request.includeAdult(), request.playerMin(),
-                request.playerMax(), playersUnrestricted, request.playerMax() == 15,
-                PageRequest.of(0, DISCOVERY_CANDIDATE_LIMIT)));
-        int missing = Math.min(DISCOVERY_CANDIDATE_LIMIT - discoveryAdded,
-                MAX_CANDIDATE_POOL - pool.size());
-        if (missing > 0) {
-            addDiscovery(pool, repository.findDiscoveryCandidatesBefore(anchor, request.priceMin(),
-                    request.priceMax(), priceUnrestricted, request.includeAdult(), request.playerMin(),
-                    request.playerMax(), playersUnrestricted, request.playerMax() == 15,
-                    PageRequest.of(0, missing)));
-        }
-        return pool.values().stream().limit(MAX_CANDIDATE_POOL).toList();
+        Set<String> queryTags = retrievalTags.isEmpty()
+                ? Set.of("__game_finder_no_matching_tag__") : retrievalTags;
+        long tieSeed = candidateTieSeed(request, retrievalTags);
+        boolean preferRecent = ReleasePreference.defaultIfNull(request.releasePreference())
+                == ReleasePreference.RECENT;
+        List<Long> rankedIds = relations.findRankedRecommendationAppIds(queryTags,
+                request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
+                request.playerMin(), request.playerMax(), playersUnrestricted,
+                request.playerMax() == 15, preferRecent, tieSeed,
+                PageRequest.of(0, MAX_CANDIDATE_POOL));
+        Map<Long, GameFinderRecommendationCandidate> byId = repository
+                .findRecommendationCandidatesByAppIds(rankedIds).stream()
+                .collect(Collectors.toMap(GameFinderRecommendationCandidate::steamAppId,
+                        value -> value, (left, right) -> left));
+        return rankedIds.stream().distinct().map(byId::get).filter(Objects::nonNull).toList();
     }
 
-    private int addDiscovery(Map<Long, GameFinderRecommendationCandidate> pool,
-            List<GameFinderRecommendationCandidate> values) {
-        int added = 0;
-        for (var value : values) {
-            if (!pool.containsKey(value.steamAppId()) && added < DISCOVERY_CANDIDATE_LIMIT) {
-                pool.put(value.steamAppId(), value);
-                added++;
-            }
-        }
-        return added;
-    }
-
-    private long discoveryAnchor(GameFinderRecommendRequest request, Set<String> tags) {
+    private long candidateTieSeed(GameFinderRecommendRequest request, Set<String> tags) {
         List<String> stableTags = tags.stream().sorted().toList();
         int hash = Objects.hash(stableTags, request.priceMin(), request.priceMax(),
                 request.includeAdult(), request.playerMin(), request.playerMax(),
                 ReleasePreference.defaultIfNull(request.releasePreference()));
-        return Math.floorMod((long) hash * 2_654_435_761L, DISCOVERY_ANCHOR_RANGE);
+        return Math.floorMod((long) hash * 2_654_435_761L, 2_147_483_647L);
     }
 
     private Map<Long, Set<String>> tagsByAppIds(Collection<Long> appIds) {

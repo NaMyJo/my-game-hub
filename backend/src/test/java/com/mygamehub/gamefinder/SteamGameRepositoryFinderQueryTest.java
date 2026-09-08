@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -17,17 +18,17 @@ class SteamGameRepositoryFinderQueryTest {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void recommendationProjectionFiltersBeforeApplyingBoundedLimit() {
+    void rankedRecommendationQueryFiltersBeforeApplyingBoundedLimit() {
         insertGame(10, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
         insertGame(20, 15000, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
         insertGame(30, 5000, "ADULT", 1, 4, true, "game", "ACTIVE");
         insertGame(40, 5000, "NON_ADULT", 1, 4, false, "game", "ACTIVE");
 
-        var result = games.findDiscoveryCandidatesFrom(0, 0, 10000, false, false,
-                2, 5, false, false, PageRequest.of(0, 2));
+        var result = relations.findRankedRecommendationAppIds(List.of("__none__"),
+                0, 10000, false, false, 2, 5, false, false,
+                false, 17, PageRequest.of(0, 2));
 
-        assertThat(result).extracting(GameFinderRecommendationCandidate::steamAppId)
-                .containsExactly(10L);
+        assertThat(result).containsExactly(10L);
     }
 
     @Test
@@ -55,20 +56,92 @@ class SteamGameRepositoryFinderQueryTest {
         insertRelation(900000, action);
         insertRelation(900000, rpg);
 
-        var result = relations.findRelevantRecommendationAppIds(List.of("action", "rpg"),
-                0, 10000, false, false, 1, 15, true, true, PageRequest.of(0, 1));
+        var result = relations.findRankedRecommendationAppIds(List.of("action", "rpg"),
+                0, 10000, false, false, 1, 15, true, true,
+                false, 17, PageRequest.of(0, 1));
 
         assertThat(result).containsExactly(900000L);
     }
 
+    @Test
+    void highAppIdRelevantGameSurvivesTwoThousandCandidateLimit() {
+        long action = insertTag("action");
+        String sql = "insert into steam_games (steam_app_id,name,game_catalog_eligible," +
+                "store_type,metadata_status,metadata_updated_at,lifecycle_status," +
+                "coming_soon,price_current,is_free,adult_status,min_players,max_players) " +
+                "values (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+        var rows = new ArrayList<Object[]>();
+        for (long appId = 1; appId <= 2001; appId++) {
+            rows.add(new Object[] {appId, "Low " + appId, true, "game", "SUCCESS",
+                    Timestamp.from(Instant.now()), "ACTIVE", false, 0, true,
+                    "NON_ADULT", 1, 4});
+        }
+        jdbc.batchUpdate(sql, rows);
+        insertGame(900000, 0, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
+        insertRelation(900000, action);
+
+        var result = relations.findRankedRecommendationAppIds(List.of("action"),
+                0, 100000, true, false, 1, 15, true, true,
+                false, 71, PageRequest.of(0, 2000));
+
+        assertThat(result).hasSize(2000).contains(900000L);
+    }
+
+    @Test
+    void recentRanksNewerReleaseFirstOnlyWhenTagRelevanceIsEqual() {
+        long action = insertTag("action");
+        long rpg = insertTag("rpg");
+        insertGame(10, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE",
+                java.time.LocalDate.of(2019, 1, 1));
+        insertGame(900000, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE",
+                java.time.LocalDate.of(2026, 1, 1));
+        insertRelation(10, action);
+        insertRelation(10, rpg);
+        insertRelation(900000, action);
+        insertRelation(900000, rpg);
+
+        var result = relations.findRankedRecommendationAppIds(List.of("action", "rpg"),
+                0, 10000, false, false, 1, 15, true, true,
+                true, 17, PageRequest.of(0, 2));
+
+        assertThat(result).containsExactly(900000L, 10L);
+    }
+
+    @Test
+    void recentNeverLetsNewerOneTagMatchBeatOlderThreeTagMatches() {
+        long action = insertTag("action");
+        long rpg = insertTag("rpg");
+        long fantasy = insertTag("fantasy");
+        insertGame(10, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE",
+                java.time.LocalDate.of(2019, 1, 1));
+        insertGame(900000, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE",
+                java.time.LocalDate.of(2026, 1, 1));
+        insertRelation(10, action);
+        insertRelation(10, rpg);
+        insertRelation(10, fantasy);
+        insertRelation(900000, action);
+
+        var result = relations.findRankedRecommendationAppIds(
+                List.of("action", "rpg", "fantasy"), 0, 10000, false, false,
+                1, 15, true, true, true, 17, PageRequest.of(0, 2));
+
+        assertThat(result).containsExactly(10L, 900000L);
+    }
+
     private void insertGame(long appId, int price, String adult, int minPlayers,
             int maxPlayers, boolean eligible, String type, String lifecycle) {
+        insertGame(appId, price, adult, minPlayers, maxPlayers, eligible, type, lifecycle, null);
+    }
+
+    private void insertGame(long appId, int price, String adult, int minPlayers,
+            int maxPlayers, boolean eligible, String type, String lifecycle,
+            java.time.LocalDate releaseDate) {
         jdbc.update("insert into steam_games (steam_app_id,name,game_catalog_eligible," +
                         "store_type,metadata_status,metadata_updated_at,lifecycle_status," +
-                        "coming_soon,price_current,is_free,adult_status,min_players,max_players) " +
-                        "values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "coming_soon,price_current,is_free,adult_status,min_players,max_players,release_date) " +
+                        "values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 appId, "Game " + appId, eligible, type, "SUCCESS", Timestamp.from(Instant.now()),
-                lifecycle, false, price, false, adult, minPlayers, maxPlayers);
+                lifecycle, false, price, false, adult, minPlayers, maxPlayers, releaseDate);
     }
 
     private long insertTag(String canonicalName) {
