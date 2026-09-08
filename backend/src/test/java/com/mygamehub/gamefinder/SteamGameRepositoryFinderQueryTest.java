@@ -25,7 +25,7 @@ class SteamGameRepositoryFinderQueryTest {
         insertGame(40, 5000, "NON_ADULT", 1, 4, false, "game", "ACTIVE");
 
         var result = relations.findRankedRecommendationAppIds(List.of("__none__"),
-                0, 10000, false, false, 2, 5, false, false,
+                0, 10000, false, false, 2, 5, false,
                 false, 17, PageRequest.of(0, 2));
 
         assertThat(result).containsExactly(10L);
@@ -41,7 +41,7 @@ class SteamGameRepositoryFinderQueryTest {
         }
 
         var result = relations.findFilteredAppIdsMatchingAll(List.of("coop"), 1,
-                0, 10000, false, false, 1, 15, true, true, PageRequest.of(1, 2));
+                0, 10000, false, false, 1, 15, true, PageRequest.of(1, 2));
 
         assertThat(result).containsExactly(30L);
     }
@@ -57,7 +57,7 @@ class SteamGameRepositoryFinderQueryTest {
         insertRelation(900000, rpg);
 
         var result = relations.findRankedRecommendationAppIds(List.of("action", "rpg"),
-                0, 10000, false, false, 1, 15, true, true,
+                0, 10000, false, false, 1, 15, true,
                 false, 17, PageRequest.of(0, 1));
 
         assertThat(result).containsExactly(900000L);
@@ -81,7 +81,7 @@ class SteamGameRepositoryFinderQueryTest {
         insertRelation(900000, action);
 
         var result = relations.findRankedRecommendationAppIds(List.of("action"),
-                0, 100000, true, false, 1, 15, true, true,
+                0, 100000, true, false, 1, 15, true,
                 false, 71, PageRequest.of(0, 2000));
 
         assertThat(result).hasSize(2000).contains(900000L);
@@ -101,7 +101,7 @@ class SteamGameRepositoryFinderQueryTest {
         insertRelation(900000, rpg);
 
         var result = relations.findRankedRecommendationAppIds(List.of("action", "rpg"),
-                0, 10000, false, false, 1, 15, true, true,
+                0, 10000, false, false, 1, 15, true,
                 true, 17, PageRequest.of(0, 2));
 
         assertThat(result).containsExactly(900000L, 10L);
@@ -123,9 +123,45 @@ class SteamGameRepositoryFinderQueryTest {
 
         var result = relations.findRankedRecommendationAppIds(
                 List.of("action", "rpg", "fantasy"), 0, 10000, false, false,
-                1, 15, true, true, true, 17, PageRequest.of(0, 2));
+                1, 15, true, true, 17, PageRequest.of(0, 2));
 
         assertThat(result).containsExactly(10L, 900000L);
+    }
+
+    @Test
+    void playerFilterUsesRangeOverlapAndKnownOnlineCapacity() {
+        long action = insertTag("action");
+        insertGame(10, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        insertGame(20, 30000, "NON_ADULT", 2, 10, true, "game", "ACTIVE");
+        insertGame(30, 30000, "NON_ADULT", 4, 6, true, "game", "ACTIVE");
+        insertGame(40, 30000, "NON_ADULT", 1, 2, true, "game", "ACTIVE");
+        insertGame(50, 30000, "NON_ADULT", 8, 12, true, "game", "ACTIVE");
+        for (long appId : List.of(10L, 20L, 30L, 40L, 50L)) insertRelation(appId, action);
+        insertLegacyOnlineCapacityGame(60, 30000, 8, 6);
+        insertRelation(60, action);
+
+        var result = relations.findRankedRecommendationAppIds(List.of("action"),
+                20000, 41000, false, false, 4, 6, false,
+                true, 17, PageRequest.of(0, 20));
+
+        assertThat(result).containsExactlyInAnyOrder(10L, 20L, 30L, 60L)
+                .doesNotContain(40L, 50L);
+    }
+
+    @Test
+    void hardFilterDiagnosticCountsEachStageWithoutLoadingEntities() {
+        insertGame(10, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        insertGame(20, 10000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        insertGame(30, 30000, "ADULT", 1, 8, true, "game", "ACTIVE");
+        insertGame(40, 30000, "NON_ADULT", 1, 2, true, "game", "ACTIVE");
+
+        var counts = games.countRecommendationHardFilterStages(
+                20000, 41000, false, false, 4, 6, false);
+
+        assertThat(counts.getEligible()).isEqualTo(4);
+        assertThat(counts.getAfterPrice()).isEqualTo(3);
+        assertThat(counts.getAfterAdult()).isEqualTo(2);
+        assertThat(counts.getAfterPlayer()).isEqualTo(1);
     }
 
     private void insertGame(long appId, int price, String adult, int minPlayers,
@@ -142,6 +178,16 @@ class SteamGameRepositoryFinderQueryTest {
                         "values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 appId, "Game " + appId, eligible, type, "SUCCESS", Timestamp.from(Instant.now()),
                 lifecycle, false, price, false, adult, minPlayers, maxPlayers, releaseDate);
+    }
+
+    private void insertLegacyOnlineCapacityGame(long appId, int price, int onlineMax,
+            int onlineCoopMax) {
+        jdbc.update("insert into steam_games (steam_app_id,name,game_catalog_eligible," +
+                        "store_type,metadata_status,metadata_updated_at,lifecycle_status," +
+                        "coming_soon,price_current,is_free,adult_status,min_players,max_players," +
+                        "online_max_players,online_coop_max_players) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                appId, "Game " + appId, true, "game", "SUCCESS", Timestamp.from(Instant.now()),
+                "ACTIVE", false, price, false, "NON_ADULT", null, null, onlineMax, onlineCoopMax);
     }
 
     private long insertTag(String canonicalName) {

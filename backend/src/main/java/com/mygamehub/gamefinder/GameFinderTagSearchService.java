@@ -14,7 +14,7 @@ public class GameFinderTagSearchService {
         if(requested.isEmpty())return new GameFinderPageResponse<>(List.of(),request.page(),request.size(),false);
         boolean priceUnrestricted=request.priceMin()==0&&request.priceMax()==100000;
         boolean playersUnrestricted=request.playerMin()==1&&request.playerMax()==15;
-        List<Long> ids=relations.findFilteredAppIdsMatchingAll(requested,requested.size(),request.priceMin(),request.priceMax(),priceUnrestricted,request.includeAdult(),request.playerMin(),request.playerMax(),playersUnrestricted,request.playerMax()==15,PageRequest.of(request.page(),request.size()+1));
+        List<Long> ids=relations.findFilteredAppIdsMatchingAll(requested,requested.size(),request.priceMin(),request.priceMax(),priceUnrestricted,request.includeAdult(),request.playerMin(),request.playerMax(),playersUnrestricted,PageRequest.of(request.page(),request.size()+1));
         Map<Long,SteamGame> byId=new HashMap<>();games.findBySteamAppIdIn(ids).forEach(g->byId.put(g.getSteamAppId(),g));
         List<GameFinderTagSearchResponse> values=ids.stream().map(byId::get).filter(Objects::nonNull)
                 .map(g->response(g,requested)).toList();

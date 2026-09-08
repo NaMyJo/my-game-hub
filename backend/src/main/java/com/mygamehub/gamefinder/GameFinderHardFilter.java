@@ -25,9 +25,20 @@ public class GameFinderHardFilter {
     boolean playersMatch(SteamGame game, int selectedMin, int selectedMax) {
         boolean unrestricted = selectedMin == 1 && selectedMax == 15;
         Integer gameMin = game.getMinPlayers();
-        Integer gameMax = game.getMaxPlayers();
-        if (gameMin == null || gameMax == null) return unrestricted;
-        boolean upperOpen = selectedMax == 15;
-        return gameMax >= selectedMin && (upperOpen || gameMin <= selectedMax);
+        Integer gameMax = maximumKnownPlayers(game);
+        if (gameMax == null) return unrestricted;
+        // IGDB exposes maxima per multiplayer mode. The enrichment model represents a
+        // known positive maximum as the continuous supported interval starting at one.
+        if (gameMin == null) gameMin = 1;
+        return gameMax >= selectedMin && gameMin <= selectedMax;
+    }
+
+    private Integer maximumKnownPlayers(SteamGame game) {
+        Integer result = null;
+        for (Integer value : new Integer[] {game.getMaxPlayers(), game.getOnlineMaxPlayers(),
+                game.getOnlineCoopMaxPlayers()}) {
+            if (value != null && value > 0) result = result == null ? value : Math.max(result, value);
+        }
+        return result;
     }
 }

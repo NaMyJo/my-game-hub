@@ -18,7 +18,7 @@ class GameFinderTagSearchServiceTest {
         var second = game(42, 9000, 2, 5);
         when(relations.findFilteredAppIdsMatchingAll(anyCollection(), eq(2L),
                 eq(0), eq(10000), eq(false), eq(false), eq(3), eq(5),
-                eq(false), eq(false), any(Pageable.class)))
+                eq(false), any(Pageable.class)))
                 .thenReturn(List.of(41L, 42L));
         when(games.findBySteamAppIdIn(anyCollection())).thenReturn(List.of(second, first));
 
@@ -32,7 +32,7 @@ class GameFinderTagSearchServiceTest {
         verify(relations).findFilteredAppIdsMatchingAll(
                 argThat(tags -> tags.containsAll(Set.of("coop", "survival"))), eq(2L),
                 eq(0), eq(10000), eq(false), eq(false), eq(3), eq(5),
-                eq(false), eq(false), pageable.capture());
+                eq(false), pageable.capture());
         assertEquals(2, pageable.getValue().getPageNumber());
         assertEquals(21, pageable.getValue().getPageSize());
         verify(games).findBySteamAppIdIn(argThat(ids -> ids.size() <= 21));

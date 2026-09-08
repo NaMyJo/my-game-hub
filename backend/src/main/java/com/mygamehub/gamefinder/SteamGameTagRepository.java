@@ -22,8 +22,9 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             + "and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') "
             + "and (:priceUnrestricted=true or (case when g.is_free=true then 0 else g.price_current end) "
             + "between :priceMin and :priceMax) and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT') "
-            + "and (:playersUnrestricted=true or (g.min_players is not null and g.max_players is not null "
-            + "and g.max_players>=:playerMin and (:playerUpperOpen=true or g.min_players<=:playerMax))) "
+            + "and (:playersUnrestricted=true or ("
+            + "greatest(coalesce(g.max_players,0),coalesce(g.online_max_players,0),coalesce(g.online_coop_max_players,0))>=:playerMin "
+            + "and coalesce(g.min_players,1)<=:playerMax)) "
             + "group by s.steam_app_id having count(distinct t.canonical_name)=:tagCount "
             + "order by s.steam_app_id",nativeQuery=true)
     List<Long> findFilteredAppIdsMatchingAll(@Param("tags") Collection<String> tags,
@@ -31,7 +32,7 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             @Param("priceMax") int priceMax, @Param("priceUnrestricted") boolean priceUnrestricted,
             @Param("includeAdult") boolean includeAdult, @Param("playerMin") int playerMin,
             @Param("playerMax") int playerMax, @Param("playersUnrestricted") boolean playersUnrestricted,
-            @Param("playerUpperOpen") boolean playerUpperOpen, Pageable pageable);
+            Pageable pageable);
     @Query(value="select g.steam_app_id from steam_games g "
             + "left join steam_game_tags s on s.steam_app_id=g.steam_app_id and s.tag_id in "
             + "(select t.id from game_tags t where t.canonical_name in (:tags)) "
@@ -40,8 +41,9 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             + "and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE') "
             + "and (:priceUnrestricted=true or (case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
             + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT') "
-            + "and (:playersUnrestricted=true or (g.min_players is not null and g.max_players is not null "
-            + "and g.max_players>=:playerMin and (:playerUpperOpen=true or g.min_players<=:playerMax))) "
+            + "and (:playersUnrestricted=true or ("
+            + "greatest(coalesce(g.max_players,0),coalesce(g.online_max_players,0),coalesce(g.online_coop_max_players,0))>=:playerMin "
+            + "and coalesce(g.min_players,1)<=:playerMax)) "
             + "group by g.steam_app_id,g.release_date "
             + "order by count(distinct s.tag_id) desc, "
             + "case when :preferRecent=true and g.release_date is not null "
@@ -52,7 +54,6 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             @Param("priceUnrestricted") boolean priceUnrestricted,
             @Param("includeAdult") boolean includeAdult, @Param("playerMin") int playerMin,
             @Param("playerMax") int playerMax, @Param("playersUnrestricted") boolean playersUnrestricted,
-            @Param("playerUpperOpen") boolean playerUpperOpen,
             @Param("preferRecent") boolean preferRecent, @Param("tieSeed") long tieSeed,
             Pageable pageable);
 }

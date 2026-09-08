@@ -16,12 +16,18 @@ class GameFinderHardFilterTest {
         assertThat(filter.priceMatches(game(false,null,null,null,null),0,99999)).isFalse();
     }
     @Test void playerFilterUsesRangeOverlapAndRejectsUnknownWhenRestricted(){
-        assertThat(filter.playersMatch(game(false,0,0,1,4),3,5)).isTrue();
-        assertThat(filter.playersMatch(game(false,0,0,2,8),3,5)).isTrue();
-        assertThat(filter.playersMatch(game(false,0,0,1,2),3,5)).isFalse();
-        assertThat(filter.playersMatch(game(false,0,0,6,10),3,5)).isFalse();
-        assertThat(filter.playersMatch(game(false,0,0,null,null),3,5)).isFalse();
+        assertThat(filter.playersMatch(game(false,0,0,1,8),4,6)).isTrue();
+        assertThat(filter.playersMatch(game(false,0,0,2,10),4,6)).isTrue();
+        assertThat(filter.playersMatch(game(false,0,0,4,6),4,6)).isTrue();
+        assertThat(filter.playersMatch(game(false,0,0,1,2),4,6)).isFalse();
+        assertThat(filter.playersMatch(game(false,0,0,8,12),4,6)).isFalse();
+        assertThat(filter.playersMatch(game(false,0,0,null,null),4,6)).isFalse();
         assertThat(filter.playersMatch(game(false,0,0,null,null),1,15)).isTrue();
+    }
+    @Test void playerFilterUsesKnownOnlineCapacityForLegacyRows(){
+        var legacy=game(false,0,0,null,null);
+        legacy.updateIgdb(1L,null,null,8,6,true,true,false);
+        assertThat(filter.playersMatch(legacy,4,6)).isTrue();
     }
     @Test void adultUnknownIsAllowedButReliableAdultIsExcluded(){
         var request=new GameFinderRecommendRequest(List.of(1L),List.of(),0,100000,false,1,15,List.of());

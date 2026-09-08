@@ -22,7 +22,7 @@ class GameFinderRecommendationServiceTest {
 
         assertThat(result).extracting(value -> value.steamAppId()).containsExactly(2L);
         verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), eq(0),
-                eq(10000), eq(false), eq(false), eq(2), eq(4), eq(false), eq(false),
+                eq(10000), eq(false), eq(false), eq(2), eq(4), eq(false),
                 eq(true), anyLong(),
                 argThat(page -> page.getPageSize() == GameFinderRecommendationService.MAX_CANDIDATE_POOL));
     }
@@ -59,7 +59,7 @@ class GameFinderRecommendationServiceTest {
         verify(fixture.games, never()).findAll();
         verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), anyInt(),
                 anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyBoolean(), anyLong(),
+                anyBoolean(), anyLong(),
                 argThat(page -> page.getPageSize() == GameFinderRecommendationService.MAX_CANDIDATE_POOL));
     }
 
@@ -78,7 +78,7 @@ class GameFinderRecommendationServiceTest {
         assertThat(result).extracting(value -> value.steamAppId()).containsExactly(1L, 2L);
         verify(fixture.relations).findRankedRecommendationAppIds(anyCollection(), anyInt(),
                 anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), eq(false), anyLong(), any());
+                eq(false), anyLong(), any());
     }
 
     @Test
@@ -101,7 +101,7 @@ class GameFinderRecommendationServiceTest {
         assertThat(recentScore).isGreaterThan(balancedScore);
         verify(balancedFixture.relations).findRankedRecommendationAppIds(anyCollection(),
                 anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(),
-                anyBoolean(), anyBoolean(), eq(false), anyLong(), any());
+                anyBoolean(), eq(false), anyLong(), any());
     }
 
     @Test
@@ -173,7 +173,7 @@ class GameFinderRecommendationServiceTest {
         assertThat(result).extracting(value -> value.steamAppId()).contains(900_000L);
         verify(fixture.relations).findRankedRecommendationAppIds(
                 argThat(tags -> tags.contains("rpg")), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(),
                 anyLong(), any());
     }
 
@@ -208,7 +208,7 @@ class GameFinderRecommendationServiceTest {
         assertThat(result).extracting(value -> value.steamAppId()).contains(2L);
         verify(fixture.relations).findRankedRecommendationAppIds(
                 argThat(tags -> tags.contains("action")), anyInt(), anyInt(), anyBoolean(),
-                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(),
                 anyLong(), any());
     }
 
@@ -304,8 +304,8 @@ class GameFinderRecommendationServiceTest {
                             value -> value, (left, right) -> left));
             when(relations.findRankedRecommendationAppIds(anyCollection(), anyInt(), anyInt(),
                     anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(), anyBoolean(),
-                    anyBoolean(), anyLong(), any(Pageable.class))).thenAnswer(invocation -> {
-                        Pageable page = invocation.getArgument(11);
+                    anyLong(), any(Pageable.class))).thenAnswer(invocation -> {
+                        Pageable page = invocation.getArgument(10);
                         return values.stream().map(GameFinderRecommendationCandidate::steamAppId)
                                 .distinct().limit(page.getPageSize()).toList();
                     });

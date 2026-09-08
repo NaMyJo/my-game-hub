@@ -124,11 +124,17 @@ public class GameFinderRecommendationService {
             log.info("game_finder_recommendation_repository strategy={} method=findRankedRecommendationAppIds "
                             + "preferRecent={} candidateLimit={} tieSeed={}",
                     CANDIDATE_STRATEGY, preferRecent, MAX_CANDIDATE_POOL, tieSeed);
+            HardFilterDiagnosticCounts counts = repository.countRecommendationHardFilterStages(
+                    request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
+                    request.playerMin(), request.playerMax(), playersUnrestricted);
+            log.info("game_finder_recommendation_hard_filter eligible={} afterPrice={} "
+                            + "afterAdult={} afterPlayer={}", counts.getEligible(),
+                    counts.getAfterPrice(), counts.getAfterAdult(), counts.getAfterPlayer());
         }
         List<Long> rankedIds = relations.findRankedRecommendationAppIds(queryTags,
                 request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
                 request.playerMin(), request.playerMax(), playersUnrestricted,
-                request.playerMax() == 15, preferRecent, tieSeed,
+                preferRecent, tieSeed,
                 PageRequest.of(0, MAX_CANDIDATE_POOL));
         Map<Long, GameFinderRecommendationCandidate> byId = repository
                 .findRecommendationCandidatesByAppIds(rankedIds).stream()

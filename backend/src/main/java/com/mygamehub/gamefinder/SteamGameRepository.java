@@ -27,6 +27,30 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "from SteamGame g where g.steamAppId in :appIds")
     List<GameFinderRecommendationCandidate> findRecommendationCandidatesByAppIds(
             @org.springframework.data.repository.query.Param("appIds") Collection<Long> appIds);
+    @Query(value = "select count(*) as eligible, "
+            + "count(*) filter (where (:priceUnrestricted=true or "
+            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax)) as \"afterPrice\", "
+            + "count(*) filter (where (:priceUnrestricted=true or "
+            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
+            + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT')) as \"afterAdult\", "
+            + "count(*) filter (where (:priceUnrestricted=true or "
+            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
+            + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT') "
+            + "and (:playersUnrestricted=true or "
+            + "(greatest(coalesce(g.max_players,0),coalesce(g.online_max_players,0),coalesce(g.online_coop_max_players,0))>=:playerMin "
+            + "and coalesce(g.min_players,1)<=:playerMax))) as \"afterPlayer\" "
+            + "from steam_games g where g.game_catalog_eligible=true "
+            + "and g.metadata_status='SUCCESS' and g.metadata_updated_at is not null "
+            + "and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE')",
+            nativeQuery = true)
+    HardFilterDiagnosticCounts countRecommendationHardFilterStages(
+            @org.springframework.data.repository.query.Param("priceMin") int priceMin,
+            @org.springframework.data.repository.query.Param("priceMax") int priceMax,
+            @org.springframework.data.repository.query.Param("priceUnrestricted") boolean priceUnrestricted,
+            @org.springframework.data.repository.query.Param("includeAdult") boolean includeAdult,
+            @org.springframework.data.repository.query.Param("playerMin") int playerMin,
+            @org.springframework.data.repository.query.Param("playerMax") int playerMax,
+            @org.springframework.data.repository.query.Param("playersUnrestricted") boolean playersUnrestricted);
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
     @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
