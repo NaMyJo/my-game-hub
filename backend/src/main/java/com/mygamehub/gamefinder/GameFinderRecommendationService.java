@@ -5,10 +5,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 @Service
 public class GameFinderRecommendationService {
     static final int MAX_CANDIDATE_POOL = 2_000;
+    static final int RELEVANCE_CANDIDATE_LIMIT = 1_600;
+    static final int DISCOVERY_CANDIDATE_LIMIT = 400;
+    private static final long DISCOVERY_ANCHOR_RANGE = 4_000_000L;
     private final SteamGameRepository repository;
     private final SteamGameTagRepository relations;
     private final GameTagTaxonomy taxonomy;
@@ -60,10 +65,10 @@ public class GameFinderRecommendationService {
 
         boolean priceUnrestricted = request.priceMin() == 0 && request.priceMax() == 100000;
         boolean playersUnrestricted = request.playerMin() == 1 && request.playerMax() == 15;
-        List<GameFinderRecommendationCandidate> candidates = repository.findRecommendationCandidates(
-                request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
-                request.playerMin(), request.playerMax(), playersUnrestricted,
-                request.playerMax() == 15, PageRequest.of(0, MAX_CANDIDATE_POOL));
+        Set<String> retrievalTags = new LinkedHashSet<>(taste);
+        retrievalTags.addAll(preferred);
+        List<GameFinderRecommendationCandidate> candidates = candidates(request, retrievalTags,
+                priceUnrestricted, playersUnrestricted);
         Map<Long, Set<String>> candidateTags = tagsByAppIds(
                 candidates.stream().map(GameFinderRecommendationCandidate::steamAppId).toList());
 
@@ -73,7 +78,8 @@ public class GameFinderRecommendationService {
                 .filter(candidate -> !excluded.contains(candidate.steamAppId()))
                 .map(candidate -> new Scored(candidate,
                         score(taste, preferred, candidateTags.getOrDefault(
-                                candidate.steamAppId(), Set.of())),
+                                candidate.steamAppId(), Set.of()), candidate.releaseDate(),
+                                request.releasePreference()),
                         candidateTags.getOrDefault(candidate.steamAppId(), Set.of())))
                 .filter(value -> request.likedSteamAppIds().isEmpty() || value.score >= 0.08)
                 .sorted(Comparator.comparingDouble(Scored::score).reversed()
@@ -84,6 +90,55 @@ public class GameFinderRecommendationService {
         List<GameFinderRecommendationResponse> pageValues = diversify(scored).stream()
                 .skip(offset).limit(size + 1L).map(this::response).toList();
         return GameFinderPageResponse.from(pageValues, page, size);
+    }
+
+    private List<GameFinderRecommendationCandidate> candidates(GameFinderRecommendRequest request,
+            Set<String> retrievalTags, boolean priceUnrestricted, boolean playersUnrestricted) {
+        LinkedHashMap<Long, GameFinderRecommendationCandidate> pool = new LinkedHashMap<>();
+        if (!retrievalTags.isEmpty()) {
+            List<Long> relevantIds = relations.findRelevantRecommendationAppIds(retrievalTags,
+                    request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
+                    request.playerMin(), request.playerMax(), playersUnrestricted,
+                    request.playerMax() == 15, PageRequest.of(0, RELEVANCE_CANDIDATE_LIMIT));
+            repository.findRecommendationCandidatesByAppIds(relevantIds).stream()
+                    .sorted(Comparator.comparingLong(GameFinderRecommendationCandidate::steamAppId))
+                    .forEach(value -> pool.put(value.steamAppId(), value));
+        }
+
+        long anchor = discoveryAnchor(request, retrievalTags);
+        int discoveryAdded = addDiscovery(pool, repository.findDiscoveryCandidatesFrom(anchor, request.priceMin(),
+                request.priceMax(), priceUnrestricted, request.includeAdult(), request.playerMin(),
+                request.playerMax(), playersUnrestricted, request.playerMax() == 15,
+                PageRequest.of(0, DISCOVERY_CANDIDATE_LIMIT)));
+        int missing = Math.min(DISCOVERY_CANDIDATE_LIMIT - discoveryAdded,
+                MAX_CANDIDATE_POOL - pool.size());
+        if (missing > 0) {
+            addDiscovery(pool, repository.findDiscoveryCandidatesBefore(anchor, request.priceMin(),
+                    request.priceMax(), priceUnrestricted, request.includeAdult(), request.playerMin(),
+                    request.playerMax(), playersUnrestricted, request.playerMax() == 15,
+                    PageRequest.of(0, missing)));
+        }
+        return pool.values().stream().limit(MAX_CANDIDATE_POOL).toList();
+    }
+
+    private int addDiscovery(Map<Long, GameFinderRecommendationCandidate> pool,
+            List<GameFinderRecommendationCandidate> values) {
+        int added = 0;
+        for (var value : values) {
+            if (!pool.containsKey(value.steamAppId()) && added < DISCOVERY_CANDIDATE_LIMIT) {
+                pool.put(value.steamAppId(), value);
+                added++;
+            }
+        }
+        return added;
+    }
+
+    private long discoveryAnchor(GameFinderRecommendRequest request, Set<String> tags) {
+        List<String> stableTags = tags.stream().sorted().toList();
+        int hash = Objects.hash(stableTags, request.priceMin(), request.priceMax(),
+                request.includeAdult(), request.playerMin(), request.playerMax(),
+                ReleasePreference.defaultIfNull(request.releasePreference()));
+        return Math.floorMod((long) hash * 2_654_435_761L, DISCOVERY_ANCHOR_RANGE);
     }
 
     private Map<Long, Set<String>> tagsByAppIds(Collection<Long> appIds) {
@@ -101,13 +156,26 @@ public class GameFinderRecommendationService {
         return intersection / Math.sqrt((double) left.size() * right.size());
     }
 
-    private double score(Set<String> seedTaste, Set<String> preferred, Set<String> candidate) {
+    private double score(Set<String> seedTaste, Set<String> preferred, Set<String> candidate,
+            LocalDate releaseDate, ReleasePreference releasePreference) {
         double seedScore = similarity(seedTaste, candidate);
         double tagScore = preferred.isEmpty() ? 0
                 : preferred.stream().filter(candidate::contains).count() / (double) preferred.size();
-        if (seedTaste.isEmpty()) return 0.10 + 0.90 * tagScore;
-        if (preferred.isEmpty()) return seedScore;
-        return 0.80 * seedScore + 0.20 * tagScore;
+        double relevance;
+        if (seedTaste.isEmpty()) relevance = 0.10 + 0.90 * tagScore;
+        else if (preferred.isEmpty()) relevance = seedScore;
+        else relevance = 0.80 * seedScore + 0.20 * tagScore;
+        // Keep the unbounded internal value for ordering. The response still caps the
+        // displayed match percentage at 100, so release recency remains a soft tie/near-tie boost.
+        return relevance + releaseBoost(releaseDate, releasePreference);
+    }
+
+    private double releaseBoost(LocalDate releaseDate, ReleasePreference preference) {
+        ReleasePreference mode = ReleasePreference.defaultIfNull(preference);
+        if (mode == ReleasePreference.ANY || releaseDate == null || releaseDate.isAfter(LocalDate.now())) return 0;
+        long ageDays = Math.max(0, ChronoUnit.DAYS.between(releaseDate, LocalDate.now()));
+        double freshness = ageDays <= 730 ? 1.0 : ageDays <= 1825 ? 0.6 : ageDays <= 3650 ? 0.25 : 0;
+        return freshness * (mode == ReleasePreference.RECENT ? 0.08 : 0.03);
     }
 
     Set<String> normalizePreferredTags(List<String> values) {
@@ -127,10 +195,6 @@ public class GameFinderRecommendationService {
         List<Scored> high = new ArrayList<>(source.subList(0, highEnd));
         List<Scored> medium = new ArrayList<>(source.subList(highEnd, mediumEnd));
         List<Scored> discovery = new ArrayList<>(source.subList(mediumEnd, source.size()));
-        Comparator<Scored> stable = Comparator.comparingLong(value -> value.game().steamAppId());
-        high.sort(stable);
-        medium.sort(stable);
-        discovery.sort(stable);
         List<Scored> result = new ArrayList<>(source.size());
         int highIndex = 0, mediumIndex = 0, discoveryIndex = 0;
         while (result.size() < source.size()) {
@@ -146,7 +210,7 @@ public class GameFinderRecommendationService {
     private GameFinderRecommendationResponse response(Scored value) {
         var game = value.game();
         return new GameFinderRecommendationResponse(game.steamAppId(), game.name(),
-                game.headerImageUrl(), (int) Math.round(value.score() * 100),
+                game.headerImageUrl(), (int) Math.round(Math.min(1.0, value.score()) * 100),
                 game.priceCurrent(), game.priceOriginal(), game.discountPercent(),
                 game.priceCurrency(), game.isFree(), game.releaseDate(), game.releaseDateText(),
                 game.comingSoon(), game.singlePlayer(), game.multiplayer(), game.onlineCoop(),

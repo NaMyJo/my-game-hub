@@ -16,11 +16,82 @@ class GameFinderPage extends StatefulWidget {
   State<GameFinderPage> createState() => _GameFinderPageState();
 }
 
+class GameFinderStepNavigation extends StatelessWidget {
+  const GameFinderStepNavigation({
+    super.key,
+    required this.currentStep,
+    required this.maxVisitedStep,
+    required this.onStepSelected,
+  });
+
+  final int currentStep;
+  final int maxVisitedStep;
+  final ValueChanged<int> onStepSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['취향 게임', '탐색 범위', '추천 결과'];
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 620;
+      return Row(children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          if (index > 0)
+            Expanded(
+                child: Container(
+                    height: 2,
+                    color: index + 1 <= maxVisitedStep
+                        ? const Color(0xFF6F5AE8)
+                        : Theme.of(context).dividerColor)),
+          Tooltip(
+              message: labels[index],
+              child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: index + 1 <= maxVisitedStep
+                      ? () => onStepSelected(index + 1)
+                      : null,
+                  child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 9 : 16, vertical: 11),
+                      decoration: BoxDecoration(
+                          color: currentStep == index + 1
+                              ? const Color(0xFF6F5AE8).withValues(alpha: .20)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: currentStep == index + 1
+                                  ? const Color(0xFF8D79FF)
+                                  : Theme.of(context).dividerColor)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        CircleAvatar(
+                            radius: 12,
+                            backgroundColor: index + 1 <= maxVisitedStep
+                                ? const Color(0xFF6F5AE8)
+                                : Theme.of(context).disabledColor,
+                            child: Text('${index + 1}',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 12))),
+                        if (!compact) ...[
+                          const SizedBox(width: 8),
+                          Text(labels[index],
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800))
+                        ]
+                      ]))))
+        ]
+      ]);
+    });
+  }
+}
+
 class _GameFinderPageState extends State<GameFinderPage> {
   int step = 1;
+  int maxVisitedStep = 1;
   RangeValues price = const RangeValues(0, 100000);
   RangeValues players = const RangeValues(1, 15);
   bool includeAdult = false;
+  GameFinderReleasePreference releasePreference =
+      GameFinderReleasePreference.recent;
   final searchController = TextEditingController();
   Timer? debounce;
   List<SteamGameSearchItem> searchResults = [];
@@ -58,6 +129,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
         players =
             RangeValues(prefs.playerMin.toDouble(), prefs.playerMax.toDouble());
         includeAdult = prefs.includeAdult;
+        releasePreference = prefs.releasePreference;
         availableTags
           ..clear()
           ..addAll(tags);
@@ -111,6 +183,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           includeAdult: includeAdult,
           playerMin: players.start.round(),
           playerMax: players.end.round(),
+          releasePreference: releasePreference,
           excluded: more ? shown : <int>{});
       final saved = await GameFinderRepository.instance.savePreferences(
           selectedIds: selected.map((e) => e.appId).toList(),
@@ -119,7 +192,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
           priceMax: price.end.round(),
           includeAdult: includeAdult,
           playerMin: players.start.round(),
-          playerMax: players.end.round());
+          playerMax: players.end.round(),
+          releasePreference: releasePreference);
       if (mounted) {
         setState(() {
           recent
@@ -128,6 +202,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           recommendations = result;
           shown.addAll(result.map((e) => e.appId));
           step = 3;
+          maxVisitedStep = 3;
         });
       }
     } catch (_) {
@@ -155,19 +230,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
       const SizedBox(height: 6),
       const Text('좋아했던 Steam 게임을 바탕으로 다음 게임을 찾아보세요.'),
       const SizedBox(height: 20),
-      Wrap(spacing: 8, children: [
-        for (var i = 1; i <= 3; i++)
-          Chip(
-              avatar: CircleAvatar(child: Text('$i')),
-              label: Text(i == 1
-                  ? '취향 게임'
-                  : i == 2
-                      ? '탐색 범위'
-                      : '추천 결과'),
-              backgroundColor: step == i
-                  ? const Color(0xFF6F5AE8).withValues(alpha: .24)
-                  : null)
-      ]),
+      _stepNavigation(),
       const SizedBox(height: 18),
       if (error != null)
         Container(
@@ -198,11 +261,33 @@ class _GameFinderPageState extends State<GameFinderPage> {
                   ? const Color(0xFF24344B)
                   : const Color(0xFFDDE3EC))),
       child: child);
+
+  Widget _stepNavigation() {
+    return GameFinderStepNavigation(
+      currentStep: step,
+      maxVisitedStep: maxVisitedStep,
+      onStepSelected: (value) => setState(() => step = value),
+    );
+  }
   Widget _filters() =>
       _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('탐색 범위',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         const SizedBox(height: 20),
+        const Text('출시 선호',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: GameFinderReleasePreference.values
+                .map((value) => ChoiceChip(
+                    label: Text(value.label),
+                    selected: releasePreference == value,
+                    onSelected: (_) =>
+                        setState(() => releasePreference = value)))
+                .toList()),
+        const SizedBox(height: 22),
         Text(
             '가격  ${_won(price.start.round())} ~ ${price.end == 100000 ? '100,000원+' : _won(price.end.round())}'),
         RangeSlider(
@@ -325,7 +410,10 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 onPressed: !canRequestGameFinderRecommendation(
                         selected.map((game) => game.appId), selectedTags)
                     ? null
-                    : () => setState(() => step = 2),
+                    : () => setState(() {
+                          step = 2;
+                          if (maxVisitedStep < 2) maxVisitedStep = 2;
+                        }),
                 icon: const Icon(Icons.arrow_forward),
                 label: const Text('조건 설정')))
       ]));
@@ -366,18 +454,28 @@ class _GameFinderPageState extends State<GameFinderPage> {
           Text(
               '인원 ${players.start.round()}~${players.end == 15 ? '15명+' : players.end.round()}'),
           Text(includeAdult ? '성인 포함' : '성인 제외'),
-          Text('취향 게임 ${selected.length}개')
+          Text('취향 게임 ${selected.length}개'),
+          Text(releasePreference.label)
         ])),
         const SizedBox(height: 16),
         if (recommendations.isEmpty)
           _panel(Column(children: [
-            const Text('조건에 맞는 새로운 게임을 모두 확인했어요.'),
-            TextButton(
-                onPressed: () {
-                  setState(() => shown.clear());
-                  recommend();
-                },
-                child: const Text('처음부터 다시 보기'))
+            const Icon(Icons.explore_outlined,
+                size: 44, color: Color(0xFF8D79FF)),
+            const SizedBox(height: 12),
+            const Text('조건에 맞는 게임을 모두 확인했어요',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 6),
+            const Text('조건을 조금 넓히거나 취향을 수정하면 더 많은 게임을 찾을 수 있어요.'),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              OutlinedButton(
+                  onPressed: () => setState(() => step = 2),
+                  child: const Text('조건 수정')),
+              FilledButton(
+                  onPressed: () => setState(() => step = 1),
+                  child: const Text('취향 다시 선택'))
+            ])
           ]))
         else
           LayoutBuilder(builder: (context, c) {
@@ -436,6 +534,14 @@ class _GameFinderPageState extends State<GameFinderPage> {
                               style: const TextStyle(
                                   color: Color(0xFF8D79FF),
                                   fontWeight: FontWeight.w800)),
+                          if (g.genres.any(selectedTags.contains)) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                                '선호 태그 ${g.genres.where(selectedTags.contains).take(2).map(_tagLabel).join(' · ')} 일치',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ],
                           const SizedBox(height: 7),
                           Text(_price(g)),
                           Text(_release(g)),
@@ -449,7 +555,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
                               ].join(' · '),
                               maxLines: 2),
                           const Spacer(),
-                          Text(g.genres.take(3).join(' · '),
+                          Text(g.genres.take(3).map(_tagLabel).join(' · '),
                               maxLines: 2, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 8),
                           const Row(
@@ -495,6 +601,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
         : (g.releaseDateText?.isNotEmpty == true
             ? '${g.releaseDateText} 출시'
             : '출시일 미상');
+  }
+
+  String _tagLabel(String canonicalName) {
+    for (final tag in availableTags) {
+      if (tag.canonicalName == canonicalName) return tag.displayName;
+    }
+    return canonicalName;
   }
 
   String _won(int value) =>

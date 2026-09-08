@@ -21,6 +21,7 @@ class GameFinderRepository {
       required bool includeAdult,
       required int playerMin,
       required int playerMax,
+      required GameFinderReleasePreference releasePreference,
       required Set<int> excluded}) async {
     final json =
         await ApiClient.instance.post('/api/game-finder/recommend', body: {
@@ -31,6 +32,7 @@ class GameFinderRepository {
       'includeAdult': includeAdult,
       'playerMin': playerMin,
       'playerMax': playerMax,
+      'releasePreference': releasePreference.apiValue,
       'excludeAppIds': excluded.toList()
     }) as List<dynamic>;
     return json
@@ -41,7 +43,7 @@ class GameFinderRepository {
 
   Future<List<GameFinderTag>> tags({String query = ''}) async {
     final json = await ApiClient.instance.get(
-            '/api/game-finder/v1/tags?q=${Uri.encodeQueryComponent(query)}&size=30')
+            '/api/game-finder/v1/tags?q=${Uri.encodeQueryComponent(query)}&size=100')
         as Map<String, dynamic>;
     return (json['items'] as List<dynamic>? ?? const [])
         .map((v) => GameFinderTag.fromJson(v as Map<String, dynamic>))
@@ -59,7 +61,8 @@ class GameFinderRepository {
           required int priceMax,
           required bool includeAdult,
           required int playerMin,
-          required int playerMax}) async =>
+          required int playerMax,
+          required GameFinderReleasePreference releasePreference}) async =>
       GameFinderPreferences.fromJson(await ApiClient.instance
           .put('/api/game-finder/v1/me/preferences', body: {
         'selectedSteamAppIds': selectedIds,
@@ -68,7 +71,8 @@ class GameFinderRepository {
         'priceMax': priceMax,
         'includeAdult': includeAdult,
         'playerMin': playerMin,
-        'playerMax': playerMax
+        'playerMax': playerMax,
+        'releasePreference': releasePreference.apiValue
       }) as Map<String, dynamic>);
 
   Future<List<GameFinderTagSearchResult>> searchByTags({

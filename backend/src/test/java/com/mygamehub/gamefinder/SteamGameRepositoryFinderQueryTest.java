@@ -23,7 +23,7 @@ class SteamGameRepositoryFinderQueryTest {
         insertGame(30, 5000, "ADULT", 1, 4, true, "game", "ACTIVE");
         insertGame(40, 5000, "NON_ADULT", 1, 4, false, "game", "ACTIVE");
 
-        var result = games.findRecommendationCandidates(0, 10000, false, false,
+        var result = games.findDiscoveryCandidatesFrom(0, 0, 10000, false, false,
                 2, 5, false, false, PageRequest.of(0, 2));
 
         assertThat(result).extracting(GameFinderRecommendationCandidate::steamAppId)
@@ -45,6 +45,22 @@ class SteamGameRepositoryFinderQueryTest {
         assertThat(result).containsExactly(30L);
     }
 
+    @Test
+    void relevantCandidatesAreRankedByTagMatchesBeforeBoundedLimitRegardlessOfAppId() {
+        long action = insertTag("action");
+        long rpg = insertTag("rpg");
+        insertGame(10, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
+        insertGame(900000, 5000, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
+        insertRelation(10, action);
+        insertRelation(900000, action);
+        insertRelation(900000, rpg);
+
+        var result = relations.findRelevantRecommendationAppIds(List.of("action", "rpg"),
+                0, 10000, false, false, 1, 15, true, true, PageRequest.of(0, 1));
+
+        assertThat(result).containsExactly(900000L);
+    }
+
     private void insertGame(long appId, int price, String adult, int minPlayers,
             int maxPlayers, boolean eligible, String type, String lifecycle) {
         jdbc.update("insert into steam_games (steam_app_id,name,game_catalog_eligible," +
@@ -60,5 +76,10 @@ class SteamGameRepositoryFinderQueryTest {
                 canonicalName, canonicalName, "PLAY_STYLE");
         return jdbc.queryForObject("select id from game_tags where canonical_name=?",
                 Long.class, canonicalName);
+    }
+
+    private void insertRelation(long appId, long tagId) {
+        jdbc.update("insert into steam_game_tags (steam_app_id,tag_id,source) values (?,?,?)",
+                appId, tagId, "STEAM");
     }
 }

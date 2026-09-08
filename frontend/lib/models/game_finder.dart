@@ -2,6 +2,17 @@ bool canRequestGameFinderRecommendation(
         Iterable<int> seedAppIds, Iterable<String> preferredTags) =>
     seedAppIds.isNotEmpty || preferredTags.isNotEmpty;
 
+enum GameFinderReleasePreference { balanced, recent, any }
+
+extension GameFinderReleasePreferenceValue on GameFinderReleasePreference {
+  String get apiValue => name.toUpperCase();
+  String get label => switch (this) {
+        GameFinderReleasePreference.balanced => '균형 추천',
+        GameFinderReleasePreference.recent => '최신 게임 우선',
+        GameFinderReleasePreference.any => '출시일 무관',
+      };
+}
+
 class SteamGameSearchItem {
   const SteamGameSearchItem(
       {required this.appId, required this.name, this.imageUrl});
@@ -36,11 +47,13 @@ class GameFinderPreferences {
       required this.includeAdult,
       required this.playerMin,
       required this.playerMax,
+      required this.releasePreference,
       required this.recentGames});
   final List<SteamGameSearchItem> selectedGames, recentGames;
   final List<String> preferredTags;
   final int priceMin, priceMax, playerMin, playerMax;
   final bool includeAdult;
+  final GameFinderReleasePreference releasePreference;
   factory GameFinderPreferences.fromJson(Map<String, dynamic> json) =>
       GameFinderPreferences(
           selectedGames: (json['selectedGames'] as List<dynamic>? ?? const [])
@@ -55,6 +68,9 @@ class GameFinderPreferences {
           includeAdult: json['includeAdult'] as bool? ?? false,
           playerMin: (json['playerMin'] as num?)?.toInt() ?? 1,
           playerMax: (json['playerMax'] as num?)?.toInt() ?? 15,
+          releasePreference: GameFinderReleasePreference.values.firstWhere(
+              (value) => value.apiValue == (json['releasePreference'] ?? 'RECENT'),
+              orElse: () => GameFinderReleasePreference.recent),
           recentGames: (json['recentGames'] as List<dynamic>? ?? const [])
               .map((v) =>
                   SteamGameSearchItem.fromJson(v as Map<String, dynamic>))

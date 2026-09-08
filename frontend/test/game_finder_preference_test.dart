@@ -28,5 +28,15 @@ void main() {
     expect(value.preferredTags, ['moba']);
     expect(value.recentGames.single.appId, 730);
     expect(value.priceMax, 50000);
+    expect(value.releasePreference, GameFinderReleasePreference.recent);
+  });
+
+  test('출시 선호를 복원하고 기존 응답은 RECENT를 기본값으로 사용한다', () {
+    final balanced = GameFinderPreferences.fromJson({
+      'releasePreference': 'BALANCED',
+    });
+    final legacy = GameFinderPreferences.fromJson({});
+    expect(balanced.releasePreference, GameFinderReleasePreference.balanced);
+    expect(legacy.releasePreference, GameFinderReleasePreference.recent);
   });
 }

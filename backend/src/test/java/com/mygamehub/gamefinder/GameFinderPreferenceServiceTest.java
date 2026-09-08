@@ -28,6 +28,7 @@ class GameFinderPreferenceServiceTest {
         assertThat(result.includeAdult()).isFalse();
         assertThat(result.playerMin()).isEqualTo(1);
         assertThat(result.playerMax()).isEqualTo(15);
+        assertThat(result.releasePreference()).isEqualTo(ReleasePreference.RECENT);
     }
 
     @Test
@@ -43,6 +44,7 @@ class GameFinderPreferenceServiceTest {
         assertThat(first.selectedGames()).extracting(v -> v.steamAppId()).containsExactly(570L);
         assertThat(first.recentGames()).extracting(v -> v.steamAppId()).containsExactly(570L);
         assertThat(first.preferredTags()).containsExactly("moba");
+        assertThat(first.releasePreference()).isEqualTo(ReleasePreference.RECENT);
         assertThat(second.selectedGames()).extracting(v -> v.steamAppId()).containsExactly(730L);
         assertThat(second.recentGames()).extracting(v -> v.steamAppId()).containsExactly(730L);
         assertThat(second.preferredTags()).containsExactly("coop");

@@ -15,14 +15,17 @@ public class GameFinderUserPreference {
     private boolean includeAdult;
     private int playerMin = 1;
     private int playerMax = 15;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "release_preference", length = 20)
+    private ReleasePreference releasePreference;
     @Column(nullable = false) private Instant updatedAt;
     protected GameFinderUserPreference() {}
     public GameFinderUserPreference(String uid) { firebaseUid=uid; updatedAt=Instant.now(); }
     public void update(Collection<Long> ids, Collection<String> tags, int priceMin, int priceMax,
-            boolean includeAdult, int playerMin, int playerMax) {
+            boolean includeAdult, int playerMin, int playerMax, ReleasePreference releasePreference) {
         selectedAppIds=join(ids); preferredTags=String.join("|", tags); this.priceMin=priceMin;
         this.priceMax=priceMax; this.includeAdult=includeAdult; this.playerMin=playerMin;
-        this.playerMax=playerMax; updatedAt=Instant.now();
+        this.playerMax=playerMax; this.releasePreference=ReleasePreference.defaultIfNull(releasePreference); updatedAt=Instant.now();
     }
     private static String join(Collection<Long> ids){return ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining("|"));}
     public List<Long> selectedIds(){if(selectedAppIds==null||selectedAppIds.isBlank())return List.of();return Arrays.stream(selectedAppIds.split("\\|")).map(Long::valueOf).toList();}
@@ -30,4 +33,5 @@ public class GameFinderUserPreference {
     public int getPriceMin(){return priceMin;} public int getPriceMax(){return priceMax;}
     public boolean isIncludeAdult(){return includeAdult;} public int getPlayerMin(){return playerMin;}
     public int getPlayerMax(){return playerMax;}
+    public ReleasePreference getReleasePreference(){return ReleasePreference.defaultIfNull(releasePreference);}
 }

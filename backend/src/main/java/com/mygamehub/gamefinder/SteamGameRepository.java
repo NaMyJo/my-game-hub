@@ -24,26 +24,41 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "g.steamAppId, g.name, g.headerImageUrl, g.priceCurrent, g.priceOriginal, "
             + "g.discountPercent, g.priceCurrency, g.isFree, g.releaseDate, g.releaseDateText, "
             + "g.comingSoon, g.singlePlayer, g.multiplayer, g.onlineCoop, g.maxPlayers, g.genres) "
-            + "from SteamGame g where g.gameCatalogEligible = true "
+            + "from SteamGame g where g.steamAppId in :appIds")
+    List<GameFinderRecommendationCandidate> findRecommendationCandidatesByAppIds(
+            @org.springframework.data.repository.query.Param("appIds") Collection<Long> appIds);
+    @Query("select new com.mygamehub.gamefinder.GameFinderRecommendationCandidate("
+            + "g.steamAppId, g.name, g.headerImageUrl, g.priceCurrent, g.priceOriginal, "
+            + "g.discountPercent, g.priceCurrency, g.isFree, g.releaseDate, g.releaseDateText, "
+            + "g.comingSoon, g.singlePlayer, g.multiplayer, g.onlineCoop, g.maxPlayers, g.genres) "
+            + "from SteamGame g where g.steamAppId >= :anchor and g.gameCatalogEligible = true "
             + "and g.metadataStatus = com.mygamehub.gamefinder.EnrichmentStatus.SUCCESS "
             + "and g.metadataUpdatedAt is not null and g.storeType = 'game' "
             + "and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE) "
-            + "and (:priceUnrestricted = true or ((case when g.isFree = true then 0 else g.priceCurrent end) "
-            + "between :priceMin and :priceMax)) "
+            + "and (:priceUnrestricted = true or ((case when g.isFree = true then 0 else g.priceCurrent end) between :priceMin and :priceMax)) "
             + "and (:includeAdult = true or g.adultStatus is null or g.adultStatus <> 'ADULT') "
             + "and (:playersUnrestricted = true or (g.minPlayers is not null and g.maxPlayers is not null "
-            + "and g.maxPlayers >= :playerMin and (:playerUpperOpen = true or g.minPlayers <= :playerMax))) "
-            + "order by g.steamAppId")
-    List<GameFinderRecommendationCandidate> findRecommendationCandidates(
-            @org.springframework.data.repository.query.Param("priceMin") int priceMin,
-            @org.springframework.data.repository.query.Param("priceMax") int priceMax,
-            @org.springframework.data.repository.query.Param("priceUnrestricted") boolean priceUnrestricted,
-            @org.springframework.data.repository.query.Param("includeAdult") boolean includeAdult,
-            @org.springframework.data.repository.query.Param("playerMin") int playerMin,
-            @org.springframework.data.repository.query.Param("playerMax") int playerMax,
-            @org.springframework.data.repository.query.Param("playersUnrestricted") boolean playersUnrestricted,
-            @org.springframework.data.repository.query.Param("playerUpperOpen") boolean playerUpperOpen,
-            Pageable pageable);
+            + "and g.maxPlayers >= :playerMin and (:playerUpperOpen = true or g.minPlayers <= :playerMax))) order by g.steamAppId")
+    List<GameFinderRecommendationCandidate> findDiscoveryCandidatesFrom(
+            long anchor, int priceMin, int priceMax, boolean priceUnrestricted,
+            boolean includeAdult, int playerMin, int playerMax, boolean playersUnrestricted,
+            boolean playerUpperOpen, Pageable pageable);
+    @Query("select new com.mygamehub.gamefinder.GameFinderRecommendationCandidate("
+            + "g.steamAppId, g.name, g.headerImageUrl, g.priceCurrent, g.priceOriginal, "
+            + "g.discountPercent, g.priceCurrency, g.isFree, g.releaseDate, g.releaseDateText, "
+            + "g.comingSoon, g.singlePlayer, g.multiplayer, g.onlineCoop, g.maxPlayers, g.genres) "
+            + "from SteamGame g where g.steamAppId < :anchor and g.gameCatalogEligible = true "
+            + "and g.metadataStatus = com.mygamehub.gamefinder.EnrichmentStatus.SUCCESS "
+            + "and g.metadataUpdatedAt is not null and g.storeType = 'game' "
+            + "and (g.lifecycleStatus is null or g.lifecycleStatus = com.mygamehub.gamefinder.CatalogLifecycleStatus.ACTIVE) "
+            + "and (:priceUnrestricted = true or ((case when g.isFree = true then 0 else g.priceCurrent end) between :priceMin and :priceMax)) "
+            + "and (:includeAdult = true or g.adultStatus is null or g.adultStatus <> 'ADULT') "
+            + "and (:playersUnrestricted = true or (g.minPlayers is not null and g.maxPlayers is not null "
+            + "and g.maxPlayers >= :playerMin and (:playerUpperOpen = true or g.minPlayers <= :playerMax))) order by g.steamAppId")
+    List<GameFinderRecommendationCandidate> findDiscoveryCandidatesBefore(
+            long anchor, int priceMin, int priceMax, boolean priceUnrestricted,
+            boolean includeAdult, int playerMin, int playerMax, boolean playersUnrestricted,
+            boolean playerUpperOpen, Pageable pageable);
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
     @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
