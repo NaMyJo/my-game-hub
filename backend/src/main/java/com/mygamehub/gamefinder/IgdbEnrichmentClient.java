@@ -82,6 +82,7 @@ public class IgdbEnrichmentClient {
     }
 
     public Map<Long, Optional<IgdbData>> findBySteamAppIds(Collection<Long> appIds) {
+        long totalStarted = System.nanoTime();
         LinkedHashMap<Long, Optional<IgdbData>> results = new LinkedHashMap<>();
         appIds.stream().distinct().forEach(id -> results.put(id, Optional.empty()));
         if (results.isEmpty()) return results;
@@ -94,6 +95,7 @@ public class IgdbEnrichmentClient {
         String uids = results.keySet().stream().map(id -> "\"" + id + "\"")
                 .collect(Collectors.joining(","));
         List<JsonNode> links = new ArrayList<>();
+        long externalStarted = System.nanoTime();
         int linkOffset = 0;
         while (true) {
             JsonNode page = post("external_games",
@@ -105,6 +107,7 @@ public class IgdbEnrichmentClient {
             linkOffset += 500;
         }
         int linkCount = links.size();
+        logStage("external_games_mapping", externalStarted, results.size(), linkCount);
         log.info("igdb_external_games_batch_result requested={} matchCount={}",
                 results.size(), linkCount);
         Map<Long, LinkedHashSet<Long>> candidateGameIdsByAppId = new LinkedHashMap<>();
@@ -124,11 +127,15 @@ public class IgdbEnrichmentClient {
             else log.warn("igdb_external_game_ambiguous appId={} matchCount={}",
                     appId, gameIds.size());
         });
-        if (gameIdsByAppId.isEmpty()) return results;
+        if (gameIdsByAppId.isEmpty()) {
+            logStage("total", totalStarted, results.size(), 0);
+            return results;
+        }
 
         String gameIds = gameIdsByAppId.values().stream().distinct()
                 .map(String::valueOf).collect(Collectors.joining(","));
         List<JsonNode> taxonomyGames = new ArrayList<>();
+        long taxonomyStarted = System.nanoTime();
         int gameOffset = 0;
         while (true) {
             JsonNode page = post("games",
@@ -150,7 +157,10 @@ public class IgdbEnrichmentClient {
                 taxonomyByGameId.computeIfAbsent(gameId, ignored -> parseTaxonomy(game));
             }
         }
+        logStage("games_taxonomy_fetch", taxonomyStarted, requestedGameIds.size(),
+                taxonomyGames.size());
         List<JsonNode> modes = new ArrayList<>();
+        long multiplayerStarted = System.nanoTime();
         int offset = 0;
         while (true) {
             JsonNode page = post("multiplayer_modes",
@@ -165,6 +175,8 @@ public class IgdbEnrichmentClient {
         Map<Long, List<JsonNode>> modesByGameId = modes.stream()
                 .filter(mode -> requestedGameIds.contains(mode.path("game").asLong(0)))
                 .collect(Collectors.groupingBy(mode -> mode.path("game").asLong(0)));
+        logStage("multiplayer_modes_fetch", multiplayerStarted, requestedGameIds.size(),
+                modes.size());
         for (Map.Entry<Long, Long> entry : gameIdsByAppId.entrySet()) {
             long appId = entry.getKey();
             long gameId = entry.getValue();
@@ -191,7 +203,15 @@ public class IgdbEnrichmentClient {
         }
         log.info("igdb_batch_complete requested={} mapped={} multiplayerModes={}",
                 results.size(), gameIdsByAppId.size(), modes.size());
+        logStage("total", totalStarted, results.size(), gameIdsByAppId.size());
         return results;
+    }
+
+    private static void logStage(String stage, long startedNanos, int requested, int affected) {
+        log.info("game_finder_igdb_client_stage_timing stage={} requested={} affected={} durationMs={}",
+                stage, requested, affected,
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - startedNanos));
     }
 
     private static List<IgdbTaxonomyValue> parseTaxonomy(JsonNode game) {

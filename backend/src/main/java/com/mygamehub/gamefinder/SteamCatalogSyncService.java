@@ -332,14 +332,24 @@ public class SteamCatalogSyncService {
     public long storeRequestDelayMs() { return storeDelayMs; }
 
     public synchronized EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
+        long totalStarted = System.nanoTime();
+        long candidateStarted = System.nanoTime();
         List<SteamGame> targets = games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize));
+        log.info("game_finder_igdb_batch_stage_timing stage=candidate_query requested={} count={} durationMs={}",
+                requestedBatchSize, targets.size(), elapsedMs(candidateStarted));
         boolean rateLimited = false;
         log.info("game_finder_igdb_enrichment_start candidateCount={}", targets.size());
         if (!targets.isEmpty() && igdb.configured()) {
             List<Long> appIds = targets.stream().map(SteamGame::getSteamAppId).toList();
             try {
+                long apiStarted = System.nanoTime();
                 var values = igdb.findBySteamAppIds(appIds);
+                log.info("game_finder_igdb_batch_stage_timing stage=igdb_api_all count={} durationMs={}",
+                        appIds.size(), elapsedMs(apiStarted));
+                long persistenceStarted = System.nanoTime();
                 targets = persistence.applyIgdbResults(appIds, values);
+                log.info("game_finder_igdb_batch_stage_timing stage=persistence_total count={} durationMs={}",
+                        targets.size(), elapsedMs(persistenceStarted));
             } catch (RuntimeException exception) {
                 boolean retryable = retryable(exception);
                 rateLimited = exception instanceof IgdbEnrichmentClient.IgdbRequestException failure
@@ -349,9 +359,14 @@ public class SteamCatalogSyncService {
                         targets.size(), exception.getClass().getSimpleName());
             }
         }
-        return EnrichmentStageBatchResult.from(
-                targets, false, igdb.configured() && games.countIgdbCandidates() > 0,
-                rateLimited);
+        long remainingStarted = System.nanoTime();
+        boolean hasMore = igdb.configured() && games.countIgdbCandidates() > 0;
+        log.info("game_finder_igdb_batch_stage_timing stage=remaining_candidate_count durationMs={}",
+                elapsedMs(remainingStarted));
+        var result = EnrichmentStageBatchResult.from(targets, false, hasMore, rateLimited);
+        log.info("game_finder_igdb_batch_stage_timing stage=total requested={} processed={} durationMs={}",
+                requestedBatchSize, result.processed(), elapsedMs(totalStarted));
+        return result;
     }
 
     public boolean hasEnrichmentCandidates() {
@@ -663,6 +678,11 @@ public class SteamCatalogSyncService {
 
     private Instant staleBefore() { return Instant.now().minus(Duration.ofDays(7)); }
     private Instant retryBefore() { return Instant.now().minusMillis(metadataRetryCooldownMs); }
+
+    private static long elapsedMs(long startedNanos) {
+        return java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                System.nanoTime() - startedNanos);
+    }
 
     private boolean retryable(RuntimeException exception) {
         if (exception instanceof ExternalApiRetry.RetryableFailure failure) return failure.isRetryable();
