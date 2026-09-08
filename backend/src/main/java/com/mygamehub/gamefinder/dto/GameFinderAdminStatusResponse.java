@@ -24,6 +24,9 @@ public record GameFinderAdminStatusResponse(
         long unclassifiedCount,
         long playerDataCount,
         long playerDataMissingCount,
+        long igdbSuccessCount,
+        long igdbSuccessPlayerDataCount,
+        long igdbSuccessPlayerDataMissingCount,
         MetadataRuntimeConfig metadataRuntimeConfig,
         Checkpoint checkpoint,
         FullCatalogSync fullCatalogSync,
@@ -48,6 +51,8 @@ public record GameFinderAdminStatusResponse(
                 value.getIgdbTerminalCount(), value.getFinderEligibleCount(),
                 value.getGameCount(), value.getNonGameCount(), value.getUnclassifiedCount(),
                 value.getPlayerDataCount(), value.getPlayerDataMissingCount(),
+                value.getIgdbSuccessCount(), value.getIgdbSuccessPlayerDataCount(),
+                value.getIgdbSuccessPlayerDataMissingCount(),
                 metadataRuntimeConfig, checkpoint, fullCatalogSync, gameOnlyCatalogSync);
     }
 

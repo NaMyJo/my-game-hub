@@ -158,20 +158,18 @@ public class SteamCatalogPersistenceService {
             rawTaxonomy.syncBatch(rawByGame);
             logStage("igdb_raw_taxonomy_persistence", rawStarted, targets.size());
             long tagStarted = System.nanoTime();
-            for (SteamGame game : targets) {
-                Optional<IgdbEnrichmentClient.IgdbData> value = results.getOrDefault(
-                        game.getSteamAppId(), Optional.empty());
-                if (value.isPresent()) gameTags.rebuildWithIgdb(game, value.get().taxonomyTerms());
-                else gameTags.rebuild(game);
-            }
+            Map<SteamGame, List<IgdbTaxonomyValue>> tagValues = new LinkedHashMap<>();
+            for (SteamGame game : targets) tagValues.put(game,
+                    results.getOrDefault(game.getSteamAppId(), Optional.empty())
+                            .map(IgdbEnrichmentClient.IgdbData::taxonomyTerms).orElse(null));
+            gameTags.rebuildWithIgdbBatch(tagValues);
             logStage("game_tag_rebuild", tagStarted, targets.size());
         }
         long methodWorkMs = elapsedMs(totalStarted);
         log.info("game_finder_igdb_persistence_timing stage=method_work count={} durationMs={} "
-                        + "steamGameSaveCalls={} tagRebuildCalls={} flushMode=transaction_commit",
+                        + "steamGameSaveCalls=0 tagRebuildBatchCalls={} flushMode=transaction_commit",
                 targets.size(), methodWorkMs,
-                rawTaxonomy != null && gameTags != null ? targets.size() : 0,
-                rawTaxonomy != null && gameTags != null ? targets.size() : 0);
+                rawTaxonomy != null && gameTags != null ? 1 : 0);
         registerCommitTiming(targets.size(), System.nanoTime(), totalStarted);
         return targets;
     }

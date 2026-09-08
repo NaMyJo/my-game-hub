@@ -23,6 +23,9 @@ class GameFinderAdminStatus {
     required this.unclassifiedCount,
     required this.playerDataCount,
     required this.playerDataMissingCount,
+    required this.igdbSuccessCount,
+    required this.igdbSuccessPlayerDataCount,
+    required this.igdbSuccessPlayerDataMissingCount,
     this.metadataConcurrency = 1,
     this.metadataRequestDelayMs = 500,
   });
@@ -39,6 +42,8 @@ class GameFinderAdminStatus {
   final int igdbTargetCount, igdbTerminalCount, finderEligibleCount;
   final int gameCount, nonGameCount, unclassifiedCount;
   final int playerDataCount, playerDataMissingCount;
+  final int igdbSuccessCount;
+  final int igdbSuccessPlayerDataCount, igdbSuccessPlayerDataMissingCount;
   final int metadataConcurrency, metadataRequestDelayMs;
 
   factory GameFinderAdminStatus.fromJson(Map<String, dynamic> json) =>
@@ -79,6 +84,11 @@ class GameFinderAdminStatus {
         playerDataCount: (json['playerDataCount'] as num?)?.toInt() ?? 0,
         playerDataMissingCount:
             (json['playerDataMissingCount'] as num?)?.toInt() ?? 0,
+        igdbSuccessCount: (json['igdbSuccessCount'] as num?)?.toInt() ?? 0,
+        igdbSuccessPlayerDataCount:
+            (json['igdbSuccessPlayerDataCount'] as num?)?.toInt() ?? 0,
+        igdbSuccessPlayerDataMissingCount:
+            (json['igdbSuccessPlayerDataMissingCount'] as num?)?.toInt() ?? 0,
         metadataConcurrency:
             ((json['metadataRuntimeConfig']
                         as Map<String, dynamic>?)?['concurrency'] as num?)

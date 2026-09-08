@@ -10,5 +10,5 @@ public class SteamGameTag {
     @Column(nullable=false,length=30) private String source;
     protected SteamGameTag(){}
     public SteamGameTag(long appId,GameTag tag,String source){steamAppId=appId;this.tag=tag;this.source=source;}
-    public Long getSteamAppId(){return steamAppId;} public GameTag getTag(){return tag;} public String getSource(){return source;}
+    public Long getId(){return id;} public Long getSteamAppId(){return steamAppId;} public GameTag getTag(){return tag;} public String getSource(){return source;}
 }

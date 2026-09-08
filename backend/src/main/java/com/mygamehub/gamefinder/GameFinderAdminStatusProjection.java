@@ -26,4 +26,7 @@ public interface GameFinderAdminStatusProjection {
     long getUnclassifiedCount();
     long getPlayerDataCount();
     long getPlayerDataMissingCount();
+    long getIgdbSuccessCount();
+    long getIgdbSuccessPlayerDataCount();
+    long getIgdbSuccessPlayerDataMissingCount();
 }

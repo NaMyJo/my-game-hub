@@ -4,11 +4,36 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class IgdbRawTaxonomyPersistenceServiceTest {
+    @Test
+    void jdbcPathUsesBoundedBatchWritesAndKeepsExistingRelations() {
+        var terms = mock(IgdbTaxonomyTermRepository.class);
+        var relations = mock(SteamGameIgdbTermRepository.class);
+        var jdbc = mock(JdbcTemplate.class);
+        var game = new SteamGame(10, "A", 0, 0);
+        var horror = new IgdbTaxonomyTerm(value(IgdbTaxonomySourceType.THEME, 19));
+        var current = new SteamGameIgdbTerm(game, horror);
+        when(terms.findBySourceTypeInAndIgdbTermIdIn(anyCollection(), anyCollection()))
+                .thenReturn(List.of(horror));
+        when(relations.findBySteamAppIds(anyCollection())).thenReturn(List.of(current));
+
+        new IgdbRawTaxonomyPersistenceService(terms, relations, jdbc)
+                .syncBatch(Map.of(game, List.of(value(IgdbTaxonomySourceType.THEME, 19))));
+
+        verify(terms).findBySourceTypeInAndIgdbTermIdIn(anyCollection(), anyCollection());
+        verify(relations).findBySteamAppIds(Set.of(10L));
+        verify(relations, never()).saveAll(any());
+        verify(relations, never()).deleteAll(any());
+        verify(jdbc, times(1)).batchUpdate(anyString(), anyCollection(), anyInt(),
+                any(org.springframework.jdbc.core.ParameterizedPreparedStatementSetter.class));
+    }
+
     @Test
     void reusesTermsDeduplicatesRelationsAndKeepsGamesIsolated() {
         var terms = mock(IgdbTaxonomyTermRepository.class);

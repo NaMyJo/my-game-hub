@@ -14,6 +14,8 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             + "from SteamGameTag t where t.steamAppId in :appIds")
     List<SteamGameTagValue> findCanonicalNamesBySteamAppIds(
             @Param("appIds") Collection<Long> appIds);
+    @Query("select t from SteamGameTag t join fetch t.tag where t.steamAppId in :appIds")
+    List<SteamGameTag> findBySteamAppIds(@Param("appIds") Collection<Long> appIds);
 
     @Query(value="select s.steam_app_id from steam_game_tags s join game_tags t on t.id=s.tag_id "
             + "join steam_games g on g.steam_app_id=s.steam_app_id "

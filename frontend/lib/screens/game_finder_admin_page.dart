@@ -1067,6 +1067,11 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   Widget _igdbEnrichmentPanel(Color panel, Color border) {
     final target = _status?.igdbTargetCount ?? 0;
     final completed = _status?.igdbTerminalCount ?? 0;
+    final igdbSuccess = _status?.igdbSuccessCount ?? 0;
+    final successPlayerData = _status?.igdbSuccessPlayerDataCount ?? 0;
+    final successCoverage = igdbSuccess == 0
+        ? 0.0
+        : successPlayerData * 100 / igdbSuccess;
     final progress = target == 0 ? 0.0 : (completed / target).clamp(0.0, 1.0);
     return Container(
       width: double.infinity,
@@ -1082,7 +1087,23 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const SizedBox(height: 8),
         Text('대상 $target · terminal 완료 $completed · 남은 후보 ${_status?.remainingIgdbCandidates ?? 0}'),
         const SizedBox(height: 4),
-        Text('플레이 인원 확인 ${_status?.playerDataCount ?? 0} · 미확인 ${_status?.playerDataMissingCount ?? 0}'),
+        const SizedBox(height: 8),
+        const Text('전체 Catalog 기준',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        Text('플레이 인원 확인 ${_status?.playerDataCount ?? 0} · '
+            '미확인 ${_status?.playerDataMissingCount ?? 0}'),
+        const SizedBox(height: 8),
+        const Text('IGDB SUCCESS 기준',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        Text('SUCCESS $igdbSuccess · 플레이 인원 확인 $successPlayerData · '
+            '미확인 ${_status?.igdbSuccessPlayerDataMissingCount ?? 0}'),
+        Text('인원 정보 확보율 ${successCoverage.toStringAsFixed(1)}%'),
+        const SizedBox(height: 8),
+        Text('PENDING ${_status?.igdb.pending ?? 0} · '
+            'SUCCESS ${_status?.igdb.success ?? 0} · '
+            'NOT_FOUND ${_status?.igdb.notFound ?? 0}'),
+        Text('RETRYABLE ${_status?.igdb.retryableFailure ?? 0} · '
+            'PERMANENT ${_status?.igdb.permanentFailure ?? 0}'),
         const SizedBox(height: 8),
         LinearProgressIndicator(value: progress),
         const SizedBox(height: 14),

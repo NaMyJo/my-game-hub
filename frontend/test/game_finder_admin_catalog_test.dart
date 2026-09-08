@@ -114,6 +114,9 @@ class _FakeRepository extends GameFinderAdminRepository {
       ),
       playerDataCount: 80,
       playerDataMissingCount: 0,
+      igdbSuccessCount: 80,
+      igdbSuccessPlayerDataCount: 60,
+      igdbSuccessPlayerDataMissingCount: 20,
       checkpoint: GameFinderCatalogCheckpoint(
         lastAppId: 0,
         lastSuccessfulSyncAt: null,
