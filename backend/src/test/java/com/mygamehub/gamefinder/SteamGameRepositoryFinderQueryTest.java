@@ -176,6 +176,23 @@ class SteamGameRepositoryFinderQueryTest {
         assertThat(status.getPlayerDataMissingCount()).isEqualTo(1);
     }
 
+    @Test
+    void igdbIntegrityUsesAggregateChecksForStatusAndPlayerRanges() {
+        insertGame(10, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        jdbc.update("update steam_games set igdb_status='SUCCESS',igdb_game_id=100 where steam_app_id=10");
+        insertGameWithoutPlayerData(20, 30000);
+        jdbc.update("update steam_games set igdb_status='SUCCESS' where steam_app_id=20");
+        insertGame(30, 30000, "NON_ADULT", 8, 2, true, "game", "ACTIVE");
+        jdbc.update("update steam_games set igdb_status='SUCCESS',igdb_game_id=300 where steam_app_id=30");
+
+        var result = games.verifyIgdbIntegrity();
+
+        assertThat(result.getTotalChecked()).isEqualTo(3);
+        assertThat(result.getSuccessMissingGameId()).isEqualTo(1);
+        assertThat(result.getInvalidPlayerRange()).isEqualTo(1);
+        assertThat(result.getNotFoundWithGameId()).isZero();
+    }
+
     private void insertGame(long appId, int price, String adult, int minPlayers,
             int maxPlayers, boolean eligible, String type, String lifecycle) {
         insertGame(appId, price, adult, minPlayers, maxPlayers, eligible, type, lifecycle, null);

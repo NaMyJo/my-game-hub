@@ -333,6 +333,7 @@ public class SteamCatalogSyncService {
 
     public synchronized EnrichmentStageBatchResult enrichIgdbBatch(int requestedBatchSize) {
         List<SteamGame> targets = games.findIgdbCandidates(PageRequest.of(0, requestedBatchSize));
+        boolean rateLimited = false;
         log.info("game_finder_igdb_enrichment_start candidateCount={}", targets.size());
         if (!targets.isEmpty() && igdb.configured()) {
             List<Long> appIds = targets.stream().map(SteamGame::getSteamAppId).toList();
@@ -341,13 +342,16 @@ public class SteamCatalogSyncService {
                 targets = persistence.applyIgdbResults(appIds, values);
             } catch (RuntimeException exception) {
                 boolean retryable = retryable(exception);
+                rateLimited = exception instanceof IgdbEnrichmentClient.IgdbRequestException failure
+                        && failure.status() == 429;
                 targets = persistence.markIgdbBatchFailure(appIds, retryable);
                 log.warn("game_finder_igdb_batch_failed count={} errorType={}",
                         targets.size(), exception.getClass().getSimpleName());
             }
         }
         return EnrichmentStageBatchResult.from(
-                targets, false, igdb.configured() && games.countIgdbCandidates() > 0, false);
+                targets, false, igdb.configured() && games.countIgdbCandidates() > 0,
+                rateLimited);
     }
 
     public boolean hasEnrichmentCandidates() {

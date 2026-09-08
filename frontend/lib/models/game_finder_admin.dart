@@ -314,6 +314,40 @@ class GameFinderAdminStageEnrichResult {
       );
 }
 
+class GameFinderAdminIgdbVerifyResult {
+  const GameFinderAdminIgdbVerifyResult({
+    required this.totalChecked,
+    required this.valid,
+    required this.successMissingGameId,
+    required this.notFoundWithGameId,
+    required this.invalidPlayerRange,
+    required this.duplicateIgdbMapping,
+    required this.duplicateTaxonomyRelation,
+    required this.durationMs,
+  });
+
+  final int totalChecked, valid, durationMs;
+  final int successMissingGameId, notFoundWithGameId, invalidPlayerRange;
+  final int duplicateIgdbMapping, duplicateTaxonomyRelation;
+
+  factory GameFinderAdminIgdbVerifyResult.fromJson(Map<String, dynamic> json) =>
+      GameFinderAdminIgdbVerifyResult(
+        totalChecked: (json['totalChecked'] as num?)?.toInt() ?? 0,
+        valid: (json['valid'] as num?)?.toInt() ?? 0,
+        successMissingGameId:
+            (json['successMissingGameId'] as num?)?.toInt() ?? 0,
+        notFoundWithGameId:
+            (json['notFoundWithGameId'] as num?)?.toInt() ?? 0,
+        invalidPlayerRange:
+            (json['invalidPlayerRange'] as num?)?.toInt() ?? 0,
+        duplicateIgdbMapping:
+            (json['duplicateIgdbMapping'] as num?)?.toInt() ?? 0,
+        duplicateTaxonomyRelation:
+            (json['duplicateTaxonomyRelation'] as num?)?.toInt() ?? 0,
+        durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class GameFinderAdminMetadataVerifyResult {
   const GameFinderAdminMetadataVerifyResult({
     required this.sampled,

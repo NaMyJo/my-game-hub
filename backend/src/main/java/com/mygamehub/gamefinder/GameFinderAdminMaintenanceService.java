@@ -6,6 +6,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminIgdbVerifyResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -19,13 +20,33 @@ public class GameFinderAdminMaintenanceService {
     private static final Logger log = LoggerFactory.getLogger(GameFinderAdminMaintenanceService.class);
     private final SteamCatalogSyncService syncService;
     private final SteamMetadataVerificationService metadataVerifier;
+    private final SteamGameRepository games;
     private final AtomicBoolean maintenanceRunning = new AtomicBoolean(false);
     private final AtomicBoolean metadataRunnerOwned = new AtomicBoolean(false);
 
     public GameFinderAdminMaintenanceService(SteamCatalogSyncService syncService,
-            SteamMetadataVerificationService metadataVerifier) {
+            SteamMetadataVerificationService metadataVerifier, SteamGameRepository games) {
         this.syncService = syncService;
         this.metadataVerifier = metadataVerifier;
+        this.games = games;
+    }
+
+    public Optional<GameFinderAdminIgdbVerifyResponse> tryIgdbVerify() {
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            log.warn("game_finder_admin_igdb_verify_rejected reason=maintenance_running");
+            return Optional.empty();
+        }
+        long startedAt = System.nanoTime();
+        log.info("game_finder_admin_igdb_verify_start");
+        try {
+            var result = games.verifyIgdbIntegrity();
+            long durationMs = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            log.info("game_finder_admin_igdb_verify_complete checked={} durationMs={}",
+                    result.getTotalChecked(), durationMs);
+            return Optional.of(GameFinderAdminIgdbVerifyResponse.from(result, durationMs));
+        } finally {
+            maintenanceRunning.set(false);
+        }
     }
 
     public Optional<GameFinderAdminMetadataVerifyResponse> tryMetadataVerify(

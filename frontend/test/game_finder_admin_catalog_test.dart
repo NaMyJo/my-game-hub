@@ -60,12 +60,33 @@ void main() {
     expect(repository.enrichCalls, 2);
     expect(find.text('현재 처리 가능한 후보가 없습니다.'), findsOneWidget);
   });
+
+  testWidgets('continuous IGDB uses selected batch size and accumulates results',
+      (tester) async {
+    final repository = _FakeRepository();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, '40개'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '40개'));
+    await tester.ensureVisible(find.text('연속 IGDB'));
+    await tester.tap(find.text('연속 IGDB'));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
+
+    expect(repository.requestedIgdbBatches, [40, 40]);
+    expect(find.text('현재 실행 누적'), findsOneWidget);
+    expect(find.text('40'), findsWidgets);
+  });
 }
 
 class _FakeRepository extends GameFinderAdminRepository {
   int statusCalls = 0;
   int fullSyncCalls = 0;
   int enrichCalls = 0;
+  int igdbCalls = 0;
+  final requestedIgdbBatches = <int>[];
   final requestedTargets = <int>[];
   final _catalog = Completer<GameFinderAdminCatalogExpandResult>();
 
@@ -193,21 +214,25 @@ class _FakeRepository extends GameFinderAdminRepository {
       retryableFailure: 0,
       permanentFailure: 0,
       hasMoreCandidates: enrichCalls == 1,
+      rateLimited: false,
       durationMs: 10,
     );
   }
 
   @override
   Future<GameFinderAdminStageEnrichResult> enrichIgdb(int batchSize) async {
+    requestedIgdbBatches.add(batchSize);
+    igdbCalls++;
     return GameFinderAdminStageEnrichResult(
       stage: 'igdb',
       requestedBatchSize: batchSize,
-      processed: 0,
-      success: 0,
+      processed: igdbCalls == 1 ? batchSize : 0,
+      success: igdbCalls == 1 ? batchSize - 1 : 0,
       notFound: 0,
-      retryableFailure: 0,
+      retryableFailure: igdbCalls == 1 ? 1 : 0,
       permanentFailure: 0,
-      hasMoreCandidates: false,
+      hasMoreCandidates: igdbCalls == 1,
+      rateLimited: false,
       durationMs: 10,
     );
   }

@@ -161,4 +161,26 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "then 1 else 0 end), 0) as \"playerDataMissingCount\" "
             + "from steam_games", nativeQuery = true)
     GameFinderAdminStatusProjection adminStatus();
+
+    @Query(value = "select "
+            + "count(*) as \"totalChecked\", "
+            + "count(*) filter (where igdb_status='SUCCESS' and igdb_game_id is null) as \"successMissingGameId\", "
+            + "count(*) filter (where igdb_status='NOT_FOUND' and igdb_game_id is not null) as \"notFoundWithGameId\", "
+            + "count(*) filter (where coalesce(min_players,1)<=0 or coalesce(max_players,1)<=0 "
+            + "or coalesce(online_max_players,1)<=0 or coalesce(online_coop_max_players,1)<=0 "
+            + "or (min_players is not null and greatest(coalesce(max_players,0), "
+            + "coalesce(online_max_players,0),coalesce(online_coop_max_players,0))>0 "
+            + "and min_players>greatest(coalesce(max_players,0),coalesce(online_max_players,0), "
+            + "coalesce(online_coop_max_players,0)))) as \"invalidPlayerRange\", "
+            + "(select count(*) from steam_games d where d.igdb_game_id is not null and exists "
+            + "(select 1 from steam_games x where x.igdb_game_id=d.igdb_game_id "
+            + "and x.steam_app_id<>d.steam_app_id)) as \"duplicateIgdbMapping\", "
+            + "(select coalesce(sum(c-1),0) from (select count(*) c from steam_game_igdb_terms "
+            + "group by steam_app_id,taxonomy_term_id having count(*)>1) duplicates) "
+            + "as \"duplicateTaxonomyRelation\" "
+            + "from steam_games where game_catalog_eligible=true and metadata_status='SUCCESS' "
+            + "and store_type='game' and (lifecycle_status is null or lifecycle_status='ACTIVE') "
+            + "and igdb_status in ('SUCCESS','NOT_FOUND','RETRYABLE_FAILURE','PERMANENT_FAILURE')",
+            nativeQuery = true)
+    IgdbIntegrityProjection verifyIgdbIntegrity();
 }

@@ -13,6 +13,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminIgdbVerifyResponse;
 import com.mygamehub.gamefinder.dto.MetadataRunnerStatusResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -122,6 +123,13 @@ public class GameFinderAdminController {
         return maintenance.tryMetadataVerify(request.sampleSize(), mode)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/igdb/verify")
+    public GameFinderAdminIgdbVerifyResponse verifyIgdb(HttpServletRequest request) {
+        requireAdmin(request);
+        return maintenance.tryIgdbVerify().orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
     }
 
     @PostMapping("/catalog/expand")

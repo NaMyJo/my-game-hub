@@ -42,6 +42,13 @@ class GameFinderAdminRepository {
     return GameFinderAdminStageEnrichResult.fromJson(json);
   }
 
+  Future<GameFinderAdminIgdbVerifyResult> verifyIgdb() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/igdb/verify',
+    ) as Map<String, dynamic>;
+    return GameFinderAdminIgdbVerifyResult.fromJson(json);
+  }
+
   Future<GameFinderMetadataRunnerStatus> metadataRunnerStatus() async {
     final json = await ApiClient.instance.get(
       '/api/admin/game-finder/metadata-runner/status',

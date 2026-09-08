@@ -13,6 +13,24 @@ import static org.mockito.Mockito.when;
 
 class GameFinderAdminMaintenanceServiceTest {
     @Test
+    void igdbIntegrityVerificationUsesAggregateRepository() {
+        var sync = mock(SteamCatalogSyncService.class);
+        var games = mock(SteamGameRepository.class);
+        var projection = mock(IgdbIntegrityProjection.class);
+        when(games.verifyIgdbIntegrity()).thenReturn(projection);
+        when(projection.getTotalChecked()).thenReturn(10L);
+        when(projection.getSuccessMissingGameId()).thenReturn(1L);
+        var service = new GameFinderAdminMaintenanceService(sync,
+                mock(SteamMetadataVerificationService.class), games);
+
+        var result = service.tryIgdbVerify().orElseThrow();
+
+        assertThat(result.totalChecked()).isEqualTo(10);
+        assertThat(result.valid()).isEqualTo(9);
+        verify(games).verifyIgdbIntegrity();
+    }
+
+    @Test
     void delegatesToExistingEnrichmentServiceAndReturnsCounts() {
         var sync = mock(SteamCatalogSyncService.class);
         when(sync.enrichBatch(1)).thenReturn(result(1));
@@ -37,6 +55,23 @@ class GameFinderAdminMaintenanceServiceTest {
         assertThat(service.tryIgdbEnrich(1).orElseThrow().stage()).isEqualTo("igdb");
         verify(sync).enrichMetadataBatch(1);
         verify(sync).enrichIgdbBatch(1);
+    }
+
+    @Test
+    void igdbBatchSizesArePassedThroughWithoutBeingCollapsedToOne() {
+        var sync = mock(SteamCatalogSyncService.class);
+        var stage = new SteamCatalogSyncService.EnrichmentStageBatchResult(
+                0, 0, 0, 0, 0, false, false);
+        for (int size : java.util.List.of(5, 10, 20, 40)) {
+            when(sync.enrichIgdbBatch(size)).thenReturn(stage);
+        }
+        var service = service(sync);
+
+        for (int size : java.util.List.of(5, 10, 20, 40)) {
+            assertThat(service.tryIgdbEnrich(size).orElseThrow().requestedBatchSize())
+                    .isEqualTo(size);
+            verify(sync).enrichIgdbBatch(size);
+        }
     }
 
     @Test
@@ -140,7 +175,8 @@ class GameFinderAdminMaintenanceServiceTest {
                     return new SteamMetadataVerificationService.VerificationSummary(
                             1, 1, 0, 0, 0, 0, java.util.List.of());
                 });
-        var service = new GameFinderAdminMaintenanceService(sync, verifier);
+        var service = new GameFinderAdminMaintenanceService(sync, verifier,
+                mock(SteamGameRepository.class));
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> service.tryMetadataVerify(
                     100, SteamMetadataVerificationService.VerificationMode.RANDOM));
@@ -154,7 +190,7 @@ class GameFinderAdminMaintenanceServiceTest {
 
     private GameFinderAdminMaintenanceService service(SteamCatalogSyncService sync) {
         return new GameFinderAdminMaintenanceService(sync,
-                mock(SteamMetadataVerificationService.class));
+                mock(SteamMetadataVerificationService.class), mock(SteamGameRepository.class));
     }
 
     @Test

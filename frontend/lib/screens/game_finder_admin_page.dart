@@ -21,6 +21,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminEnrichResult? _result;
   GameFinderAdminStageEnrichResult? _metadataResult;
   GameFinderAdminStageEnrichResult? _igdbResult;
+  GameFinderAdminIgdbVerifyResult? _igdbVerifyResult;
   GameFinderAdminMetadataVerifyResult? _metadataVerifyResult;
   GameFinderMetadataRunnerStatus? _metadataRunner;
   Timer? _metadataRunnerPoll;
@@ -28,6 +29,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
   GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
   int _batchSize = 1;
+  int _igdbBatchSize = 5;
   int _targetTotal = 500;
   int _metadataVerifySampleSize = 100;
   String _metadataVerifyMode = 'RANDOM';
@@ -37,8 +39,15 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   bool _stopEnrichmentRequested = false;
   bool _igdbRunning = false;
   bool _metadataVerifyRunning = false;
+  bool _igdbVerifyRunning = false;
   bool _continuousIgdb = false;
   bool _stopIgdbRequested = false;
+  int _igdbSessionProcessed = 0;
+  int _igdbSessionSuccess = 0;
+  int _igdbSessionNotFound = 0;
+  int _igdbSessionRetryableFailure = 0;
+  int _igdbSessionPermanentFailure = 0;
+  int _igdbSessionDurationMs = 0;
   bool _catalogRunning = false;
   bool _fullCatalogRunning = false;
   bool _continuousFullCatalog = false;
@@ -49,8 +58,13 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   String? _error;
 
   bool get _maintenanceRunning =>
-      _running || _igdbRunning || _metadataVerifyRunning || _catalogRunning ||
-      _fullCatalogRunning || _gameCatalogRunning;
+      _running ||
+      _igdbRunning ||
+      _metadataVerifyRunning ||
+      _igdbVerifyRunning ||
+      _catalogRunning ||
+      _fullCatalogRunning ||
+      _gameCatalogRunning;
 
   @override
   void dispose() {
@@ -165,17 +179,31 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       _igdbRunning = true;
       _continuousIgdb = continuous;
       _stopIgdbRequested = false;
+      _igdbSessionProcessed = 0;
+      _igdbSessionSuccess = 0;
+      _igdbSessionNotFound = 0;
+      _igdbSessionRetryableFailure = 0;
+      _igdbSessionPermanentFailure = 0;
+      _igdbSessionDurationMs = 0;
       _error = null;
     });
     try {
       do {
         final value = await (widget.repository ??
                 GameFinderAdminRepository.instance)
-            .enrichIgdb(_batchSize);
+            .enrichIgdb(_igdbBatchSize);
         if (!mounted) return;
-        setState(() => _igdbResult = value);
+        setState(() {
+          _igdbResult = value;
+          _igdbSessionProcessed += value.processed;
+          _igdbSessionSuccess += value.success;
+          _igdbSessionNotFound += value.notFound;
+          _igdbSessionRetryableFailure += value.retryableFailure;
+          _igdbSessionPermanentFailure += value.permanentFailure;
+          _igdbSessionDurationMs += value.durationMs;
+        });
         await _loadStatus();
-        if (!continuous || !value.hasMoreCandidates || value.processed == 0 ||
+        if (!continuous || value.rateLimited || !value.hasMoreCandidates || value.processed == 0 ||
             _stopIgdbRequested) break;
         await Future<void>.delayed(const Duration(milliseconds: 300));
       } while (mounted && !_stopIgdbRequested);
@@ -208,6 +236,24 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       if (mounted) setState(() => _error = 'Metadata 정합성 검증 중 오류가 발생했습니다.');
     } finally {
       if (mounted) setState(() => _metadataVerifyRunning = false);
+    }
+  }
+
+  Future<void> _runIgdbVerification() async {
+    if (_maintenanceRunning) return;
+    setState(() {
+      _igdbVerifyRunning = true;
+      _error = null;
+    });
+    try {
+      final value = await (widget.repository ??
+              GameFinderAdminRepository.instance)
+          .verifyIgdb();
+      if (mounted) setState(() => _igdbVerifyResult = value);
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    } finally {
+      if (mounted) setState(() => _igdbVerifyRunning = false);
     }
   }
 
@@ -1040,6 +1086,22 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const SizedBox(height: 8),
         LinearProgressIndicator(value: progress),
         const SizedBox(height: 14),
+        const Text('Batch size', style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [5, 10, 20, 40]
+              .map((value) => ChoiceChip(
+                    label: Text('$value개'),
+                    selected: _igdbBatchSize == value,
+                    onSelected: _maintenanceRunning
+                        ? null
+                        : (_) => setState(() => _igdbBatchSize = value),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 14),
         Wrap(spacing: 10, runSpacing: 10, children: [
           FilledButton.icon(
             onPressed: _maintenanceRunning ? null : () => _runIgdbEnrichment(),
@@ -1060,7 +1122,45 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               icon: const Icon(Icons.stop_circle_outlined),
               label: const Text('현재 요청 후 중지'),
             ),
+          if (_continuousIgdb)
+            Text('연속 실행 중 · batchSize=$_igdbBatchSize',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
         ]),
+        if (_igdbSessionProcessed > 0) ...[
+          const SizedBox(height: 18),
+          const Text('현재 실행 누적',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          _line('처리', _igdbSessionProcessed),
+          _line('SUCCESS', _igdbSessionSuccess),
+          _line('NOT_FOUND', _igdbSessionNotFound),
+          _line('RETRYABLE_FAILURE', _igdbSessionRetryableFailure),
+          _line('PERMANENT_FAILURE', _igdbSessionPermanentFailure),
+          Text('누적 처리 시간 ${_igdbSessionDurationMs}ms'),
+        ],
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: _maintenanceRunning ? null : _runIgdbVerification,
+          icon: const Icon(Icons.fact_check_outlined),
+          label: Text(_igdbVerifyRunning ? '정합성 검증 중' : 'IGDB 정합성 검증'),
+        ),
+        if (_igdbVerifyResult != null) ...[
+          const SizedBox(height: 12),
+          const Text('DB 정합성 검증 결과',
+              style: TextStyle(fontWeight: FontWeight.w900)),
+          _line('검사', _igdbVerifyResult!.totalChecked),
+          _line('정상', _igdbVerifyResult!.valid),
+          _line('SUCCESS인데 Game ID 없음',
+              _igdbVerifyResult!.successMissingGameId),
+          _line('NOT_FOUND인데 Game ID 존재',
+              _igdbVerifyResult!.notFoundWithGameId),
+          _line('비정상 플레이 인원 범위',
+              _igdbVerifyResult!.invalidPlayerRange),
+          _line('중복 IGDB 매핑 검토',
+              _igdbVerifyResult!.duplicateIgdbMapping),
+          _line('중복 taxonomy 관계',
+              _igdbVerifyResult!.duplicateTaxonomyRelation),
+        ],
       ]),
     );
   }

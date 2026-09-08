@@ -235,8 +235,10 @@ public class IgdbEnrichmentClient {
     }
 
     private JsonNode post(String endpoint, String body, String bearer, Long appId) {
-        pace();
-        return retry.execute(() -> postOnce(endpoint, body, bearer, appId));
+        return retry.execute(() -> {
+            pace();
+            return postOnce(endpoint, body, bearer, appId);
+        });
     }
 
     private JsonNode postOnce(String endpoint, String body, String bearer, Long appId) {
@@ -254,7 +256,7 @@ public class IgdbEnrichmentClient {
         } catch (RestClientException exception) {
             log.warn("igdb_transport_error stage={} appId={} exceptionType={}",
                     endpoint, appId, exception.getClass().getSimpleName());
-            throw new IllegalStateException("IGDB 요청 전송에 실패했습니다. stage=" + endpoint);
+            throw new IgdbRequestException(endpoint, -1, null);
         }
     }
 
@@ -317,7 +319,7 @@ public class IgdbEnrichmentClient {
         }
         String stage() { return stage; }
         int status() { return status; }
-        @Override public boolean isRetryable() { return status == 429 || status >= 500; }
+        @Override public boolean isRetryable() { return status < 0 || status == 429 || status >= 500; }
         @Override public Long retryAfterMillis() { return retryAfterMillis; }
     }
 

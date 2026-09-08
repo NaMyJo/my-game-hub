@@ -12,6 +12,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminIgdbVerifyResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -153,6 +154,19 @@ class GameFinderAdminControllerTest {
                 .isSameAs(response);
         verify(maintenance).tryMetadataVerify(100,
                 SteamMetadataVerificationService.VerificationMode.RECENT);
+    }
+
+    @Test
+    void adminIgdbVerifyDelegatesToSharedMaintenancePath() {
+        var response = new GameFinderAdminIgdbVerifyResponse(
+                100, 98, 1, 0, 1, 2, 0, 10);
+        when(maintenance.tryIgdbVerify()).thenReturn(Optional.of(response));
+
+        assertThat(controller.verifyIgdb(authenticated("admin-uid"))).isSameAs(response);
+        verify(maintenance).tryIgdbVerify();
+        assertThatThrownBy(() -> controller.verifyIgdb(authenticated("regular-user")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
     }
 
     @Test

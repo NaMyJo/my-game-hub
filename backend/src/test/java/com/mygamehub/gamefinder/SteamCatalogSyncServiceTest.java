@@ -267,6 +267,24 @@ class SteamCatalogSyncServiceTest {
     }
 
     @Test
+    void igdbRateLimitIsExposedSoContinuousClientStops() {
+        var game = gameWithCurrentMetadata(570, "Dota 2", "game");
+        when(games.findIgdbCandidates(any())).thenReturn(List.of(game));
+        when(igdb.configured()).thenReturn(true);
+        when(igdb.findBySteamAppIds(List.of(570L))).thenThrow(
+                new IgdbEnrichmentClient.IgdbRequestException("external_games", 429, 1000L));
+        when(persistence.markIgdbBatchFailure(List.of(570L), true))
+                .thenReturn(List.of(game));
+        when(games.countIgdbCandidates()).thenReturn(1L);
+
+        var result = service.enrichIgdbBatch(40);
+
+        assertTrue(result.rateLimited());
+        assertTrue(result.hasMoreCandidates());
+        verify(persistence).markIgdbBatchFailure(List.of(570L), true);
+    }
+
+    @Test
     void adminCatalogExpansionIsNoOpWhenTargetIsAlreadyReached() {
         when(games.count()).thenReturn(1000L);
 
