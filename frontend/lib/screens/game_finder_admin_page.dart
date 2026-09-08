@@ -1035,6 +1035,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
         Text('대상 $target · terminal 완료 $completed · 남은 후보 ${_status?.remainingIgdbCandidates ?? 0}'),
+        const SizedBox(height: 4),
+        Text('플레이 인원 확인 ${_status?.playerDataCount ?? 0} · 미확인 ${_status?.playerDataMissingCount ?? 0}'),
         const SizedBox(height: 8),
         LinearProgressIndicator(value: progress),
         const SizedBox(height: 14),

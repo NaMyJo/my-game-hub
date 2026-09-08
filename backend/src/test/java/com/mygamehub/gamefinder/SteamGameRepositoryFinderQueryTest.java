@@ -164,6 +164,18 @@ class SteamGameRepositoryFinderQueryTest {
         assertThat(counts.getAfterPlayer()).isEqualTo(1);
     }
 
+    @Test
+    void adminStatusCountsKnownAndMissingPlayerDataWithoutLoadingEntities() {
+        insertGame(10, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        insertLegacyOnlineCapacityGame(20, 30000, 8, 6);
+        insertGameWithoutPlayerData(30, 30000);
+
+        var status = games.adminStatus();
+
+        assertThat(status.getPlayerDataCount()).isEqualTo(2);
+        assertThat(status.getPlayerDataMissingCount()).isEqualTo(1);
+    }
+
     private void insertGame(long appId, int price, String adult, int minPlayers,
             int maxPlayers, boolean eligible, String type, String lifecycle) {
         insertGame(appId, price, adult, minPlayers, maxPlayers, eligible, type, lifecycle, null);
@@ -188,6 +200,15 @@ class SteamGameRepositoryFinderQueryTest {
                         "online_max_players,online_coop_max_players) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 appId, "Game " + appId, true, "game", "SUCCESS", Timestamp.from(Instant.now()),
                 "ACTIVE", false, price, false, "NON_ADULT", null, null, onlineMax, onlineCoopMax);
+    }
+
+    private void insertGameWithoutPlayerData(long appId, int price) {
+        jdbc.update("insert into steam_games (steam_app_id,name,game_catalog_eligible," +
+                        "store_type,metadata_status,metadata_updated_at,lifecycle_status," +
+                        "coming_soon,price_current,is_free,adult_status) " +
+                        "values (?,?,?,?,?,?,?,?,?,?,?)",
+                appId, "Game " + appId, true, "game", "SUCCESS", Timestamp.from(Instant.now()),
+                "ACTIVE", false, price, false, "NON_ADULT");
     }
 
     private long insertTag(String canonicalName) {

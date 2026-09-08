@@ -30,6 +30,8 @@ class GameFinderAdminStatusServiceTest {
         when(projection.getGameCount()).thenReturn(80L);
         when(projection.getNonGameCount()).thenReturn(10L);
         when(projection.getUnclassifiedCount()).thenReturn(12L);
+        when(projection.getPlayerDataCount()).thenReturn(25L);
+        when(projection.getPlayerDataMissingCount()).thenReturn(55L);
         when(syncService.remainingEnrichmentCandidates()).thenReturn(17L);
 
         var response = new GameFinderAdminStatusService(
@@ -50,5 +52,7 @@ class GameFinderAdminStatusServiceTest {
         assertThat(response.gameCount()).isEqualTo(80);
         assertThat(response.nonGameCount()).isEqualTo(10);
         assertThat(response.unclassifiedCount()).isEqualTo(12);
+        assertThat(response.playerDataCount()).isEqualTo(25);
+        assertThat(response.playerDataMissingCount()).isEqualTo(55);
     }
 }

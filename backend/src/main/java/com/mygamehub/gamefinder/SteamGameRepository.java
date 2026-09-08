@@ -150,7 +150,15 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "coalesce(sum(case when game_catalog_eligible=true and igdb_status='PERMANENT_FAILURE' then 1 else 0 end), 0) as \"igdbPermanentFailure\", "
             + "coalesce(sum(case when game_catalog_eligible=true and metadata_updated_at is not null and store_type='game' then 1 else 0 end), 0) as \"gameCount\", "
             + "coalesce(sum(case when game_catalog_eligible=true and metadata_updated_at is not null and store_type is not null and store_type<>'game' then 1 else 0 end), 0) as \"nonGameCount\", "
-            + "coalesce(sum(case when game_catalog_eligible=true and metadata_updated_at is null then 1 else 0 end), 0) as \"unclassifiedCount\" "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_updated_at is null then 1 else 0 end), 0) as \"unclassifiedCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='SUCCESS' and store_type='game' "
+            + "and (lifecycle_status is null or lifecycle_status='ACTIVE') and (min_players is not null "
+            + "or max_players is not null or online_max_players is not null or online_coop_max_players is not null) "
+            + "then 1 else 0 end), 0) as \"playerDataCount\", "
+            + "coalesce(sum(case when game_catalog_eligible=true and metadata_status='SUCCESS' and store_type='game' "
+            + "and (lifecycle_status is null or lifecycle_status='ACTIVE') and min_players is null "
+            + "and max_players is null and online_max_players is null and online_coop_max_players is null "
+            + "then 1 else 0 end), 0) as \"playerDataMissingCount\" "
             + "from steam_games", nativeQuery = true)
     GameFinderAdminStatusProjection adminStatus();
 }

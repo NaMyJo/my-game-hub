@@ -24,4 +24,6 @@ public interface GameFinderAdminStatusProjection {
     long getGameCount();
     long getNonGameCount();
     long getUnclassifiedCount();
+    long getPlayerDataCount();
+    long getPlayerDataMissingCount();
 }

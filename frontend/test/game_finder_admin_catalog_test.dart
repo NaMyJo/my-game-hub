@@ -91,6 +91,8 @@ class _FakeRepository extends GameFinderAdminRepository {
         retryableFailure: 0,
         permanentFailure: 0,
       ),
+      playerDataCount: 80,
+      playerDataMissingCount: 0,
       checkpoint: GameFinderCatalogCheckpoint(
         lastAppId: 0,
         lastSuccessfulSyncAt: null,
