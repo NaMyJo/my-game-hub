@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
@@ -23,6 +24,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await AuthService.instance.signInWithGoogle();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      if (_isGoogleSignInCancellation(error.code)) {
+        setState(() => _error = null);
+        return;
+      }
+      setState(() => _error = 'Google 로그인에 실패했습니다.\n$error');
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = 'Google 로그인에 실패했습니다.\n$error');
@@ -31,6 +39,13 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  bool _isGoogleSignInCancellation(String code) {
+    final normalizedCode = code.split('/').last;
+    return normalizedCode == 'popup-closed-by-user' ||
+        normalizedCode == 'cancelled-popup-request' ||
+        normalizedCode == 'web-context-cancelled';
   }
 
   Future<void> _signInAnonymously({DashboardPage? destination}) async {

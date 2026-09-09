@@ -4100,7 +4100,7 @@ class _MobileGameGrid extends StatelessWidget {
           crossAxisCount: columns,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: columns == 3 ? 0.58 : 0.72,
+          mainAxisExtent: columns == 3 ? 360 : 380,
         ),
         itemCount: games.length,
         itemBuilder: (context, index) {

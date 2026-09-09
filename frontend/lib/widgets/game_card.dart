@@ -277,6 +277,7 @@ class GameCard extends StatelessWidget {
           color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
