@@ -16,6 +16,7 @@ import '../theme/app_theme_controller.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/game_card.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/icon_page_header.dart';
 import 'game_identity_page.dart';
 import 'game_finder_page.dart';
 import 'game_finder_admin_page.dart';
@@ -29,6 +30,8 @@ enum DashboardPage {
   gameFinderAdmin,
 }
 
+DashboardPage pendingDashboardPage = DashboardPage.dashboard;
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -37,6 +40,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  final ScrollController _desktopScrollController = ScrollController();
   final List<GameProfile> _games = [];
   GameProfileSummary? _gameProfileSummary;
   UserProfile? _userProfile;
@@ -85,16 +89,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  DashboardPage _currentPage = DashboardPage.dashboard;
+  late DashboardPage _currentPage;
 
   @override
   void initState() {
     super.initState();
 
+    _currentPage = pendingDashboardPage;
+    pendingDashboardPage = DashboardPage.dashboard;
+
     _loadGames();
     _loadGameProfileSummary();
     _loadUserProfile();
     _loadGameFinderAdminAccess();
+  }
+
+  @override
+  void dispose() {
+    _desktopScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadGameFinderAdminAccess() async {
@@ -1476,6 +1489,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Expanded(
             child: SafeArea(
               child: SingleChildScrollView(
+                controller: _desktopScrollController,
                 padding: const EdgeInsets.all(26),
                 child: Center(
                   child: ConstrainedBox(
@@ -1553,7 +1567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ],
                           ],
                         ),
-                      DashboardPage.tools => const _ToolsPage(),
+                      DashboardPage.tools => const _ToolsPage(webStyle: true),
                       DashboardPage.gameIdentity => GameIdentityPage(
                           games: _games,
                           onAddGame: _addGameForIdentity,
@@ -1569,6 +1583,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       DashboardPage.gameFinder => GameFinderPage(
                           isAdmin: _isGameFinderAdmin,
                           onOpenAdmin: _openGameFinderAdmin,
+                          webScrollController: _desktopScrollController,
                         ),
                       DashboardPage.gameFinderAdmin =>
                         const GameFinderAdminPage(),
@@ -3280,7 +3295,9 @@ class _AddGameCard extends StatelessWidget {
 }
 
 class _ToolsPage extends StatelessWidget {
-  const _ToolsPage();
+  const _ToolsPage({this.webStyle = false});
+
+  final bool webStyle;
 
   Future<void> _open(String url) async {
     final uri = Uri.parse(url);
@@ -3301,21 +3318,14 @@ class _ToolsPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '도구 모음',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          '게임별 유용한 전적 검색 및 도구 사이트',
-          style: TextStyle(
-            color: Color(0xFF7C899D),
-            fontSize: 13,
-          ),
-        ),
+        if (webStyle)
+          const IconPageHeader(icon: Icons.handyman_rounded, title: '도구 모음')
+        else ...[
+          const Text('도구 모음',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 8),
+          const Text('게임별 유용한 전적 검색 및 도구 사이트'),
+        ],
         const SizedBox(height: 28),
         _ToolSection(
           title: '로스트아크',

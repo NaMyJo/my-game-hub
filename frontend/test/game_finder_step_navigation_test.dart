@@ -36,4 +36,29 @@ void main() {
     await tester.tap(find.text('추천 결과'), warnIfMissed: false);
     expect(selected, 1);
   });
+
+  testWidgets('웹 step UI는 연결선 없이 3개의 독립 항목을 표시한다',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: GameFinderStepNavigation(
+          currentStep: 2,
+          maxVisitedStep: 2,
+          onStepSelected: (_) {},
+        ),
+      ),
+    ));
+
+    expect(find.byType(Divider), findsNothing);
+    for (var step = 1; step <= 3; step++) {
+      expect(find.byKey(ValueKey('game-finder-web-step-$step')), findsOneWidget);
+    }
+  });
+
+  test('scroll threshold에서 상단/floating action이 중복되지 않는다', () {
+    expect(shouldShowGameFinderFloatingActions(3, 0), isFalse);
+    expect(shouldShowGameFinderFloatingActions(3, 280), isFalse);
+    expect(shouldShowGameFinderFloatingActions(3, 281), isTrue);
+    expect(shouldShowGameFinderFloatingActions(2, 500), isFalse);
+  });
 }

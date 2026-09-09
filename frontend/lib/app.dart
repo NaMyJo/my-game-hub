@@ -5,6 +5,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_pages.dart';
 import 'theme/app_theme_controller.dart';
+import 'theme/app_typography.dart';
 
 class MyGameHubApp extends StatelessWidget {
   const MyGameHubApp({super.key});
@@ -26,7 +27,8 @@ class MyGameHubApp extends StatelessWidget {
             seedColor: const Color(0xFF6750D8),
             brightness: Brightness.light,
           ),
-          fontFamily: 'sans-serif',
+          fontFamily: AppTypography.body,
+          textTheme: AppTypography.textTheme(const Color(0xFF202636)),
           useMaterial3: true,
         ),
         darkTheme: ThemeData(
@@ -36,7 +38,8 @@ class MyGameHubApp extends StatelessWidget {
             seedColor: const Color(0xFF7C5CFF),
             brightness: Brightness.dark,
           ),
-          fontFamily: 'sans-serif',
+          fontFamily: AppTypography.body,
+          textTheme: AppTypography.textTheme(const Color(0xFFF4F1FF)),
           useMaterial3: true,
         ),
         onGenerateRoute: (settings) {
