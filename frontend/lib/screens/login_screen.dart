@@ -320,6 +320,7 @@ class _WebLanding extends StatelessWidget {
           ),
         ]),
       );
+}
 
 class _LoginBackground extends StatelessWidget {
   const _LoginBackground();
