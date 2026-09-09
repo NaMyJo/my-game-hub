@@ -2586,17 +2586,6 @@ class _SummaryRow extends StatelessWidget {
                 width: cardWidth,
                 child: StatCard(
                   embedded: true,
-                  icon: Icons.auto_awesome_rounded,
-                  imageAsset: 'assets/game_icons/lostark.png',
-                  label: 'LOST ARK',
-                  value: '$lostArkCount개',
-                  caption: '등록 계정',
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: StatCard(
-                  embedded: true,
                   icon: Icons.shield_rounded,
                   imageAsset: 'assets/game_icons/lol.png',
                   label: 'RIOT GAMES',
@@ -2608,10 +2597,43 @@ class _SummaryRow extends StatelessWidget {
                 width: cardWidth,
                 child: StatCard(
                   embedded: true,
+                  icon: Icons.local_fire_department_rounded,
+                  imageAsset: 'assets/game_icons/valorant.png',
+                  label: 'VALORANT',
+                  value: '$valorantCount개',
+                  caption: '등록 계정',
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.sports_esports_rounded,
+                  imageAsset: 'assets/game_icons/pubg.png',
+                  label: 'BATTLEGROUNDS',
+                  value: '$battlegroundsCount개',
+                  caption: '등록 계정',
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
                   icon: Icons.diamond_rounded,
                   imageAsset: 'assets/game_icons/eternal_return.png',
                   label: 'ETERNAL RETURN',
                   value: '$eternalReturnCount개',
+                  caption: '등록 계정',
+                ),
+              ),
+              SizedBox(
+                width: cardWidth,
+                child: StatCard(
+                  embedded: true,
+                  icon: Icons.auto_awesome_rounded,
+                  imageAsset: 'assets/game_icons/lostark.png',
+                  label: 'LOST ARK',
+                  value: '$lostArkCount개',
                   caption: '등록 계정',
                 ),
               ),
@@ -2634,28 +2656,6 @@ class _SummaryRow extends StatelessWidget {
                   imageAsset: 'assets/game_icons/dungeon_fighter.png',
                   label: 'DUNGEON & FIGHTER',
                   value: '$dungeonFighterCount개',
-                  caption: '등록 계정',
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: StatCard(
-                  embedded: true,
-                  icon: Icons.sports_esports_rounded,
-                  imageAsset: 'assets/game_icons/pubg.png',
-                  label: 'BATTLEGROUNDS',
-                  value: '$battlegroundsCount개',
-                  caption: '등록 계정',
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: StatCard(
-                  embedded: true,
-                  icon: Icons.local_fire_department_rounded,
-                  imageAsset: 'assets/game_icons/valorant.png',
-                  label: 'VALORANT',
-                  value: '$valorantCount개',
                   caption: '등록 계정',
                 ),
               ),
@@ -4104,24 +4104,24 @@ class _MobileSummaryGrid extends StatelessWidget {
           child: _MobileSummaryGroup(
             items: [
               _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/lol.png',
+                label: 'RIOT GAMES',
+                value: 'LoL $lolCount · TFT $tftCount',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/pubg.png',
+                label: 'BATTLEGROUNDS',
+                value: '$battlegroundsCount개',
+              ),
+              _MobileSummaryItem(
                 imageAsset: 'assets/game_icons/lostark.png',
                 label: 'LOST ARK',
                 value: '$lostArkCount개',
               ),
               _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/eternal_return.png',
-                label: 'ETERNAL RETURN',
-                value: '$eternalReturnCount개',
-              ),
-              _MobileSummaryItem(
                 imageAsset: 'assets/game_icons/dungeon_fighter.png',
-                label: 'D&F',
+                label: 'DUNGEON & FIGHTER',
                 value: '$dungeonFighterCount개',
-              ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/valorant.png',
-                label: 'VALORANT',
-                value: '$valorantCount개',
               ),
             ],
           ),
@@ -4131,9 +4131,14 @@ class _MobileSummaryGrid extends StatelessWidget {
           child: _MobileSummaryGroup(
             items: [
               _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/lol.png',
-                label: 'RIOT',
-                value: 'LoL $lolCount · TFT $tftCount',
+                imageAsset: 'assets/game_icons/valorant.png',
+                label: 'VALORANT',
+                value: '$valorantCount개',
+              ),
+              _MobileSummaryItem(
+                imageAsset: 'assets/game_icons/eternal_return.png',
+                label: 'ETERNAL RETURN',
+                value: '$eternalReturnCount개',
               ),
               _MobileSummaryItem(
                 imageAsset: 'assets/game_icons/maplestory.png',
@@ -4141,13 +4146,8 @@ class _MobileSummaryGrid extends StatelessWidget {
                 value: '$mapleStoryCount개',
               ),
               _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/pubg.png',
-                label: 'PUBG',
-                value: '$battlegroundsCount개',
-              ),
-              _MobileSummaryItem(
                 icon: Icons.bolt_rounded,
-                label: '동기화',
+                label: '데이터 동기화',
                 value: lastSyncText,
               ),
             ],

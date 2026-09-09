@@ -959,7 +959,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
           ]))
         else
           LayoutBuilder(builder: (context, c) {
-            final columns = widget.webScrollController == null
+            final mobileResults = widget.webScrollController == null;
+            final columns = mobileResults
                 ? 2
                 : c.maxWidth >= 1100
                     ? 4
@@ -976,7 +977,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
                     crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: .68),
+                    childAspectRatio: mobileResults ? .54 : .68),
                 itemBuilder: (_, i) => _card(recommendations[i]));
           }),
         const SizedBox(height: 18),
@@ -1044,8 +1045,26 @@ class _GameFinderPageState extends State<GameFinderPage> {
                                 style: Theme.of(context).textTheme.bodySmall),
                           ],
                           const SizedBox(height: 7),
-                          Text(_price(g), style: AppTypography.numericStyle),
-                          Text(_release(g), style: AppTypography.numericStyle),
+                          Text(
+                            _price(g),
+                            style: AppTypography.numericStyle.copyWith(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF65D6B4)
+                                  : const Color(0xFF087F68),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _release(g),
+                            style: AppTypography.numericStyle.copyWith(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF8DBDFF)
+                                  : const Color(0xFF2866B1),
+                            ),
+                          ),
                           const SizedBox(height: 7),
                           Text(
                               [
@@ -1056,15 +1075,38 @@ class _GameFinderPageState extends State<GameFinderPage> {
                               ].join(' · '),
                               maxLines: 2),
                           const Spacer(),
-                          Text(g.genres.take(3).map(_tagLabel).join(' · '),
-                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                          Text(
+                            g.genres.take(3).map(_tagLabel).join(' · '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFFC1B7F4)
+                                  : const Color(0xFF6756A8),
+                              fontSize:
+                                  widget.webScrollController == null ? 11 : 13,
+                              height: 1.25,
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          const Row(
+                          Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text('Steam Store'),
-                                SizedBox(width: 5),
-                                Icon(Icons.open_in_new, size: 15)
+                                Text(
+                                  'Steam Store',
+                                  style: TextStyle(
+                                    fontSize: widget.webScrollController == null
+                                        ? 11
+                                        : 13,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? const Color(0xFFB4BECD)
+                                        : const Color(0xFF596579),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.open_in_new, size: 13)
                               ])
                         ])))
           ])));
