@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 RangeValues sortedRange(double first, double second) =>
     RangeValues(math.min(first, second), math.max(first, second));
 
+const double crossableRangeTrackHeight = 8;
+const double crossableRangeSliderHeight = 32;
+const Color crossableRangeDarkInactiveColor = Color(0xFF46556E);
+const Color crossableRangeLightInactiveColor = Color(0xFFBCC6D5);
+
 class CrossableRangeSlider extends StatefulWidget {
   const CrossableRangeSlider({
     super.key,
@@ -83,21 +88,30 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
         builder: (context, constraints) => Semantics(
           label: '범위 선택',
           value: '${widget.values.start.round()}에서 ${widget.values.end.round()}',
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (event) => _start(event, constraints.maxWidth),
-            onHorizontalDragUpdate: (event) => _update(event, constraints.maxWidth),
-            onHorizontalDragEnd: (_) => _end(),
-            onHorizontalDragCancel: _end,
-            child: SizedBox(
-              height: 44,
-              child: CustomPaint(
-                painter: _CrossableRangePainter(
-                  values: widget.values,
-                  min: widget.min,
-                  max: widget.max,
-                  color: Theme.of(context).colorScheme.primary,
-                  inactiveColor: Theme.of(context).dividerColor,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (event) =>
+                  _start(event, constraints.maxWidth),
+              onHorizontalDragUpdate: (event) =>
+                  _update(event, constraints.maxWidth),
+              onHorizontalDragEnd: (_) => _end(),
+              onHorizontalDragCancel: _end,
+              child: SizedBox(
+                height: crossableRangeSliderHeight,
+                child: CustomPaint(
+                  key: const ValueKey('crossable-range-track'),
+                  painter: _CrossableRangePainter(
+                    values: widget.values,
+                    min: widget.min,
+                    max: widget.max,
+                    color: const Color(0xFF806AFF),
+                    inactiveColor:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? crossableRangeDarkInactiveColor
+                            : crossableRangeLightInactiveColor,
+                  ),
                 ),
               ),
             ),
@@ -130,11 +144,17 @@ class _CrossableRangePainter extends CustomPainter {
     final start = x(values.start);
     final end = x(values.end);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(radius, y - 2, usable, 4), const Radius.circular(2)),
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(radius, y - crossableRangeTrackHeight / 2, usable,
+              crossableRangeTrackHeight),
+          const Radius.circular(crossableRangeTrackHeight / 2)),
       Paint()..color = inactiveColor,
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTRB(start, y - 3, end, y + 3), const Radius.circular(3)),
+      RRect.fromRectAndRadius(
+          Rect.fromLTRB(start, y - crossableRangeTrackHeight / 2, end,
+              y + crossableRangeTrackHeight / 2),
+          const Radius.circular(crossableRangeTrackHeight / 2)),
       Paint()..color = color,
     );
     for (final position in [start, end]) {

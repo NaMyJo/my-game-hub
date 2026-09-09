@@ -247,27 +247,58 @@ class _GameFinderPageState extends State<GameFinderPage> {
     });
   }
 
-  Widget _resultActions({bool floating = false}) => Wrap(
+  Widget _resultActions({bool floating = false}) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(13));
+    final secondaryStyle = floating
+        ? OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 46),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            foregroundColor: dark ? Colors.white : const Color(0xFF283247),
+            backgroundColor:
+                dark ? const Color(0xFF172238) : const Color(0xFFFFFFFF),
+            side: BorderSide(
+                color: dark
+                    ? const Color(0xFF8290A8)
+                    : const Color(0xFF66748A)),
+            shape: shape,
+          )
+        : null;
+    final primaryStyle = floating
+        ? FilledButton.styleFrom(
+            minimumSize: const Size(0, 46),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            foregroundColor: Colors.white,
+            backgroundColor: const Color(0xFF765EFF),
+            disabledForegroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFF5947BE),
+            shape: shape,
+          )
+        : null;
+    return Wrap(
         spacing: 10,
         runSpacing: 8,
         children: [
           OutlinedButton.icon(
+            style: secondaryStyle,
             onPressed: () {
               _floatingActions?.remove();
               _floatingActions = null;
               _showFloatingActions = false;
               _setStep(2);
             },
-            icon: const Icon(Icons.tune_rounded),
+            icon: const Icon(Icons.settings_outlined),
             label: const Text('조건 수정'),
           ),
           FilledButton.icon(
+            style: primaryStyle,
             onPressed: loading ? null : () => recommend(more: true),
             icon: const Icon(Icons.refresh),
             label: const Text('다른 게임 보기'),
           ),
         ],
       );
+  }
 
   void searchChanged(String value) {
     debounce?.cancel();
@@ -444,6 +475,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
               style: AppTypography.numericStyle),
           if (widget.webScrollController != null)
             CrossableRangeSlider(
+                key: const ValueKey('game-finder-player-range'),
                 values: players,
                 min: 1,
                 max: 15,
@@ -475,6 +507,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
               style: AppTypography.numericStyle),
           if (widget.webScrollController != null)
             CrossableRangeSlider(
+                key: const ValueKey('game-finder-price-range'),
                 values: price,
                 min: 0,
                 max: 100000,
