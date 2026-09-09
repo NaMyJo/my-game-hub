@@ -199,7 +199,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       icon: _loading
                           ? const SizedBox.square(
                               dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF241B48),
+                              ),
                             )
                           : const Icon(Icons.login_rounded, size: 20),
                       label: const Text(
@@ -208,7 +211,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       style: FilledButton.styleFrom(
                         foregroundColor: const Color(0xFF241B48),
-                        backgroundColor: const Color(0xFF765EFF),
+                        backgroundColor: const Color(0xFFC4B5FF),
+                        disabledForegroundColor: const Color(0xFF544A75),
+                        disabledBackgroundColor: const Color(0xFF9185BD),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -405,7 +410,10 @@ class _WebLanding extends StatelessWidget {
                                                       dimension: 18,
                                                       child:
                                                           CircularProgressIndicator(
-                                                              strokeWidth: 2))
+                                                        strokeWidth: 2,
+                                                        color:
+                                                            Color(0xFF241B48),
+                                                      ))
                                                   : const Icon(
                                                       Icons.login_rounded),
                                               label: const Text(
@@ -413,8 +421,14 @@ class _WebLanding extends StatelessWidget {
                                               style: FilledButton.styleFrom(
                                                   minimumSize:
                                                       const Size(230, 54),
+                                                  foregroundColor:
+                                                      const Color(0xFF241B48),
                                                   backgroundColor:
-                                                      const Color(0xFF765EFF),
+                                                      const Color(0xFFC4B5FF),
+                                                  disabledForegroundColor:
+                                                      const Color(0xFF544A75),
+                                                  disabledBackgroundColor:
+                                                      const Color(0xFF9185BD),
                                                   shape: RoundedRectangleBorder(
                                                       borderRadius:
                                                           BorderRadius.circular(
