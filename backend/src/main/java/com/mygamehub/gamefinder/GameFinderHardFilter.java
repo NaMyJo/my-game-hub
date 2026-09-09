@@ -15,7 +15,7 @@ public class GameFinderHardFilter {
         if (mode == PriceMode.FREE) return Boolean.TRUE.equals(game.getIsFree());
         if (mode == PriceMode.PAID) return !Boolean.TRUE.equals(game.getIsFree())
                 && game.getPriceCurrent() != null && game.getPriceCurrent() >= min
-                && game.getPriceCurrent() <= max;
+                && (max == 100000 || game.getPriceCurrent() <= max);
         return priceMatches(game, min, max);
     }
     boolean priceMatches(SteamGame game, int min, int max) {
@@ -37,7 +37,7 @@ public class GameFinderHardFilter {
         // IGDB exposes maxima per multiplayer mode. The enrichment model represents a
         // known positive maximum as the continuous supported interval starting at one.
         if (gameMin == null) gameMin = 1;
-        return gameMax >= selectedMin && gameMin <= selectedMax;
+        return gameMax >= selectedMin && (selectedMax == 15 || gameMin <= selectedMax);
     }
     boolean playersMatch(SteamGame game, int selectedMin, int selectedMax, PlayMode mode) {
         if (mode == PlayMode.SINGLE) return Boolean.TRUE.equals(game.getSinglePlayer());

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/game_finder.dart';
 import '../services/game_finder_repository.dart';
@@ -68,8 +69,7 @@ class GameFinderStepNavigation extends StatelessWidget {
                             horizontal: compact ? 9 : 16, vertical: 11),
                         decoration: BoxDecoration(
                             color: currentStep == index + 1
-                                ? const Color(0xFF6F5AE8)
-                                    .withValues(alpha: .20)
+                                ? const Color(0xFF6F5AE8).withValues(alpha: .20)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
@@ -160,6 +160,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
   GameFinderReleasePreference releasePreference =
       GameFinderReleasePreference.recent;
   final searchController = TextEditingController();
+  final playerMinController = TextEditingController(text: '1');
+  final playerMaxController = TextEditingController(text: '15');
+  final priceMinController = TextEditingController(text: '0');
+  final priceMaxController = TextEditingController(text: '100000');
+  bool directPlayerInput = false;
+  bool directPriceInput = false;
   Timer? debounce;
   List<SteamGameSearchItem> searchResults = [];
   final selected = <SteamGameSearchItem>[];
@@ -196,6 +202,10 @@ class _GameFinderPageState extends State<GameFinderPage> {
             RangeValues(prefs.priceMin.toDouble(), prefs.priceMax.toDouble());
         players =
             RangeValues(prefs.playerMin.toDouble(), prefs.playerMax.toDouble());
+        playerMinController.text = prefs.playerMin.toString();
+        playerMaxController.text = prefs.playerMax.toString();
+        priceMinController.text = prefs.priceMin.toString();
+        priceMaxController.text = prefs.priceMax.toString();
         includeAdult = prefs.includeAdult;
         releasePreference = prefs.releasePreference;
         availableTags
@@ -213,8 +223,48 @@ class _GameFinderPageState extends State<GameFinderPage> {
     _floatingActions?.remove();
     debounce?.cancel();
     searchController.dispose();
+    playerMinController.dispose();
+    playerMaxController.dispose();
+    priceMinController.dispose();
+    priceMaxController.dispose();
     super.dispose();
   }
+
+  void _applyDirectPlayerRange() {
+    final first = int.tryParse(playerMinController.text);
+    final second = int.tryParse(playerMaxController.text);
+    if (first == null || second == null) return;
+    setState(() => players = normalizeDirectRange(first, second, 1, 15));
+  }
+
+  void _applyDirectPriceRange() {
+    final first = int.tryParse(priceMinController.text);
+    final second = int.tryParse(priceMaxController.text);
+    if (first == null || second == null) return;
+    setState(() => price = normalizeDirectRange(first, second, 0, 100000));
+  }
+
+  Widget _directRangeField({
+    required TextEditingController controller,
+    required String suffix,
+    required VoidCallback onChanged,
+    double width = 130,
+  }) =>
+      SizedBox(
+        width: width,
+        child: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: (_) => onChanged(),
+          decoration: InputDecoration(
+            isDense: true,
+            suffixText: suffix,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+        ),
+      );
 
   void _handleWebScroll() {
     final visible = shouldShowGameFinderFloatingActions(
@@ -249,7 +299,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   Widget _resultActions({bool floating = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(13));
+    final shape =
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(13));
     final secondaryStyle = floating
         ? OutlinedButton.styleFrom(
             minimumSize: const Size(0, 46),
@@ -258,9 +309,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
             backgroundColor:
                 dark ? const Color(0xFF172238) : const Color(0xFFFFFFFF),
             side: BorderSide(
-                color: dark
-                    ? const Color(0xFF8290A8)
-                    : const Color(0xFF66748A)),
+                color:
+                    dark ? const Color(0xFF8290A8) : const Color(0xFF66748A)),
             shape: shape,
           )
         : null;
@@ -276,28 +326,28 @@ class _GameFinderPageState extends State<GameFinderPage> {
           )
         : null;
     return Wrap(
-        spacing: 10,
-        runSpacing: 8,
-        children: [
-          OutlinedButton.icon(
-            style: secondaryStyle,
-            onPressed: () {
-              _floatingActions?.remove();
-              _floatingActions = null;
-              _showFloatingActions = false;
-              _setStep(2);
-            },
-            icon: const Icon(Icons.settings_outlined),
-            label: const Text('조건 수정'),
-          ),
-          FilledButton.icon(
-            style: primaryStyle,
-            onPressed: loading ? null : () => recommend(more: true),
-            icon: const Icon(Icons.refresh),
-            label: const Text('다른 게임 보기'),
-          ),
-        ],
-      );
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          style: secondaryStyle,
+          onPressed: () {
+            _floatingActions?.remove();
+            _floatingActions = null;
+            _showFloatingActions = false;
+            _setStep(2);
+          },
+          icon: const Icon(Icons.settings_outlined),
+          label: const Text('조건 수정'),
+        ),
+        FilledButton.icon(
+          style: primaryStyle,
+          onPressed: loading ? null : () => recommend(more: true),
+          icon: const Icon(Icons.refresh),
+          label: const Text('다른 게임 보기'),
+        ),
+      ],
+    );
   }
 
   void searchChanged(String value) {
@@ -374,6 +424,27 @@ class _GameFinderPageState extends State<GameFinderPage> {
   @override
   Widget build(BuildContext context) {
     final webStyle = widget.webScrollController != null;
+    if (!webStyle) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (error != null)
+          Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              color: Colors.red.withValues(alpha: .1),
+              child: Text(error!)),
+        if (step == 3)
+          _results()
+        else ...[
+          _taste(),
+          const SizedBox(height: 16),
+          _filters(),
+        ],
+        if (loading)
+          const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()))
+      ]);
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
@@ -439,6 +510,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
       onStepSelected: _setStep,
     );
   }
+
   Widget _filters() =>
       _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('탐색 범위',
@@ -463,17 +535,63 @@ class _GameFinderPageState extends State<GameFinderPage> {
         const SizedBox(height: 8),
         SegmentedButton<GameFinderPlayMode>(
             segments: GameFinderPlayMode.values
-                .map((value) => ButtonSegment(
-                    value: value, label: Text(value.label)))
+                .map((value) =>
+                    ButtonSegment(value: value, label: Text(value.label)))
                 .toList(),
             selected: {playMode},
             onSelectionChanged: (value) =>
                 setState(() => playMode = value.first)),
         if (playMode.showsPlayerRange) ...[
           const SizedBox(height: 12),
-          Text('플레이 인원 ${players.start.round()}명 ~ ${players.end.round()}명',
-              style: AppTypography.numericStyle),
-          if (widget.webScrollController != null)
+          Row(children: [
+            Expanded(
+              child: Text(
+                  '플레이 인원 ${players.start.round()}명 ~ ${players.end == 15 ? '15명+' : '${players.end.round()}명'}',
+                  style: AppTypography.numericStyle),
+            ),
+            if (widget.webScrollController != null)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 9)),
+                onPressed: () => setState(() {
+                  directPlayerInput = !directPlayerInput;
+                  if (directPlayerInput) {
+                    playerMinController.text = players.start.round().toString();
+                    playerMaxController.text = players.end.round().toString();
+                  }
+                }),
+                icon: Icon(
+                    directPlayerInput
+                        ? Icons.linear_scale_rounded
+                        : Icons.edit_outlined,
+                    size: 15),
+                label: Text(directPlayerInput ? '슬라이더 사용' : '직접 입력'),
+              ),
+          ]),
+          if (widget.webScrollController != null && directPlayerInput)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  _directRangeField(
+                      controller: playerMinController,
+                      suffix: '명',
+                      onChanged: _applyDirectPlayerRange),
+                  const Text('~'),
+                  _directRangeField(
+                      controller: playerMaxController,
+                      suffix: '명',
+                      onChanged: _applyDirectPlayerRange),
+                  const Text('15명 이상은 15명+로 적용됩니다.',
+                      style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            )
+          else
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-player-range'),
                 debugLabel: 'player',
@@ -482,13 +600,6 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 max: 15,
                 divisions: 14,
                 onChanged: (v) => setState(() => players = v))
-          else
-            RangeSlider(
-                values: players,
-                min: 1,
-                max: 15,
-                divisions: 14,
-                onChanged: (v) => setState(() => players = v)),
         ],
         const SizedBox(height: 18),
         const Text('가격 유형',
@@ -496,17 +607,65 @@ class _GameFinderPageState extends State<GameFinderPage> {
         const SizedBox(height: 8),
         SegmentedButton<GameFinderPriceMode>(
             segments: GameFinderPriceMode.values
-                .map((value) => ButtonSegment(
-                    value: value, label: Text(value.label)))
+                .map((value) =>
+                    ButtonSegment(value: value, label: Text(value.label)))
                 .toList(),
             selected: {priceMode},
             onSelectionChanged: (value) =>
                 setState(() => priceMode = value.first)),
         if (priceMode.showsPriceRange) ...[
           const SizedBox(height: 12),
-          Text('가격 ${_won(price.start.round())} ~ ${_won(price.end.round())}',
-              style: AppTypography.numericStyle),
-          if (widget.webScrollController != null)
+          Row(children: [
+            Expanded(
+              child: Text(
+                  '가격 ${_won(price.start.round())} ~ ${price.end == 100000 ? '₩100,000+' : _won(price.end.round())}',
+                  style: AppTypography.numericStyle),
+            ),
+            if (widget.webScrollController != null)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 9)),
+                onPressed: () => setState(() {
+                  directPriceInput = !directPriceInput;
+                  if (directPriceInput) {
+                    priceMinController.text = price.start.round().toString();
+                    priceMaxController.text = price.end.round().toString();
+                  }
+                }),
+                icon: Icon(
+                    directPriceInput
+                        ? Icons.linear_scale_rounded
+                        : Icons.edit_outlined,
+                    size: 15),
+                label: Text(directPriceInput ? '슬라이더 사용' : '직접 입력'),
+              ),
+          ]),
+          if (widget.webScrollController != null && directPriceInput)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  _directRangeField(
+                      controller: priceMinController,
+                      suffix: '원',
+                      width: 160,
+                      onChanged: _applyDirectPriceRange),
+                  const Text('~'),
+                  _directRangeField(
+                      controller: priceMaxController,
+                      suffix: '원',
+                      width: 160,
+                      onChanged: _applyDirectPriceRange),
+                  const Text('₩100,000 이상은 ₩100,000+로 적용됩니다.',
+                      style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            )
+          else
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-price-range'),
                 debugLabel: 'price',
@@ -515,13 +674,6 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 max: 100000,
                 divisions: 100,
                 onChanged: (v) => setState(() => price = v))
-          else
-            RangeSlider(
-                values: price,
-                min: 0,
-                max: 100000,
-                divisions: 100,
-                onChanged: (v) => setState(() => price = v)),
         ],
         const SizedBox(height: 12),
         SwitchListTile(
@@ -532,9 +684,11 @@ class _GameFinderPageState extends State<GameFinderPage> {
             onChanged: (v) => setState(() => includeAdult = v)),
         const SizedBox(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          TextButton(
-              onPressed: () => _setStep(1),
-              child: const Text('취향 게임 수정')),
+          if (widget.webScrollController != null)
+            TextButton(
+                onPressed: () => _setStep(1), child: const Text('취향 게임 수정'))
+          else
+            const SizedBox.shrink(),
           FilledButton.icon(
               onPressed: !canRequestGameFinderRecommendation(
                           selected.map((game) => game.appId), selectedTags) ||
@@ -636,18 +790,19 @@ class _GameFinderPageState extends State<GameFinderPage> {
         _tagGroup('게임 스타일', 'STYLE'),
         _tagGroup('기타', 'TAG'),
         const SizedBox(height: 16),
-        Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-                onPressed: !canRequestGameFinderRecommendation(
-                        selected.map((game) => game.appId), selectedTags)
-                    ? null
-                    : () => setState(() {
-                          step = 2;
-                          if (maxVisitedStep < 2) maxVisitedStep = 2;
-                        }),
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('조건 설정')))
+        if (widget.webScrollController != null)
+          Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                  onPressed: !canRequestGameFinderRecommendation(
+                          selected.map((game) => game.appId), selectedTags)
+                      ? null
+                      : () => setState(() {
+                            step = 2;
+                            if (maxVisitedStep < 2) maxVisitedStep = 2;
+                          }),
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('조건 설정')))
       ]));
 
   Widget _tagGroup(String title, String type) {
@@ -657,7 +812,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
           const SizedBox(height: 7),
           Wrap(
               spacing: 8,
@@ -688,11 +844,11 @@ class _GameFinderPageState extends State<GameFinderPage> {
           Text('플레이 방식 ${playMode.label}'),
           if (playMode.showsPlayerRange)
             Text(
-                '인원 ${players.start.round()}~${players.end == 15 ? '15명+' : players.end.round()}'),
+                '인원 ${players.start.round()}명~${players.end == 15 ? '15명+' : '${players.end.round()}명'}'),
           Text('가격 유형 ${priceMode.label}'),
           if (priceMode.showsPriceRange)
             Text(
-                '가격 ${_won(price.start.round())}~${price.end == 100000 ? '상한 없음' : _won(price.end.round())}'),
+                '가격 ${_won(price.start.round())}~${price.end == 100000 ? '₩100,000+' : _won(price.end.round())}'),
           Text(includeAdult ? '성인 포함' : '성인 제외'),
           Text('취향 게임 ${selected.length}개'),
           Text(releasePreference.label)
@@ -719,13 +875,15 @@ class _GameFinderPageState extends State<GameFinderPage> {
           ]))
         else
           LayoutBuilder(builder: (context, c) {
-            final columns = c.maxWidth >= 1100
-                ? 4
-                : c.maxWidth >= 700
-                    ? 3
-                    : c.maxWidth >= 430
-                        ? 2
-                        : 1;
+            final columns = widget.webScrollController == null
+                ? 2
+                : c.maxWidth >= 1100
+                    ? 4
+                    : c.maxWidth >= 700
+                        ? 3
+                        : c.maxWidth >= 430
+                            ? 2
+                            : 1;
             return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

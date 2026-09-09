@@ -13,6 +13,13 @@ void main() {
     expect(sortedRange(50000, 40000), const RangeValues(40000, 50000));
   });
 
+  test('direct ranges are ordered and clamp open-ended slider sentinels', () {
+    expect(normalizeDirectRange(8, 4, 1, 15), const RangeValues(4, 8));
+    expect(normalizeDirectRange(4, 30, 1, 15), const RangeValues(4, 15));
+    expect(normalizeDirectRange(20000, 250000, 0, 100000),
+        const RangeValues(20000, 100000));
+  });
+
   testWidgets('player and price sliders render non-zero full-width tracks',
       (tester) async {
     await tester.pumpWidget(MaterialApp(

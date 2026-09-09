@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 RangeValues sortedRange(double first, double second) =>
     RangeValues(math.min(first, second), math.max(first, second));
 
+RangeValues normalizeDirectRange(
+        int first, int second, int minimum, int maximum) =>
+    sortedRange(first.clamp(minimum, maximum).toDouble(),
+        second.clamp(minimum, maximum).toDouble());
+
 const double crossableRangeTrackHeight = 6;
 const double crossableRangeSliderHeight = 32;
 const Color crossableRangeDarkInactiveColor = Color(0xFF46556E);

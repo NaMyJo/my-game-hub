@@ -28,6 +28,7 @@ enum DashboardPage {
   gameIdentity,
   gameFinder,
   gameFinderAdmin,
+  myPage,
 }
 
 DashboardPage pendingDashboardPage = DashboardPage.dashboard;
@@ -75,6 +76,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _openGameFinder() {
     setState(() {
       _currentPage = DashboardPage.gameFinder;
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
+  void _openMyPage() {
+    setState(() {
+      _currentPage = DashboardPage.myPage;
       _deleteMode = false;
       _selectedGameIds.clear();
     });
@@ -1249,133 +1258,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int valorantCount,
     required String lastSyncText,
   }) {
+    final mobilePage = _currentPage == DashboardPage.gameFinderAdmin
+        ? DashboardPage.dashboard
+        : _currentPage;
+    final mobileIndex = switch (mobilePage) {
+      DashboardPage.dashboard => 0,
+      DashboardPage.tools => 1,
+      DashboardPage.gameIdentity => 2,
+      DashboardPage.gameFinder => 3,
+      DashboardPage.myPage => 4,
+      DashboardPage.gameFinderAdmin => 0,
+    };
     return Scaffold(
       backgroundColor: const Color(0xFF050C16),
-
-      // 가운데 원형 게임 추가 버튼
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddGame,
-        backgroundColor: const Color(0xFF745CFF),
-        foregroundColor: Colors.white,
-        elevation: 8,
-        shape: const CircleBorder(),
-        child: const Icon(
-          Icons.add_rounded,
-          size: 32,
-        ),
+      appBar: _MobilePageHeader(
+        page: mobilePage,
       ),
-
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
-      // 모바일 하단 내비게이션
-      bottomNavigationBar: _MobileBottomBar(
-        currentPage: _currentPage,
+      bottomNavigationBar: MobileBottomBar(
+        currentPage: mobilePage,
         onDashboard: _openDashboard,
         onTools: _openTools,
         onGameIdentity: _openGameIdentity,
         onGameFinder: _openGameFinder,
+        onMyPage: _openMyPage,
       ),
-
       body: SafeArea(
         bottom: false,
-        child: _currentPage == DashboardPage.dashboard
-            ? SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  14,
-                  16,
-                  14,
-                  100,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _TftConnectionNotice(),
-                    const SizedBox(height: 10),
-                    _MobileHeader(
-                      user: _user,
-                      onSignOut: _confirmSignOut,
-                    ),
-                    const SizedBox(height: 16),
-                    _MobileHeroProfile(
-                      user: _user,
-                      profile: _userProfile,
-                      onEdit: _editUserProfile,
-                      onRefreshAll: _refreshAllGames,
-                      isRefreshingAll: _isRefreshingAll,
+        child: IndexedStack(
+          index: mobileIndex,
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                14,
+                16,
+                14,
+                100,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _TftConnectionNotice(),
+                  const SizedBox(height: 10),
+                  _MobileHeroProfile(
+                    user: _user,
+                    profile: _userProfile,
+                    onEdit: _editUserProfile,
+                    onRefreshAll: _refreshAllGames,
+                    isRefreshingAll: _isRefreshingAll,
+                  ),
+                  const SizedBox(height: 14),
+                  if (_isLoadingGames)
+                    _buildGameLoadingState()
+                  else if (_loadGamesError != null)
+                    _buildGameLoadErrorState()
+                  else ...[
+                    _MobileSummaryGrid(
+                      lostArkCount: lostArkCount,
+                      lolCount: lolCount,
+                      tftCount: tftCount,
+                      eternalReturnCount: eternalReturnCount,
+                      mapleStoryCount: mapleStoryCount,
+                      dungeonFighterCount: dungeonFighterCount,
+                      battlegroundsCount: battlegroundsCount,
+                      valorantCount: valorantCount,
+                      lastSyncText: lastSyncText,
                     ),
                     const SizedBox(height: 14),
-                    if (_isLoadingGames)
-                      _buildGameLoadingState()
-                    else if (_loadGamesError != null)
-                      _buildGameLoadErrorState()
-                    else ...[
-                      _MobileSummaryGrid(
-                        lostArkCount: lostArkCount,
-                        lolCount: lolCount,
-                        tftCount: tftCount,
-                        eternalReturnCount: eternalReturnCount,
-                        mapleStoryCount: mapleStoryCount,
-                        dungeonFighterCount: dungeonFighterCount,
-                        battlegroundsCount: battlegroundsCount,
-                        valorantCount: valorantCount,
-                        lastSyncText: lastSyncText,
-                      ),
-                      const SizedBox(height: 14),
-                      _MobileGameGrid(
-                        games: _games,
-                        refreshingGameId: _refreshingGameId,
-                        onRefresh: _refreshGame,
-                        onRemove: (game) async {
-                          try {
-                            await GameRepository.instance.deleteGame(game.id);
+                    _MobileGameGrid(
+                      games: _games,
+                      refreshingGameId: _refreshingGameId,
+                      onRefresh: _refreshGame,
+                      onRemove: (game) async {
+                        try {
+                          await GameRepository.instance.deleteGame(game.id);
 
-                            if (!mounted) return;
+                          if (!mounted) return;
 
-                            setState(() {
-                              _games.remove(game);
-                            });
-                          } catch (error) {
-                            if (!mounted) return;
-                            await _showApiError();
-                          }
-                        },
-                      ),
-                    ],
+                          setState(() {
+                            _games.remove(game);
+                          });
+                        } catch (error) {
+                          if (!mounted) return;
+                          await _showApiError();
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    MobileAddGameAction(onTap: _openAddGame),
                   ],
-                ),
-              )
-            : _currentPage == DashboardPage.tools
-                ? const SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
-                    child: _ToolsPage(),
-                  )
-                : _currentPage == DashboardPage.gameIdentity
-                    ? SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-                        child: GameIdentityPage(
-                          games: _games,
-                          onAddGame: _addGameForIdentity,
-                          onProfileApplied: (profile) {
-                            if (!mounted) return;
-                            setState(() {
-                              _gameProfileSummary = profile;
-                              _isLoadingGameProfile = false;
-                            });
-                          },
-                        ),
-                      )
-                    : _currentPage == DashboardPage.gameFinder
-                        ? SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-                            child: GameFinderPage(
-                              isAdmin: _isGameFinderAdmin,
-                              onOpenAdmin: _openGameFinderAdmin,
-                            ),
-                          )
-                        : const SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
-                            child: GameFinderAdminPage(),
-                          ),
+                ],
+              ),
+            ),
+            const SingleChildScrollView(
+              key: PageStorageKey('mobile-tools'),
+              padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
+              child: _ToolsPage(),
+            ),
+            SingleChildScrollView(
+              key: const PageStorageKey('mobile-game-identity'),
+              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
+              child: GameIdentityPage(
+                games: _games,
+                onAddGame: _addGameForIdentity,
+                showHeader: false,
+                onProfileApplied: (profile) {
+                  if (!mounted) return;
+                  setState(() {
+                    _gameProfileSummary = profile;
+                    _isLoadingGameProfile = false;
+                  });
+                },
+              ),
+            ),
+            SingleChildScrollView(
+              key: const PageStorageKey('mobile-game-finder'),
+              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
+              child: const GameFinderPage(),
+            ),
+            SingleChildScrollView(
+              key: const PageStorageKey('mobile-my-page'),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+              child: _MobileMyPage(
+                user: _user,
+                profile: _userProfile,
+                onSignOut: _confirmSignOut,
+                onGoogleLogin: AuthService.instance.signInWithGoogle,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1587,6 +1598,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       DashboardPage.gameFinderAdmin =>
                         const GameFinderAdminPage(),
+                      DashboardPage.myPage => const SizedBox.shrink(),
                     },
                   ),
                 ),
@@ -1942,8 +1954,8 @@ class _SidebarState extends State<_Sidebar> {
                     _SideItem(
                       icon: Icons.admin_panel_settings_outlined,
                       label: 'FINDER ADMIN',
-                      selected: widget.currentPage ==
-                          DashboardPage.gameFinderAdmin,
+                      selected:
+                          widget.currentPage == DashboardPage.gameFinderAdmin,
                       onTap: widget.onGameFinderAdmin,
                       collapsed: !_showContent,
                     ),
@@ -3321,10 +3333,8 @@ class _ToolsPage extends StatelessWidget {
         if (webStyle)
           const IconPageHeader(icon: Icons.handyman_rounded, title: '도구 모음')
         else ...[
-          const Text('도구 모음',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 8),
-          const Text('게임별 유용한 전적 검색 및 도구 사이트'),
+          const Text('게임별 유용한 전적 검색 및 도구 사이트',
+              style: TextStyle(color: Color(0xFF8C9AAF))),
         ],
         const SizedBox(height: 28),
         _ToolSection(
@@ -3591,6 +3601,37 @@ class _ToolSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isMobile = MediaQuery.sizeOf(context).width < 700;
+    if (isMobile) {
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF101A2A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF263348)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          iconColor: const Color(0xFF9B8CFF),
+          collapsedIconColor: const Color(0xFF8C9AAF),
+          title: Text(title,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          children: [
+            for (final tool in tools)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                title: Text(tool.name),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                onTap: () => onOpen(tool.url),
+              ),
+          ],
+        ),
+      );
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
@@ -3728,13 +3769,15 @@ class _ToolCardState extends State<_ToolCard> {
   }
 }
 
-class _MobileBottomBar extends StatelessWidget {
-  const _MobileBottomBar({
+class MobileBottomBar extends StatelessWidget {
+  const MobileBottomBar({
+    super.key,
     required this.currentPage,
     required this.onDashboard,
     required this.onTools,
     required this.onGameIdentity,
     required this.onGameFinder,
+    required this.onMyPage,
   });
 
   final DashboardPage currentPage;
@@ -3742,55 +3785,203 @@ class _MobileBottomBar extends StatelessWidget {
   final VoidCallback onTools;
   final VoidCallback onGameIdentity;
   final VoidCallback onGameFinder;
+  final VoidCallback onMyPage;
 
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      height: 72,
-      color: const Color(0xFF07101C),
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 9,
-      child: Row(
-        children: [
-          Expanded(
-            child: _MobileNavItem(
-              icon: Icons.dashboard_rounded,
-              label: '대시보드',
-              selected: currentPage == DashboardPage.dashboard,
-              onTap: onDashboard,
+    return SafeArea(
+      top: false,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0xFF07101C),
+          border: Border(top: BorderSide(color: Color(0xFF202C3E))),
+        ),
+        child: SizedBox(
+          height: 68,
+          child: Row(children: [
+            Expanded(
+              child: _MobileNavItem(
+                icon: Icons.dashboard_rounded,
+                label: '대시보드',
+                selected: currentPage == DashboardPage.dashboard,
+                onTap: onDashboard,
+              ),
             ),
-          ),
-
-          // 가운데 FAB 공간
-          const SizedBox(width: 72),
-
-          Expanded(
-            child: _MobileNavItem(
-              icon: Icons.build_circle_outlined,
-              label: '도구 모음',
-              selected: currentPage == DashboardPage.tools,
-              onTap: onTools,
+            Expanded(
+              child: _MobileNavItem(
+                icon: Icons.build_circle_outlined,
+                label: '도구 모음',
+                selected: currentPage == DashboardPage.tools,
+                onTap: onTools,
+              ),
             ),
-          ),
-          Expanded(
-            child: _MobileNavItem(
-              icon: Icons.badge_outlined,
-              label: '게임 신분증',
-              selected: currentPage == DashboardPage.gameIdentity,
-              onTap: onGameIdentity,
+            Expanded(
+              child: _MobileNavItem(
+                icon: Icons.badge_outlined,
+                label: '게임 신분증',
+                selected: currentPage == DashboardPage.gameIdentity,
+                onTap: onGameIdentity,
+              ),
             ),
-          ),
-          Expanded(
-            child: _MobileNavItem(
-              icon: Icons.travel_explore_rounded,
-              label: 'FINDER',
-              selected: currentPage == DashboardPage.gameFinder,
-              onTap: onGameFinder,
+            Expanded(
+              child: _MobileNavItem(
+                icon: Icons.travel_explore_rounded,
+                label: 'FINDER',
+                selected: currentPage == DashboardPage.gameFinder,
+                onTap: onGameFinder,
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: _MobileNavItem(
+                icon: Icons.person_outline_rounded,
+                label: '마이페이지',
+                selected: currentPage == DashboardPage.myPage,
+                onTap: onMyPage,
+              ),
+            ),
+          ]),
+        ),
       ),
     );
+  }
+}
+
+class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
+  const _MobilePageHeader({required this.page});
+
+  final DashboardPage page;
+
+  (IconData, String) get _content => switch (page) {
+        DashboardPage.dashboard => (Icons.dashboard_rounded, '대시보드'),
+        DashboardPage.tools => (Icons.handyman_outlined, '도구 모음'),
+        DashboardPage.gameIdentity => (Icons.badge_outlined, '게임 신분증'),
+        DashboardPage.gameFinder => (
+            Icons.travel_explore_rounded,
+            'GAME FINDER'
+          ),
+        DashboardPage.myPage => (Icons.person_outline_rounded, '마이페이지'),
+        DashboardPage.gameFinderAdmin => (Icons.dashboard_rounded, '대시보드'),
+      };
+
+  @override
+  Size get preferredSize => const Size.fromHeight(58);
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title) = _content;
+    return AppBar(
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      backgroundColor: const Color(0xFF07101C),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      title: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 20, color: const Color(0xFF9B8CFF)),
+        const SizedBox(width: 9),
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+}
+
+class MobileAddGameAction extends StatelessWidget {
+  const MobileAddGameAction({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: OutlinedButton.icon(
+          key: const ValueKey('mobile-dashboard-add-game'),
+          onPressed: onTap,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('새 게임 / 계정 추가'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFB9AFFF),
+            backgroundColor: const Color(0xFF101A2A),
+            side: const BorderSide(color: Color(0xFF51467F)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+        ),
+      );
+}
+
+class _MobileMyPage extends StatelessWidget {
+  const _MobileMyPage({
+    required this.user,
+    required this.profile,
+    required this.onSignOut,
+    required this.onGoogleLogin,
+  });
+
+  final User? user;
+  final UserProfile? profile;
+  final VoidCallback onSignOut;
+  final VoidCallback onGoogleLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final guest = user?.isAnonymous == true;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101A2A),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF263348)),
+        ),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: const Color(0xFF6E56E9),
+            backgroundImage:
+                user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
+            child: user?.photoURL == null
+                ? const Icon(Icons.person_rounded)
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  profile?.nickname ??
+                      (guest ? '게스트' : user?.displayName ?? '게이머'),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text(guest ? '로그인 없이 이용 중' : user?.email ?? '',
+                  style: const TextStyle(color: Color(0xFF8C9AAF))),
+            ]),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 16),
+      if (guest)
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: FilledButton.icon(
+            onPressed: onGoogleLogin,
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('Google 로그인으로 시작하기'),
+          ),
+        ),
+      if (guest) const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: OutlinedButton.icon(
+          onPressed: onSignOut,
+          icon: const Icon(Icons.logout_rounded),
+          label: Text(guest ? '게스트 종료' : '로그아웃'),
+        ),
+      ),
+    ]);
   }
 }
 
@@ -3852,29 +4043,30 @@ class _MobileGameGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-
-        // 모바일 게임 카드 높이 확보
-        childAspectRatio: 0.72,
-      ),
-      itemCount: games.length,
-      itemBuilder: (context, index) {
-        final game = games[index];
-        return GameCard(
-          profile: game,
-          isRefreshing: refreshingGameId == game.id,
-          onRefresh: () => onRefresh(game),
-          onRemove: () => onRemove(game),
-          mobile: true,
-        );
-      },
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 410 ? 3 : 2;
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: columns == 3 ? 0.58 : 0.72,
+        ),
+        itemCount: games.length,
+        itemBuilder: (context, index) {
+          final game = games[index];
+          return GameCard(
+            profile: game,
+            isRefreshing: refreshingGameId == game.id,
+            onRefresh: () => onRefresh(game),
+            onRemove: () => onRemove(game),
+            mobile: true,
+          );
+        },
+      );
+    });
   }
 }
 
@@ -4065,52 +4257,6 @@ class _MobileSummaryItem extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MobileHeader extends StatelessWidget {
-  const _MobileHeader({
-    required this.user,
-    required this.onSignOut,
-  });
-
-  final User? user;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final isGuest = user?.isAnonymous == true;
-    return Row(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.asset(
-            'assets/app_icon/favicon.png',
-            width: 24,
-            height: 24,
-            fit: BoxFit.cover,
-          ),
-        ),
-        const SizedBox(width: 9),
-        const Expanded(
-          child: Text(
-            'MY GAME HUB',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: isGuest ? '게스트 종료' : '로그아웃',
-          onPressed: onSignOut,
-          icon: Icon(
-            isGuest ? Icons.exit_to_app_rounded : Icons.logout_rounded,
-            color: const Color(0xFF8794A8),
-          ),
-        ),
-      ],
     );
   }
 }

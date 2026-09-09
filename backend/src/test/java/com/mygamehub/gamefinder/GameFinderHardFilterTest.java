@@ -23,6 +23,7 @@ class GameFinderHardFilterTest {
         assertThat(filter.playersMatch(game(false,0,0,8,12),4,6)).isFalse();
         assertThat(filter.playersMatch(game(false,0,0,null,null),4,6)).isFalse();
         assertThat(filter.playersMatch(game(false,0,0,null,null),1,15)).isTrue();
+        assertThat(filter.playersMatch(game(false,0,0,16,32),4,15)).isTrue();
     }
     @Test void playerFilterUsesKnownOnlineCapacityForLegacyRows(){
         var legacy=game(false,0,0,null,null);
@@ -45,6 +46,8 @@ class GameFinderHardFilterTest {
                 PriceMode.PAID)).isTrue();
         assertThat(filter.priceMatches(game(false,50000,null,null,null),20000,41000,
                 PriceMode.PAID)).isFalse();
+        assertThat(filter.priceMatches(game(false,150000,150000,null,null),20000,100000,
+                PriceMode.PAID)).isTrue();
     }
     @Test void adultUnknownIsAllowedButReliableAdultIsExcluded(){
         var request=new GameFinderRecommendRequest(List.of(1L),List.of(),0,100000,false,1,15,List.of());

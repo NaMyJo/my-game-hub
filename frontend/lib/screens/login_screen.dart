@@ -117,12 +117,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    '내 모든 게임 기록을 한 곳에서.',
+                    '내 게임 관리 및\n취향 게임 찾기',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF9DA9BA),
-                      fontSize: 15,
+                      color: Colors.white,
+                      fontSize: 26,
+                      height: 1.25,
+                      fontWeight: FontWeight.w800,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '흘어진 게임 계정을 관리하고\n내 취향에 맞는 게임을 발견해보세요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF9DA9BA), fontSize: 14),
                   ),
                   const SizedBox(height: 38),
                   SizedBox(
@@ -251,7 +259,10 @@ class _WebLanding extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: .08), Colors.black.withValues(alpha: .42)],
+                  colors: [
+                    Colors.black.withValues(alpha: .08),
+                    Colors.black.withValues(alpha: .42)
+                  ],
                 ),
               ),
             ),
@@ -267,46 +278,136 @@ class _WebLanding extends StatelessWidget {
                     child: Row(children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(9),
-                        child: Image.asset('assets/app_icon/favicon.png', width: 34, height: 34),
+                        child: Image.asset('assets/app_icon/favicon.png',
+                            width: 34, height: 34),
                       ),
                       const SizedBox(width: 11),
-                      const Text('MY GAME HUB', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                      const Text('MY GAME HUB',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 17)),
                     ]),
                   ),
                   const SizedBox(width: 42),
-                  TextButton.icon(onPressed: loading ? null : onTools, icon: const Icon(Icons.handyman_outlined, size: 17), label: const Text('도구 모음')),
+                  TextButton.icon(
+                      onPressed: loading ? null : onTools,
+                      icon: const Icon(Icons.handyman_outlined, size: 17),
+                      label: const Text('도구 모음')),
                   const SizedBox(width: 8),
-                  TextButton.icon(onPressed: loading ? null : onFinder, icon: const Icon(Icons.explore_outlined, size: 17), label: const Text('GAME FINDER')),
+                  TextButton.icon(
+                      onPressed: loading ? null : onFinder,
+                      icon: const Icon(Icons.explore_outlined, size: 17),
+                      label: const Text('GAME FINDER')),
                   const Spacer(),
-                  TextButton(onPressed: loading ? null : onGoogle, child: const Text('Google 로그인')),
+                  TextButton(
+                      onPressed: loading ? null : onGoogle,
+                      child: const Text('Google 로그인')),
                 ]),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, viewport) => SingleChildScrollView(
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: viewport.maxHeight),
+                        constraints:
+                            BoxConstraints(minHeight: viewport.maxHeight),
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 920),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 36),
-                              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(color: const Color(0xFF765EFF).withValues(alpha: .16), borderRadius: BorderRadius.circular(30), border: Border.all(color: const Color(0xFF826DFF).withValues(alpha: .4))),
-                          child: const Text('YOUR GAMES, ONE PLACE', style: TextStyle(color: Color(0xFFB7AAFF), fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
-                        ),
-                        const SizedBox(height: 24),
-                        Text('내 게임 관리 및\n취향 게임 찾기', textAlign: TextAlign.center, style: Theme.of(context).textTheme.displayMedium?.copyWith(fontFamily: AppTypography.display, fontSize: 58, height: 1.12, fontWeight: FontWeight.w800, color: Colors.white)),
-                        const SizedBox(height: 20),
-                        const Text('흩어진 게임 계정을 한곳에서 관리하고,\n내 취향에 맞는 새로운 게임을 발견해보세요.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, height: 1.65, color: Color(0xFFA9B4C6))),
-                        const SizedBox(height: 34),
-                        Wrap(spacing: 12, runSpacing: 12, alignment: WrapAlignment.center, children: [
-                          OutlinedButton.icon(onPressed: loading ? null : onGuest, icon: const Icon(Icons.arrow_forward_rounded), label: const Text('로그인 없이 시작하기'), style: OutlinedButton.styleFrom(minimumSize: const Size(190, 54), foregroundColor: Colors.white, side: const BorderSide(color: Color(0xFF59677C)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
-                          FilledButton.icon(onPressed: loading ? null : onGoogle, icon: loading ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.login_rounded), label: const Text('Google 로그인으로 시작하기'), style: FilledButton.styleFrom(minimumSize: const Size(230, 54), backgroundColor: const Color(0xFF765EFF), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
-                        ]),
-                        if (error != null) ...[const SizedBox(height: 18), Text(error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent))],
-                              ]),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 8),
+                                      decoration: BoxDecoration(
+                                          color: const Color(0xFF765EFF)
+                                              .withValues(alpha: .16),
+                                          borderRadius:
+                                              BorderRadius.circular(30),
+                                          border: Border.all(
+                                              color: const Color(0xFF826DFF)
+                                                  .withValues(alpha: .4))),
+                                      child: const Text('YOUR GAMES, ONE PLACE',
+                                          style: TextStyle(
+                                              color: Color(0xFFB7AAFF),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 1.4)),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text('내 게임 관리 및\n취향 게임 찾기',
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .displayMedium
+                                            ?.copyWith(
+                                                fontFamily:
+                                                    AppTypography.display,
+                                                fontSize: 58,
+                                                height: 1.12,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white)),
+                                    const SizedBox(height: 20),
+                                    const Text(
+                                        '흩어진 게임 계정을 한곳에서 관리하고,\n내 취향에 맞는 새로운 게임을 발견해보세요.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            height: 1.65,
+                                            color: Color(0xFFA9B4C6))),
+                                    const SizedBox(height: 34),
+                                    Wrap(
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        alignment: WrapAlignment.center,
+                                        children: [
+                                          OutlinedButton.icon(
+                                              onPressed:
+                                                  loading ? null : onGuest,
+                                              icon: const Icon(
+                                                  Icons.arrow_forward_rounded),
+                                              label: const Text('로그인 없이 시작하기'),
+                                              style: OutlinedButton.styleFrom(
+                                                  minimumSize:
+                                                      const Size(190, 54),
+                                                  foregroundColor: Colors.white,
+                                                  side: const BorderSide(
+                                                      color: Color(0xFF59677C)),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              14)))),
+                                          FilledButton.icon(
+                                              onPressed:
+                                                  loading ? null : onGoogle,
+                                              icon: loading
+                                                  ? const SizedBox.square(
+                                                      dimension: 18,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                              strokeWidth: 2))
+                                                  : const Icon(
+                                                      Icons.login_rounded),
+                                              label: const Text(
+                                                  'Google 로그인으로 시작하기'),
+                                              style: FilledButton.styleFrom(
+                                                  minimumSize:
+                                                      const Size(230, 54),
+                                                  backgroundColor:
+                                                      const Color(0xFF765EFF),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              14)))),
+                                        ]),
+                                    if (error != null) ...[
+                                      const SizedBox(height: 18),
+                                      Text(error!,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                              color: Colors.redAccent))
+                                    ],
+                                  ]),
                             ),
                           ),
                         ),
@@ -314,7 +415,8 @@ class _WebLanding extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Text('MY GAME HUB · 게임 기록과 취향 탐색을 위한 개인 허브', style: TextStyle(color: Color(0xFF68758A), fontSize: 12)),
+                const Text('MY GAME HUB · 게임 기록과 취향 탐색을 위한 개인 허브',
+                    style: TextStyle(color: Color(0xFF68758A), fontSize: 12)),
               ]),
             ),
           ),

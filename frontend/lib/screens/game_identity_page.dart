@@ -22,10 +22,12 @@ class GameIdentityPage extends StatefulWidget {
     required this.games,
     required this.onAddGame,
     required this.onProfileApplied,
+    this.showHeader = true,
   });
 
   final List<GameProfile> games;
   final Future<GameProfile?> Function() onAddGame;
+  final bool showHeader;
 
   final void Function(
     GameProfileSummary profile,
@@ -1160,8 +1162,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _GameIdentityHeader(),
-            const SizedBox(height: 24),
+            if (widget.showHeader) ...[
+              const _GameIdentityHeader(),
+              const SizedBox(height: 24),
+            ],
             if (wideLayout)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
