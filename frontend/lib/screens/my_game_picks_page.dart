@@ -36,77 +36,80 @@ class _MyGamePicksPageState extends State<MyGamePicksPage> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final guest = user == null || user.isAnonymous;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (widget.showHeader) ...[
-        const IconPageHeader(
-            icon: Icons.collections_bookmark_rounded, title: 'MY GAME PICKS'),
-        const SizedBox(height: 20),
-      ] else ...[
-        const Row(children: [
-          Icon(Icons.collections_bookmark_rounded, color: Color(0xFF9B8CFF)),
-          SizedBox(width: 9),
-          Text('My Game Picks',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-        ]),
-        const SizedBox(height: 14),
-      ],
-      if (guest)
-        _message(
-          icon: Icons.bookmark_border_rounded,
-          title: '로그인하면 저장한 게임을\n기기와 관계없이 다시 볼 수 있습니다.',
-          actionLabel: 'Google 로그인',
-          onAction: widget.onGoogleLogin,
-        )
-      else
-        AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            if (controller.loading) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            if (controller.error != null && controller.items.isEmpty) {
-              return _message(
-                icon: Icons.error_outline_rounded,
-                title: '저장한 게임을 불러오지 못했습니다.',
-                actionLabel: '다시 시도',
-                onAction: () => controller.syncUser(user, force: true),
-              );
-            }
-            if (controller.items.isEmpty) {
-              return _message(
-                icon: Icons.bookmark_add_outlined,
-                title: '아직 저장한 게임이 없습니다.\nSteam 게임을 둘러보고 마음에 드는 게임을 저장해보세요.',
-                actionLabel: 'GAME FINDER로 이동',
-                onAction: widget.onOpenGameFinder,
-              );
-            }
-            return LayoutBuilder(builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 1100
-                  ? 4
-                  : constraints.maxWidth >= 700
-                      ? 3
-                      : 2;
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: controller.items.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: columns == 2 ? .64 : .78,
-                ),
-                itemBuilder: (_, index) => _PickCard(controller.items[index]),
-              );
-            });
-          },
-        ),
-    ]);
+    return SizedBox(
+      width: double.infinity,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (widget.showHeader) ...[
+          const IconPageHeader(
+              icon: Icons.collections_bookmark_rounded, title: 'MY GAME PICKS'),
+          const SizedBox(height: 20),
+        ] else ...[
+          const Row(children: [
+            Icon(Icons.collections_bookmark_rounded, color: Color(0xFF9B8CFF)),
+            SizedBox(width: 9),
+            Text('My Game Picks',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          ]),
+          const SizedBox(height: 14),
+        ],
+        if (guest)
+          _message(
+            icon: Icons.bookmark_border_rounded,
+            title: '로그인하면 저장한 게임을\n기기와 관계없이 다시 볼 수 있습니다.',
+            actionLabel: 'Google 로그인',
+            onAction: widget.onGoogleLogin,
+          )
+        else
+          AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              if (controller.loading) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+              if (controller.error != null && controller.items.isEmpty) {
+                return _message(
+                  icon: Icons.error_outline_rounded,
+                  title: '저장한 게임을 불러오지 못했습니다.',
+                  actionLabel: '다시 시도',
+                  onAction: () => controller.syncUser(user, force: true),
+                );
+              }
+              if (controller.items.isEmpty) {
+                return _message(
+                  icon: Icons.bookmark_add_outlined,
+                  title: '아직 저장한 게임이 없습니다.\nSteam 게임을 둘러보고 마음에 드는 게임을 저장해보세요.',
+                  actionLabel: 'GAME FINDER로 이동',
+                  onAction: widget.onOpenGameFinder,
+                );
+              }
+              return LayoutBuilder(builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 1100
+                    ? 4
+                    : constraints.maxWidth >= 700
+                        ? 3
+                        : 2;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: controller.items.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: columns == 2 ? .64 : .78,
+                  ),
+                  itemBuilder: (_, index) => _PickCard(controller.items[index]),
+                );
+              });
+            },
+          ),
+      ]),
+    );
   }
 
   Widget _message({

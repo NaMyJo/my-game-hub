@@ -60,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _deleteMode = false;
   bool _sidebarCollapsed = false;
   bool _isGameFinderAdmin = false;
+  bool? _wasMobileLayout;
   final Set<int> _selectedGameIds = {};
   String? _loadGamesError;
   void _toggleSidebar() {
@@ -99,6 +100,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _currentPage = DashboardPage.myGamePicks;
       _deleteMode = false;
       _selectedGameIds.clear();
+    });
+    _resetDesktopScroll();
+  }
+
+  void _resetDesktopScroll() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_desktopScrollController.hasClients) {
+        _desktopScrollController.jumpTo(
+          _desktopScrollController.position.minScrollExtent,
+        );
+      }
     });
   }
 
@@ -151,6 +163,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserProfile();
     _loadGameFinderAdminAccess();
     MyGamePicksController.instance.syncUser(_user);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isMobile = MediaQuery.sizeOf(context).width < 700;
+    if (_wasMobileLayout == true &&
+        !isMobile &&
+        _currentPage == DashboardPage.myPage) {
+      _currentPage = DashboardPage.myGamePicks;
+      _resetDesktopScroll();
+    }
+    _wasMobileLayout = isMobile;
   }
 
   @override
@@ -1300,10 +1325,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int valorantCount,
     required String lastSyncText,
   }) {
-    final mobilePage = _currentPage == DashboardPage.gameFinderAdmin ||
-            _currentPage == DashboardPage.myGamePicks
-        ? DashboardPage.dashboard
-        : _currentPage;
+    final mobilePage = switch (_currentPage) {
+      DashboardPage.gameFinderAdmin => DashboardPage.dashboard,
+      DashboardPage.myGamePicks => DashboardPage.myPage,
+      _ => _currentPage,
+    };
     final mobileIndex = switch (mobilePage) {
       DashboardPage.dashboard => 0,
       DashboardPage.tools => 1,
