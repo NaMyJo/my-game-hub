@@ -977,7 +977,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
                     crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: mobileResults ? .54 : .68),
+                    childAspectRatio: mobileResults ? .61 : .82),
                 itemBuilder: (_, i) => _card(recommendations[i]));
           }),
         const SizedBox(height: 18),
