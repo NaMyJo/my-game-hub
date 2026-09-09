@@ -13,7 +13,9 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(
                         "http://localhost:*",
                         "http://127.0.0.1:*",
-                        "https://my-game-hub-six.vercel.app"
+                        "https://my-game-hub-six.vercel.app",
+                        "https://mygamehub.kr",
+                        "https://www.mygamehub.kr"
                 )
                 .allowedMethods(
                         "GET",

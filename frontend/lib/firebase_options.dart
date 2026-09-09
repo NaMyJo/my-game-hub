@@ -57,7 +57,7 @@ class DefaultFirebaseOptions {
     appId: '1:162181395692:web:4ba9fe4bbca14fde9d61c9',
     messagingSenderId: '162181395692',
     projectId: 'gamehub-namyjo1113',
-    authDomain: 'gamehub-namyjo1113.firebaseapp.com',
+    authDomain: 'auth.mygamehub.kr',
     storageBucket: 'gamehub-namyjo1113.firebasestorage.app',
     measurementId: 'G-N034D3C2FY',
   );
