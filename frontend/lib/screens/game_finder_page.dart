@@ -333,32 +333,27 @@ class _GameFinderPageState extends State<GameFinderPage> {
   Widget _resultActions({bool floating = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final shape =
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(13));
-    final secondaryStyle = floating
-        ? OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 46),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            foregroundColor: dark ? Colors.white : const Color(0xFF283247),
-            backgroundColor:
-                dark ? const Color(0xFF172238) : const Color(0xFFFFFFFF),
-            side: BorderSide(
-                color:
-                    dark ? const Color(0xFF8290A8) : const Color(0xFF66748A)),
-            shape: shape,
-          )
-        : null;
-    final primaryStyle = floating
-        ? FilledButton.styleFrom(
-            minimumSize: const Size(0, 46),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            foregroundColor: Colors.white,
-            backgroundColor: const Color(0xFF765EFF),
-            disabledForegroundColor: Colors.white,
-            disabledBackgroundColor: const Color(0xFF5947BE),
-            shape: shape,
-          )
-        : null;
-    return Wrap(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(15));
+    final secondaryStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 46),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      foregroundColor: dark ? const Color(0xFFE9E4FF) : const Color(0xFF433776),
+      backgroundColor: dark ? const Color(0xFF111C2E) : const Color(0xFFFFFFFF),
+      side: BorderSide(
+        color: dark ? const Color(0xFF8074A7) : const Color(0xFF8276A8),
+      ),
+      shape: shape,
+    );
+    final primaryStyle = FilledButton.styleFrom(
+      minimumSize: const Size(0, 46),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      foregroundColor: const Color(0xFF241B48),
+      backgroundColor: const Color(0xFFC4B5FF),
+      disabledForegroundColor: const Color(0xFF544A75),
+      disabledBackgroundColor: const Color(0xFF9185BD),
+      shape: shape,
+    );
+    final actions = Wrap(
       spacing: 10,
       runSpacing: 8,
       children: [
@@ -386,6 +381,26 @@ class _GameFinderPageState extends State<GameFinderPage> {
           label: const Text('다른 게임 보기'),
         ),
       ],
+    );
+    if (!floating) return actions;
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF07111F) : const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: dark ? const Color(0xFF26364E) : const Color(0xFFD5DAE5),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55000000),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: actions,
     );
   }
 
@@ -980,7 +995,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
                     childAspectRatio: mobileResults ? .61 : .82),
                 itemBuilder: (_, i) => _card(recommendations[i]));
           }),
-        const SizedBox(height: 18),
+        SizedBox(
+          height: recommendations.isEmpty
+              ? 18
+              : widget.mobileScrollController == null
+                  ? 92
+                  : 160,
+        ),
       ]);
 
   Widget _resultCondition(String label, String value) {
