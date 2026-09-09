@@ -12,6 +12,7 @@ import '../services/game_profile_summary_repository.dart';
 import '../services/game_finder_admin_repository.dart';
 import '../services/game_repository.dart';
 import '../services/public_profile_repository.dart';
+import '../services/my_game_picks_controller.dart';
 import '../services/user_profile_repository.dart';
 import '../theme/app_theme_controller.dart';
 import '../widgets/add_game_dialog.dart';
@@ -22,12 +23,14 @@ import 'game_identity_page.dart';
 import 'game_finder_page.dart';
 import 'game_finder_admin_page.dart';
 import 'public_pages.dart';
+import 'my_game_picks_page.dart';
 
 enum DashboardPage {
   dashboard,
   tools,
   gameIdentity,
   gameFinder,
+  myGamePicks,
   gameFinderAdmin,
   myPage,
 }
@@ -91,9 +94,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _openMyGamePicks() {
+    setState(() {
+      _currentPage = DashboardPage.myGamePicks;
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+  }
+
   Future<void> _signInFromMyPage() async {
     await AuthService.instance.signInWithGoogle();
     if (!mounted) return;
+
+    await MyGamePicksController.instance.syncUser(_user, force: true);
 
     setState(() {
       _currentPage = DashboardPage.dashboard;
@@ -137,6 +150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadGameProfileSummary();
     _loadUserProfile();
     _loadGameFinderAdminAccess();
+    MyGamePicksController.instance.syncUser(_user);
   }
 
   @override
@@ -1140,6 +1154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _signOut() async {
+    MyGamePicksController.instance.clear();
     await AuthService.instance.signOut();
   }
 
@@ -1285,7 +1300,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required int valorantCount,
     required String lastSyncText,
   }) {
-    final mobilePage = _currentPage == DashboardPage.gameFinderAdmin
+    final mobilePage = _currentPage == DashboardPage.gameFinderAdmin ||
+            _currentPage == DashboardPage.myGamePicks
         ? DashboardPage.dashboard
         : _currentPage;
     final mobileIndex = switch (mobilePage) {
@@ -1294,6 +1310,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       DashboardPage.gameIdentity => 2,
       DashboardPage.gameFinder => 3,
       DashboardPage.myPage => 4,
+      DashboardPage.myGamePicks => 4,
       DashboardPage.gameFinderAdmin => 0,
     };
     return Scaffold(
@@ -1412,6 +1429,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 profile: _userProfile,
                 onSignOut: _confirmSignOut,
                 onGoogleLogin: _signInFromMyPage,
+                onOpenGameFinder: _openGameFinder,
               ),
             ),
           ],
@@ -1516,6 +1534,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onTools: _openTools,
             onGameIdentity: _openGameIdentity,
             onGameFinder: _openGameFinder,
+            onMyGamePicks: _openMyGamePicks,
             isGameFinderAdmin: _isGameFinderAdmin,
             onGameFinderAdmin: _openGameFinderAdmin,
             onSignOut: _confirmSignOut,
@@ -1622,6 +1641,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           isAdmin: _isGameFinderAdmin,
                           onOpenAdmin: _openGameFinderAdmin,
                           webScrollController: _desktopScrollController,
+                        ),
+                      DashboardPage.myGamePicks => MyGamePicksPage(
+                          onOpenGameFinder: _openGameFinder,
                         ),
                       DashboardPage.gameFinderAdmin =>
                         const GameFinderAdminPage(),
@@ -1736,6 +1758,7 @@ class _Sidebar extends StatefulWidget {
     required this.onToggleCollapsed,
     required this.onGameIdentity,
     required this.onGameFinder,
+    required this.onMyGamePicks,
     required this.isGameFinderAdmin,
     required this.onGameFinderAdmin,
     required this.isDarkMode,
@@ -1753,6 +1776,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onToggleCollapsed;
   final VoidCallback onGameIdentity;
   final VoidCallback onGameFinder;
+  final VoidCallback onMyGamePicks;
   final bool isGameFinderAdmin;
   final VoidCallback onGameFinderAdmin;
   final bool isDarkMode;
@@ -1933,6 +1957,13 @@ class _SidebarState extends State<_Sidebar> {
                     label: 'GAME FINDER',
                     selected: widget.currentPage == DashboardPage.gameFinder,
                     onTap: widget.onGameFinder,
+                    collapsed: !_showContent,
+                  ),
+                  _SideItem(
+                    icon: Icons.collections_bookmark_rounded,
+                    label: 'My Game Picks',
+                    selected: widget.currentPage == DashboardPage.myGamePicks,
+                    onTap: widget.onMyGamePicks,
                     collapsed: !_showContent,
                   ),
                   if (widget.isGameFinderAdmin)
@@ -3845,6 +3876,10 @@ class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
             Icons.travel_explore_rounded,
             'GAME FINDER'
           ),
+        DashboardPage.myGamePicks => (
+            Icons.collections_bookmark_rounded,
+            'MY GAME PICKS'
+          ),
         DashboardPage.myPage => (Icons.person_outline_rounded, '마이페이지'),
         DashboardPage.gameFinderAdmin => (Icons.dashboard_rounded, '대시보드'),
       };
@@ -3917,12 +3952,14 @@ class _MobileMyPage extends StatelessWidget {
     required this.profile,
     required this.onSignOut,
     required this.onGoogleLogin,
+    required this.onOpenGameFinder,
   });
 
   final User? user;
   final UserProfile? profile;
   final VoidCallback onSignOut;
   final VoidCallback onGoogleLogin;
+  final VoidCallback onOpenGameFinder;
 
   @override
   Widget build(BuildContext context) {
@@ -3982,6 +4019,12 @@ class _MobileMyPage extends StatelessWidget {
           icon: const Icon(Icons.logout_rounded),
           label: Text(guest ? '게스트 종료' : '로그아웃'),
         ),
+      ),
+      const SizedBox(height: 24),
+      MyGamePicksPage(
+        showHeader: false,
+        onOpenGameFinder: onOpenGameFinder,
+        onGoogleLogin: onGoogleLogin,
       ),
     ]);
   }

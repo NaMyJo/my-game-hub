@@ -7,6 +7,7 @@ import '../services/game_finder_repository.dart';
 import '../theme/app_typography.dart';
 import '../widgets/icon_page_header.dart';
 import '../widgets/crossable_range_slider.dart';
+import '../widgets/game_pick_button.dart';
 
 const double gameFinderFloatingActionThreshold = 280;
 
@@ -180,6 +181,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
   List<GameFinderRecommendation> recommendations = [];
   bool initialLoading = true;
   bool loading = false;
+  bool refreshingRecommendations = false;
   String? error;
   ScrollController? get _pageScrollController =>
       widget.webScrollController ?? widget.mobileScrollController;
@@ -382,26 +384,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
         ),
       ],
     );
-    if (!floating) return actions;
-
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xFF07111F) : const Color(0xFFF7F8FC),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: dark ? const Color(0xFF26364E) : const Color(0xFFD5DAE5),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x55000000),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: actions,
-    );
+    return actions;
   }
 
   void searchChanged(String value) {
@@ -438,10 +421,21 @@ class _GameFinderPageState extends State<GameFinderPage> {
         selected.map((game) => game.appId), selectedTags)) {
       return;
     }
+    if (more) {
+      _removeFloatingActions();
+    }
     setState(() {
       loading = true;
+      refreshingRecommendations = more;
+      if (more) recommendations = [];
       error = null;
     });
+    if (more) {
+      final controller = _pageScrollController;
+      if (controller?.hasClients == true) {
+        controller!.jumpTo(controller.position.minScrollExtent);
+      }
+    }
     try {
       final result = await GameFinderRepository.instance.recommend(
           likedIds: selected.map((e) => e.appId).toList(),
@@ -486,7 +480,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
     } catch (_) {
       if (mounted) setState(() => error = '추천 결과를 불러오지 못했습니다.');
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() {
+          loading = false;
+          refreshingRecommendations = false;
+        });
+      }
     }
   }
 
@@ -508,7 +507,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           const SizedBox(height: 16),
           _filters(),
         ],
-        if (loading)
+        if (loading && !refreshingRecommendations)
           const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()))
@@ -552,7 +551,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
       if (step == 1) _taste(),
       if (step == 2) _filters(),
       if (step == 3) _results(),
-      if (loading)
+      if (loading && !refreshingRecommendations)
         const Padding(
             padding: EdgeInsets.all(24),
             child: Center(child: CircularProgressIndicator()))
@@ -870,7 +869,10 @@ class _GameFinderPageState extends State<GameFinderPage> {
             .map((g) => ListTile(
                 leading: _image(g.imageUrl, 48),
                 title: Text(g.name),
-                trailing: const Icon(Icons.add_circle_outline),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  GamePickButton(steamAppId: g.appId),
+                  const Icon(Icons.add_circle_outline),
+                ]),
                 onTap:
                     selected.length >= 10 ? null : () => _addSearchResult(g))),
         const Divider(height: 34),
@@ -953,7 +955,19 @@ class _GameFinderPageState extends State<GameFinderPage> {
           _resultCondition('출시 선호', releasePreference.label)
         ])),
         const SizedBox(height: 16),
-        if (recommendations.isEmpty)
+        if (refreshingRecommendations)
+          _panel(const Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                '현재 조건으로 다시 검색하는 중입니다.\n잠시만 기다려 주십시오.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ))
+        else if (recommendations.isEmpty)
           _panel(Column(children: [
             const Icon(Icons.explore_outlined,
                 size: 44, color: Color(0xFF8D79FF)),
@@ -1047,11 +1061,20 @@ class _GameFinderPageState extends State<GameFinderPage> {
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(g.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w900)),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(g.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                              GamePickButton(steamAppId: g.appId),
+                            ],
+                          ),
                           const SizedBox(height: 7),
                           Text('취향 일치도 ${g.matchScore}%',
                               style: AppTypography.numericStyle.copyWith(
