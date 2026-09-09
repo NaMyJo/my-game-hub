@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 RangeValues sortedRange(double first, double second) =>
     RangeValues(math.min(first, second), math.max(first, second));
 
-const double crossableRangeTrackHeight = 8;
+const double crossableRangeTrackHeight = 6;
 const double crossableRangeSliderHeight = 32;
 const Color crossableRangeDarkInactiveColor = Color(0xFF46556E);
 const Color crossableRangeLightInactiveColor = Color(0xFFBCC6D5);
@@ -18,6 +18,7 @@ class CrossableRangeSlider extends StatefulWidget {
     required this.max,
     required this.divisions,
     required this.onChanged,
+    this.debugLabel,
   });
 
   final RangeValues values;
@@ -25,6 +26,7 @@ class CrossableRangeSlider extends StatefulWidget {
   final double max;
   final int divisions;
   final ValueChanged<RangeValues> onChanged;
+  final String? debugLabel;
 
   @override
   State<CrossableRangeSlider> createState() => _CrossableRangeSliderState();
@@ -35,6 +37,7 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
   bool _dragging = false;
   late double _first;
   late double _second;
+  String? _lastGeometryLog;
 
   @override
   void initState() {
@@ -83,9 +86,37 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
     widget.onChanged(sortedRange(_first, _second));
   }
 
+  void _debugGeometry(double width, double height) {
+    assert(() {
+      final radius = 10.0;
+      final trackLeft = radius;
+      final trackRight = math.max(radius, width - radius);
+      final trackWidth = math.max(0.0, trackRight - trackLeft);
+      double position(double value) => trackWidth == 0
+          ? trackLeft
+          : trackLeft +
+              (value - widget.min) / (widget.max - widget.min) * trackWidth;
+      final message =
+          '${widget.debugLabel ?? 'range'}_slider_geometry '
+          'width=$width height=$height trackLeft=$trackLeft '
+          'trackRight=$trackRight trackWidth=$trackWidth '
+          'thumbA=${position(widget.values.start)} '
+          'thumbB=${position(widget.values.end)} min=${widget.min} '
+          'max=${widget.max} values=${widget.values.start},${widget.values.end}';
+      if (_lastGeometryLog != message) {
+        _lastGeometryLog = message;
+        debugPrint(message);
+      }
+      return true;
+    }());
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) => Semantics(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          _debugGeometry(width, crossableRangeSliderHeight);
+          return Semantics(
           label: '범위 선택',
           value: '${widget.values.start.round()}에서 ${widget.values.end.round()}',
           child: MouseRegion(
@@ -99,9 +130,11 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
               onHorizontalDragEnd: (_) => _end(),
               onHorizontalDragCancel: _end,
               child: SizedBox(
+                width: double.infinity,
                 height: crossableRangeSliderHeight,
                 child: CustomPaint(
-                  key: const ValueKey('crossable-range-track'),
+                  key: ValueKey(
+                      '${widget.debugLabel ?? 'crossable-range'}-track'),
                   painter: _CrossableRangePainter(
                     values: widget.values,
                     min: widget.min,
@@ -116,7 +149,8 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
               ),
             ),
           ),
-        ),
+        );
+        },
       );
 }
 

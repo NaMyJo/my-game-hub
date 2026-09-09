@@ -476,6 +476,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           if (widget.webScrollController != null)
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-player-range'),
+                debugLabel: 'player',
                 values: players,
                 min: 1,
                 max: 15,
@@ -508,6 +509,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           if (widget.webScrollController != null)
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-price-range'),
+                debugLabel: 'price',
                 values: price,
                 min: 0,
                 max: 100000,

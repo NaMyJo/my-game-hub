@@ -13,28 +13,46 @@ void main() {
     expect(sortedRange(50000, 40000), const RangeValues(40000, 50000));
   });
 
-  testWidgets('dark web slider renders a visible full-width track',
+  testWidgets('player and price sliders render non-zero full-width tracks',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData.dark(),
       home: Scaffold(
         body: SizedBox(
           width: 600,
-          child: CrossableRangeSlider(
-            values: const RangeValues(4, 6),
-            min: 1,
-            max: 15,
-            divisions: 14,
-            onChanged: (_) {},
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CrossableRangeSlider(
+                debugLabel: 'player',
+                values: const RangeValues(1, 15),
+                min: 1,
+                max: 15,
+                divisions: 14,
+                onChanged: (_) {},
+              ),
+              CrossableRangeSlider(
+                debugLabel: 'price',
+                values: const RangeValues(0, 100000),
+                min: 0,
+                max: 100000,
+                divisions: 100,
+                onChanged: (_) {},
+              ),
+            ],
           ),
         ),
       ),
     ));
 
-    expect(crossableRangeTrackHeight, 8);
+    expect(crossableRangeTrackHeight, 6);
     expect(crossableRangeDarkInactiveColor, isNot(const Color(0x00000000)));
-    expect(find.byKey(const ValueKey('crossable-range-track')), findsOneWidget);
-    expect(tester.getSize(find.byType(CrossableRangeSlider)).width, 600);
+    for (final label in ['player', 'price']) {
+      final track = find.byKey(ValueKey('$label-track'));
+      expect(track, findsOneWidget);
+      expect(tester.getSize(track).width, 600);
+      expect(tester.getSize(track).width, greaterThan(0));
+    }
     expect(tester.takeException(), isNull);
   });
 }
