@@ -177,6 +177,45 @@ class SteamGameRepositoryFinderQueryTest {
     }
 
     @Test
+    void playerMissingClassificationUsesStructuredTagsWithMultiplayerPrecedence() {
+        long single = insertTag("singleplayer");
+        long multi = insertTag("multiplayer");
+        long coop = insertTag("coop");
+        insertGameWithoutPlayerData(101, 0);
+        insertGameWithoutPlayerData(102, 0);
+        insertGameWithoutPlayerData(103, 0);
+        insertGameWithoutPlayerData(104, 0);
+        insertGameWithoutPlayerData(105, 0);
+        insertGame(106, 0, "NON_ADULT", 1, 4, true, "game", "ACTIVE");
+        insertRelation(101, multi);
+        insertRelation(102, coop);
+        insertRelation(103, single);
+        insertRelation(104, single);
+        insertRelation(104, multi);
+        jdbc.update("update steam_games set igdb_status='SUCCESS' where steam_app_id in (101,103,105)");
+
+        var result = games.playerMissingClassification();
+
+        assertThat(result.getPlayerDataMissingTotal()).isEqualTo(5);
+        assertThat(result.getMultiplayerCandidateCount()).isEqualTo(3);
+        assertThat(result.getSingleplayerOnlyCandidateCount()).isEqualTo(1);
+        assertThat(result.getUnknownCount()).isEqualTo(1);
+        assertThat(result.getPlayerDataMissingTotal()).isEqualTo(
+                result.getMultiplayerCandidateCount()
+                        + result.getSingleplayerOnlyCandidateCount() + result.getUnknownCount());
+        assertThat(result.getIgdbSuccessPlayerDataMissingTotal()).isEqualTo(3);
+        assertThat(result.getIgdbSuccessMultiplayerCandidateCount()).isEqualTo(1);
+        assertThat(result.getIgdbSuccessSingleplayerOnlyCandidateCount()).isEqualTo(1);
+        assertThat(result.getIgdbSuccessUnknownCount()).isEqualTo(1);
+
+        var samples = games.findPlayerMissingSamples("MULTIPLAYER_CANDIDATE",
+                PageRequest.of(0, 20));
+        assertThat(samples).extracting(PlayerMissingSampleProjection::getSteamAppId)
+                .containsExactly(101L, 102L, 104L);
+        assertThat(samples.getFirst().getCanonicalTags()).contains("multiplayer");
+    }
+
+    @Test
     void igdbIntegrityUsesAggregateChecksForStatusAndPlayerRanges() {
         insertGame(10, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
         jdbc.update("update steam_games set igdb_status='SUCCESS',igdb_game_id=100 where steam_app_id=10");

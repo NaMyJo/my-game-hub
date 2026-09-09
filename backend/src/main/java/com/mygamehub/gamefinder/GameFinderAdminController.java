@@ -15,6 +15,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminIgdbVerifyResponse;
 import com.mygamehub.gamefinder.dto.MetadataRunnerStatusResponse;
+import com.mygamehub.gamefinder.dto.PlayerMissingSampleResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -32,16 +34,19 @@ public class GameFinderAdminController {
     private final GameFinderAdminMaintenanceService maintenance;
     private final GameFinderAdminStatusService statusService;
     private final SteamMetadataMaintenanceRunner metadataRunner;
+    private final PlayerMissingDiagnosticService playerMissingDiagnostic;
 
     public GameFinderAdminController(
             GameFinderAdminAuthorizer authorizer,
             GameFinderAdminMaintenanceService maintenance,
             GameFinderAdminStatusService statusService,
-            SteamMetadataMaintenanceRunner metadataRunner) {
+            SteamMetadataMaintenanceRunner metadataRunner,
+            PlayerMissingDiagnosticService playerMissingDiagnostic) {
         this.authorizer = authorizer;
         this.maintenance = maintenance;
         this.statusService = statusService;
         this.metadataRunner = metadataRunner;
+        this.playerMissingDiagnostic = playerMissingDiagnostic;
     }
 
     @PostMapping("/metadata-runner/start")
@@ -72,6 +77,25 @@ public class GameFinderAdminController {
     public GameFinderAdminStatusResponse status(HttpServletRequest request) {
         requireAdmin(request);
         return statusService.status();
+    }
+
+    @GetMapping("/player-missing/samples")
+    public PlayerMissingSampleResponse playerMissingSamples(
+            HttpServletRequest request,
+            @RequestParam String classification,
+            @RequestParam(defaultValue = "20") int limit) {
+        requireAdmin(request);
+        if (limit < 1 || limit > 50) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be 1..50");
+        }
+        try {
+            return playerMissingDiagnostic.samples(
+                    PlayerMissingDiagnosticService.Classification.valueOf(
+                            classification.trim().toUpperCase()), limit);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "unsupported player-missing classification");
+        }
     }
 
     @PostMapping("/enrich")

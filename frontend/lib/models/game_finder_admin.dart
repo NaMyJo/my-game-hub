@@ -26,6 +26,8 @@ class GameFinderAdminStatus {
     required this.igdbSuccessCount,
     required this.igdbSuccessPlayerDataCount,
     required this.igdbSuccessPlayerDataMissingCount,
+    this.playerMissingClassification =
+        const GameFinderPlayerMissingClassification.empty(),
     this.metadataConcurrency = 1,
     this.metadataRequestDelayMs = 500,
   });
@@ -44,6 +46,7 @@ class GameFinderAdminStatus {
   final int playerDataCount, playerDataMissingCount;
   final int igdbSuccessCount;
   final int igdbSuccessPlayerDataCount, igdbSuccessPlayerDataMissingCount;
+  final GameFinderPlayerMissingClassification playerMissingClassification;
   final int metadataConcurrency, metadataRequestDelayMs;
 
   factory GameFinderAdminStatus.fromJson(Map<String, dynamic> json) =>
@@ -89,6 +92,11 @@ class GameFinderAdminStatus {
             (json['igdbSuccessPlayerDataCount'] as num?)?.toInt() ?? 0,
         igdbSuccessPlayerDataMissingCount:
             (json['igdbSuccessPlayerDataMissingCount'] as num?)?.toInt() ?? 0,
+        playerMissingClassification:
+            GameFinderPlayerMissingClassification.fromJson(
+                json['playerMissingClassification']
+                        as Map<String, dynamic>? ??
+                    const {}),
         metadataConcurrency:
             ((json['metadataRuntimeConfig']
                         as Map<String, dynamic>?)?['concurrency'] as num?)
@@ -99,6 +107,61 @@ class GameFinderAdminStatus {
                         as Map<String, dynamic>?)?['requestDelayMs'] as num?)
                     ?.toInt() ??
                 500,
+      );
+}
+
+class GameFinderPlayerMissingClassification {
+  const GameFinderPlayerMissingClassification({
+    required this.playerDataMissingTotal,
+    required this.multiplayerCandidateCount,
+    required this.singleplayerOnlyCandidateCount,
+    required this.unknownCount,
+    required this.igdbSuccessPlayerDataMissingTotal,
+    required this.igdbSuccessMultiplayerCandidateCount,
+    required this.igdbSuccessSingleplayerOnlyCandidateCount,
+    required this.igdbSuccessUnknownCount,
+  });
+
+  const GameFinderPlayerMissingClassification.empty()
+      : playerDataMissingTotal = 0,
+        multiplayerCandidateCount = 0,
+        singleplayerOnlyCandidateCount = 0,
+        unknownCount = 0,
+        igdbSuccessPlayerDataMissingTotal = 0,
+        igdbSuccessMultiplayerCandidateCount = 0,
+        igdbSuccessSingleplayerOnlyCandidateCount = 0,
+        igdbSuccessUnknownCount = 0;
+
+  final int playerDataMissingTotal;
+  final int multiplayerCandidateCount;
+  final int singleplayerOnlyCandidateCount;
+  final int unknownCount;
+  final int igdbSuccessPlayerDataMissingTotal;
+  final int igdbSuccessMultiplayerCandidateCount;
+  final int igdbSuccessSingleplayerOnlyCandidateCount;
+  final int igdbSuccessUnknownCount;
+
+  factory GameFinderPlayerMissingClassification.fromJson(
+          Map<String, dynamic> json) =>
+      GameFinderPlayerMissingClassification(
+        playerDataMissingTotal:
+            (json['playerDataMissingTotal'] as num?)?.toInt() ?? 0,
+        multiplayerCandidateCount:
+            (json['multiplayerCandidateCount'] as num?)?.toInt() ?? 0,
+        singleplayerOnlyCandidateCount:
+            (json['singleplayerOnlyCandidateCount'] as num?)?.toInt() ?? 0,
+        unknownCount: (json['unknownCount'] as num?)?.toInt() ?? 0,
+        igdbSuccessPlayerDataMissingTotal:
+            (json['igdbSuccessPlayerDataMissingTotal'] as num?)?.toInt() ?? 0,
+        igdbSuccessMultiplayerCandidateCount:
+            (json['igdbSuccessMultiplayerCandidateCount'] as num?)?.toInt() ??
+                0,
+        igdbSuccessSingleplayerOnlyCandidateCount:
+            (json['igdbSuccessSingleplayerOnlyCandidateCount'] as num?)
+                    ?.toInt() ??
+                0,
+        igdbSuccessUnknownCount:
+            (json['igdbSuccessUnknownCount'] as num?)?.toInt() ?? 0,
       );
 }
 

@@ -1,6 +1,7 @@
 package com.mygamehub.gamefinder.dto;
 
 import com.mygamehub.gamefinder.GameFinderAdminStatusProjection;
+import com.mygamehub.gamefinder.PlayerMissingClassificationProjection;
 import java.time.Instant;
 
 public record GameFinderAdminStatusResponse(
@@ -27,6 +28,7 @@ public record GameFinderAdminStatusResponse(
         long igdbSuccessCount,
         long igdbSuccessPlayerDataCount,
         long igdbSuccessPlayerDataMissingCount,
+        PlayerMissingClassification playerMissingClassification,
         MetadataRuntimeConfig metadataRuntimeConfig,
         Checkpoint checkpoint,
         FullCatalogSync fullCatalogSync,
@@ -36,7 +38,8 @@ public record GameFinderAdminStatusResponse(
             GameFinderAdminStatusProjection value, Checkpoint checkpoint,
             FullCatalogSync fullCatalogSync, FullCatalogSync gameOnlyCatalogSync,
             long remainingCandidates, long remainingMetadataCandidates,
-            long remainingIgdbCandidates, MetadataRuntimeConfig metadataRuntimeConfig) {
+            long remainingIgdbCandidates, MetadataRuntimeConfig metadataRuntimeConfig,
+            PlayerMissingClassificationProjection classification) {
         return new GameFinderAdminStatusResponse(
                 value.getTotal(), value.getActive(), value.getUnavailable(), value.getRemoved(),
                 new EnrichmentCounts(value.getMetadataPending(), value.getMetadataSuccess(),
@@ -53,6 +56,7 @@ public record GameFinderAdminStatusResponse(
                 value.getPlayerDataCount(), value.getPlayerDataMissingCount(),
                 value.getIgdbSuccessCount(), value.getIgdbSuccessPlayerDataCount(),
                 value.getIgdbSuccessPlayerDataMissingCount(),
+                PlayerMissingClassification.from(classification),
                 metadataRuntimeConfig, checkpoint, fullCatalogSync, gameOnlyCatalogSync);
     }
 
@@ -81,4 +85,25 @@ public record GameFinderAdminStatusResponse(
     ) {}
 
     public record MetadataRuntimeConfig(int concurrency, long requestDelayMs) {}
+
+    public record PlayerMissingClassification(
+            long playerDataMissingTotal,
+            long multiplayerCandidateCount,
+            long singleplayerOnlyCandidateCount,
+            long unknownCount,
+            long igdbSuccessPlayerDataMissingTotal,
+            long igdbSuccessMultiplayerCandidateCount,
+            long igdbSuccessSingleplayerOnlyCandidateCount,
+            long igdbSuccessUnknownCount
+    ) {
+        static PlayerMissingClassification from(PlayerMissingClassificationProjection value) {
+            return new PlayerMissingClassification(
+                    value.getPlayerDataMissingTotal(), value.getMultiplayerCandidateCount(),
+                    value.getSingleplayerOnlyCandidateCount(), value.getUnknownCount(),
+                    value.getIgdbSuccessPlayerDataMissingTotal(),
+                    value.getIgdbSuccessMultiplayerCandidateCount(),
+                    value.getIgdbSuccessSingleplayerOnlyCandidateCount(),
+                    value.getIgdbSuccessUnknownCount());
+        }
+    }
 }

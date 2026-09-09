@@ -32,8 +32,11 @@ class GameFinderAdminControllerTest {
     private final GameFinderAdminStatusService statusService = mock(GameFinderAdminStatusService.class);
     private final SteamMetadataMaintenanceRunner metadataRunner =
             mock(SteamMetadataMaintenanceRunner.class);
+    private final PlayerMissingDiagnosticService playerMissingDiagnostic =
+            mock(PlayerMissingDiagnosticService.class);
     private final GameFinderAdminController controller =
-            new GameFinderAdminController(authorizer, maintenance, statusService, metadataRunner);
+            new GameFinderAdminController(authorizer, maintenance, statusService, metadataRunner,
+                    playerMissingDiagnostic);
 
     @Test
     void unauthenticatedRequestIsRejected() {
@@ -195,11 +198,39 @@ class GameFinderAdminControllerTest {
                 15, 13, 1, 1, counts, counts,
                 4, 4, 3, 11, 8, 2, 10, 7, 9, 10, 3, 2,
                 7, 3, 5, 2, 3,
+                new GameFinderAdminStatusResponse.PlayerMissingClassification(
+                        3, 1, 1, 1, 2, 1, 1, 0),
                 new GameFinderAdminStatusResponse.MetadataRuntimeConfig(1, 500),
                 checkpoint, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);
 
         assertThat(controller.status(authenticated("admin-uid"))).isSameAs(status);
+    }
+
+    @Test
+    void playerMissingSamplesRequireAdminAndValidateBounds() {
+        var response = new com.mygamehub.gamefinder.dto.PlayerMissingSampleResponse(
+                "UNKNOWN", 20, java.util.List.of());
+        when(playerMissingDiagnostic.samples(
+                PlayerMissingDiagnosticService.Classification.UNKNOWN, 20)).thenReturn(response);
+
+        assertThatThrownBy(() -> controller.playerMissingSamples(
+                new MockHttpServletRequest(), "UNKNOWN", 20))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.playerMissingSamples(
+                authenticated("admin-uid"), "UNKNOWN", 51))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> controller.playerMissingSamples(
+                authenticated("admin-uid"), "INVALID", 20))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        assertThat(controller.playerMissingSamples(
+                authenticated("admin-uid"), "unknown", 20)).isSameAs(response);
+        verify(playerMissingDiagnostic).samples(
+                PlayerMissingDiagnosticService.Classification.UNKNOWN, 20);
     }
 
     @Test

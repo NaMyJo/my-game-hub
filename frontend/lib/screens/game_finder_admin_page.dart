@@ -1072,6 +1072,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     final successCoverage = igdbSuccess == 0
         ? 0.0
         : successPlayerData * 100 / igdbSuccess;
+    final playerMissing = _status?.playerMissingClassification ??
+        const GameFinderPlayerMissingClassification.empty();
     final progress = target == 0 ? 0.0 : (completed / target).clamp(0.0, 1.0);
     return Container(
       width: double.infinity,
@@ -1098,6 +1100,17 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         Text('SUCCESS $igdbSuccess · 플레이 인원 확인 $successPlayerData · '
             '미확인 ${_status?.igdbSuccessPlayerDataMissingCount ?? 0}'),
         Text('인원 정보 확보율 ${successCoverage.toStringAsFixed(1)}%'),
+        const SizedBox(height: 10),
+        const Text('플레이 인원 미확인 분류 (읽기 전용)',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        Text('전체 ${playerMissing.playerDataMissingTotal} · '
+            '멀티플레이 후보 ${playerMissing.multiplayerCandidateCount} · '
+            '싱글 전용 후보 ${playerMissing.singleplayerOnlyCandidateCount} · '
+            '판단 불가 ${playerMissing.unknownCount}'),
+        Text('IGDB SUCCESS ${playerMissing.igdbSuccessPlayerDataMissingTotal} · '
+            '멀티플레이 후보 ${playerMissing.igdbSuccessMultiplayerCandidateCount} · '
+            '싱글 전용 후보 ${playerMissing.igdbSuccessSingleplayerOnlyCandidateCount} · '
+            '판단 불가 ${playerMissing.igdbSuccessUnknownCount}'),
         const SizedBox(height: 8),
         Text('PENDING ${_status?.igdb.pending ?? 0} · '
             'SUCCESS ${_status?.igdb.success ?? 0} · '

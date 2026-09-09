@@ -48,6 +48,7 @@ public class GameFinderAdminStatusService {
                 syncService.remainingMetadataCandidates(),
                 syncService.remainingIgdbCandidates(),
                 new GameFinderAdminStatusResponse.MetadataRuntimeConfig(
-                        syncService.metadataConcurrency(), syncService.storeRequestDelayMs()));
+                        syncService.metadataConcurrency(), syncService.storeRequestDelayMs()),
+                games.playerMissingClassification());
     }
 }
