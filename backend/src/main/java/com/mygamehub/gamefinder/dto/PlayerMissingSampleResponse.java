@@ -15,14 +15,20 @@ public record PlayerMissingSampleResponse(
             Long igdbGameId,
             List<String> canonicalTags,
             List<String> igdbGameModes,
+            List<String> steamCategories,
+            String recoveryEvidence,
             Integer minPlayers,
             Integer maxPlayers,
             Integer onlineMaxPlayers,
             Integer onlineCoopMaxPlayers
     ) {
-        public static Game from(PlayerMissingSampleProjection value) {
+        public static Game from(PlayerMissingSampleProjection value, String classification) {
             return new Game(value.getSteamAppId(), value.getName(), value.getIgdbGameId(),
                     split(value.getCanonicalTags()), split(value.getIgdbGameModes()),
+                    split(value.getSteamCategories()),
+                    "MULTIPLAYER_CANDIDATE".equals(classification)
+                            ? "MULTIPLAYER_EVIDENCE_WITHOUT_NUMERIC_CAPACITY"
+                            : "NO_NUMERIC_CAPACITY_SOURCE",
                     value.getMinPlayers(), value.getMaxPlayers(), value.getOnlineMaxPlayers(),
                     value.getOnlineCoopMaxPlayers());
         }
@@ -32,5 +38,6 @@ public record PlayerMissingSampleResponse(
             return Arrays.stream(value.split("\\|"))
                     .filter(item -> !item.isBlank()).toList();
         }
+
     }
 }

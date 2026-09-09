@@ -29,7 +29,28 @@ class PlayerMissingDiagnosticServiceTest {
                 .containsExactly("moba", "multiplayer");
         assertThat(response.games().getFirst().igdbGameModes())
                 .containsExactly("multiplayer", "co-operative");
+        assertThat(response.games().getFirst().recoveryEvidence())
+                .isEqualTo("MULTIPLAYER_EVIDENCE_WITHOUT_NUMERIC_CAPACITY");
         verify(games, never()).save(any());
         verify(games, never()).saveAll(any());
+    }
+
+    @Test
+    void capacityDiagnosticAliasesRemainReadOnlyAndBounded() {
+        var games = mock(SteamGameRepository.class);
+        when(games.findPlayerMissingSamples(eq("MULTIPLAYER_CANDIDATE"),
+                any(Pageable.class))).thenReturn(List.of());
+        var service = new PlayerMissingDiagnosticService(games);
+
+        assertThat(service.samples(
+                PlayerMissingDiagnosticService.Classification.CAPACITY_UNKNOWN, 500).limit())
+                .isEqualTo(50);
+        assertThat(service.samples(
+                PlayerMissingDiagnosticService.Classification.RECOVERABLE, 20).games()).isEmpty();
+        assertThat(service.samples(
+                PlayerMissingDiagnosticService.Classification.INSUFFICIENT, 20).games()).isEmpty();
+        verify(games, times(1)).findPlayerMissingSamples(eq("MULTIPLAYER_CANDIDATE"),
+                any(Pageable.class));
+        verify(games, never()).save(any());
     }
 }

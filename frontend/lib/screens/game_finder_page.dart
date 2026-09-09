@@ -90,6 +90,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
   RangeValues price = const RangeValues(0, 100000);
   RangeValues players = const RangeValues(1, 15);
   bool includeAdult = false;
+  GameFinderPlayMode playMode = GameFinderPlayMode.multi;
+  GameFinderPriceMode priceMode = GameFinderPriceMode.paid;
   GameFinderReleasePreference releasePreference =
       GameFinderReleasePreference.recent;
   final searchController = TextEditingController();
@@ -183,6 +185,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
           includeAdult: includeAdult,
           playerMin: players.start.round(),
           playerMax: players.end.round(),
+          playMode: playMode,
+          priceMode: priceMode,
           releasePreference: releasePreference,
           excluded: more ? shown : <int>{});
       final saved = await GameFinderRepository.instance.savePreferences(
@@ -288,14 +292,49 @@ class _GameFinderPageState extends State<GameFinderPage> {
                         setState(() => releasePreference = value)))
                 .toList()),
         const SizedBox(height: 22),
-        Text(
-            '가격  ${_won(price.start.round())} ~ ${price.end == 100000 ? '100,000원+' : _won(price.end.round())}'),
-        RangeSlider(
-            values: price,
-            min: 0,
-            max: 100000,
-            divisions: 100,
-            onChanged: (v) => setState(() => price = v)),
+        const Text('플레이 방식',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SegmentedButton<GameFinderPlayMode>(
+            segments: GameFinderPlayMode.values
+                .map((value) => ButtonSegment(
+                    value: value, label: Text(value.label)))
+                .toList(),
+            selected: {playMode},
+            onSelectionChanged: (value) =>
+                setState(() => playMode = value.first)),
+        if (playMode.showsPlayerRange) ...[
+          const SizedBox(height: 12),
+          Text('플레이 인원 ${players.start.round()}명 ~ ${players.end.round()}명'),
+          RangeSlider(
+              values: players,
+              min: 1,
+              max: 15,
+              divisions: 14,
+              onChanged: (v) => setState(() => players = v)),
+        ],
+        const SizedBox(height: 18),
+        const Text('가격 유형',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SegmentedButton<GameFinderPriceMode>(
+            segments: GameFinderPriceMode.values
+                .map((value) => ButtonSegment(
+                    value: value, label: Text(value.label)))
+                .toList(),
+            selected: {priceMode},
+            onSelectionChanged: (value) =>
+                setState(() => priceMode = value.first)),
+        if (priceMode.showsPriceRange) ...[
+          const SizedBox(height: 12),
+          Text('가격 ${_won(price.start.round())} ~ ${_won(price.end.round())}'),
+          RangeSlider(
+              values: price,
+              min: 0,
+              max: 100000,
+              divisions: 100,
+              onChanged: (v) => setState(() => price = v)),
+        ],
         const SizedBox(height: 12),
         SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -303,15 +342,6 @@ class _GameFinderPageState extends State<GameFinderPage> {
             subtitle: const Text('끄면 성인용으로 확인된 게임을 제외합니다.'),
             value: includeAdult,
             onChanged: (v) => setState(() => includeAdult = v)),
-        const SizedBox(height: 12),
-        Text(
-            '플레이 인원  ${players.start.round()}명 ~ ${players.end == 15 ? '15명+' : '${players.end.round()}명'}'),
-        RangeSlider(
-            values: players,
-            min: 1,
-            max: 15,
-            divisions: 14,
-            onChanged: (v) => setState(() => players = v)),
         const SizedBox(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           TextButton(
@@ -449,10 +479,14 @@ class _GameFinderPageState extends State<GameFinderPage> {
   Widget _results() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _panel(Wrap(spacing: 14, runSpacing: 8, children: [
-          Text(
-              '가격 ${_won(price.start.round())}~${price.end == 100000 ? '상한 없음' : _won(price.end.round())}'),
-          Text(
-              '인원 ${players.start.round()}~${players.end == 15 ? '15명+' : players.end.round()}'),
+          Text('플레이 방식 ${playMode.label}'),
+          if (playMode.showsPlayerRange)
+            Text(
+                '인원 ${players.start.round()}~${players.end == 15 ? '15명+' : players.end.round()}'),
+          Text('가격 유형 ${priceMode.label}'),
+          if (priceMode.showsPriceRange)
+            Text(
+                '가격 ${_won(price.start.round())}~${price.end == 100000 ? '상한 없음' : _won(price.end.round())}'),
           Text(includeAdult ? '성인 포함' : '성인 제외'),
           Text('취향 게임 ${selected.length}개'),
           Text(releasePreference.label)

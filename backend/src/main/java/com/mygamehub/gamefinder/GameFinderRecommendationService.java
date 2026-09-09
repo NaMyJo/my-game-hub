@@ -126,16 +126,29 @@ public class GameFinderRecommendationService {
                     CANDIDATE_STRATEGY, preferRecent, MAX_CANDIDATE_POOL, tieSeed);
             HardFilterDiagnosticCounts counts = repository.countRecommendationHardFilterStages(
                     request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
-                    request.playerMin(), request.playerMax(), playersUnrestricted);
-            log.info("game_finder_recommendation_hard_filter eligible={} afterPrice={} "
-                            + "afterAdult={} afterPlayer={}", counts.getEligible(),
-                    counts.getAfterPrice(), counts.getAfterAdult(), counts.getAfterPlayer());
+                    request.playerMin(), request.playerMax(), playersUnrestricted,
+                    request.playMode() == null ? null : request.playMode().name(),
+                    request.priceMode() == null ? null : request.priceMode().name());
+            log.info("game_finder_recommendation_hard_filter eligible={} afterPlayMode={} "
+                            + "afterPrice={} afterAdult={} afterPlayer={}", counts.getEligible(),
+                    counts.getAfterPlayMode(), counts.getAfterPrice(), counts.getAfterAdult(),
+                    counts.getAfterPlayer());
         }
-        List<Long> rankedIds = relations.findRankedRecommendationAppIds(queryTags,
-                request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
-                request.playerMin(), request.playerMax(), playersUnrestricted,
-                preferRecent, tieSeed,
-                PageRequest.of(0, MAX_CANDIDATE_POOL));
+        List<Long> rankedIds;
+        if (request.playMode() == null && request.priceMode() == null) {
+            rankedIds = relations.findRankedRecommendationAppIds(queryTags,
+                    request.priceMin(), request.priceMax(), priceUnrestricted,
+                    request.includeAdult(), request.playerMin(), request.playerMax(),
+                    playersUnrestricted, preferRecent, tieSeed,
+                    PageRequest.of(0, MAX_CANDIDATE_POOL));
+        } else {
+            rankedIds = relations.findRankedRecommendationAppIds(queryTags,
+                    request.priceMin(), request.priceMax(), priceUnrestricted,
+                    request.includeAdult(), request.playerMin(), request.playerMax(),
+                    playersUnrestricted, request.playMode() == null ? null : request.playMode().name(),
+                    request.priceMode() == null ? null : request.priceMode().name(),
+                    preferRecent, tieSeed, PageRequest.of(0, MAX_CANDIDATE_POOL));
+        }
         Map<Long, GameFinderRecommendationCandidate> byId = repository
                 .findRecommendationCandidatesByAppIds(rankedIds).stream()
                 .collect(Collectors.toMap(GameFinderRecommendationCandidate::steamAppId,
@@ -147,6 +160,7 @@ public class GameFinderRecommendationService {
         List<String> stableTags = tags.stream().sorted().toList();
         int hash = Objects.hash(stableTags, request.priceMin(), request.priceMax(),
                 request.includeAdult(), request.playerMin(), request.playerMax(),
+                request.playMode(), request.priceMode(),
                 ReleasePreference.defaultIfNull(request.releasePreference()));
         return Math.floorMod((long) hash * 2_654_435_761L, 2_147_483_647L);
     }

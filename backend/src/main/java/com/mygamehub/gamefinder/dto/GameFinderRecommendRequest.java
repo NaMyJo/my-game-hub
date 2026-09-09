@@ -10,7 +10,9 @@ public record GameFinderRecommendRequest(
         @Min(1) @Max(15) int playerMin,
         @Min(1) @Max(15) int playerMax,
         com.mygamehub.gamefinder.ReleasePreference releasePreference,
-        List<Long> excludeAppIds
+        List<Long> excludeAppIds,
+        com.mygamehub.gamefinder.PlayMode playMode,
+        com.mygamehub.gamefinder.PriceMode priceMode
 ) implements com.mygamehub.gamefinder.GameFinderFilterCriteria {
     public GameFinderRecommendRequest {
         likedSteamAppIds = likedSteamAppIds == null ? List.of() : List.copyOf(likedSteamAppIds);
@@ -21,7 +23,15 @@ public record GameFinderRecommendRequest(
             int priceMin, int priceMax, boolean includeAdult, int playerMin, int playerMax,
             List<Long> excludeAppIds) {
         this(likedSteamAppIds, preferredTags, priceMin, priceMax, includeAdult, playerMin,
-                playerMax, com.mygamehub.gamefinder.ReleasePreference.RECENT, excludeAppIds);
+                playerMax, com.mygamehub.gamefinder.ReleasePreference.RECENT, excludeAppIds,
+                null, null);
+    }
+    public GameFinderRecommendRequest(List<Long> likedSteamAppIds, List<String> preferredTags,
+            int priceMin, int priceMax, boolean includeAdult, int playerMin, int playerMax,
+            com.mygamehub.gamefinder.ReleasePreference releasePreference,
+            List<Long> excludeAppIds) {
+        this(likedSteamAppIds, preferredTags, priceMin, priceMax, includeAdult, playerMin,
+                playerMax, releasePreference, excludeAppIds, null, null);
     }
     @AssertTrue(message = "취향 게임 또는 선호 태그를 하나 이상 선택해주세요.")
     public boolean hasTasteInput() {

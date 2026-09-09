@@ -199,7 +199,7 @@ class GameFinderAdminControllerTest {
                 4, 4, 3, 11, 8, 2, 10, 7, 9, 10, 3, 2,
                 7, 3, 5, 2, 3,
                 new GameFinderAdminStatusResponse.PlayerMissingClassification(
-                        3, 1, 1, 1, 2, 1, 1, 0),
+                        3, 1, 1, 1, 0, 1, 0, 2, 1, 1, 0),
                 new GameFinderAdminStatusResponse.MetadataRuntimeConfig(1, 500),
                 checkpoint, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);

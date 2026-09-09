@@ -178,3 +178,18 @@ class GameFinderTagSearchResult {
         storeUrl: json['storeUrl'] as String? ?? '',
       );
 }
+enum GameFinderPlayMode { single, multi }
+
+extension GameFinderPlayModeValue on GameFinderPlayMode {
+  String get apiValue => name.toUpperCase();
+  String get label => this == GameFinderPlayMode.single ? '싱글플레이' : '멀티플레이';
+  bool get showsPlayerRange => this == GameFinderPlayMode.multi;
+}
+
+enum GameFinderPriceMode { free, paid }
+
+extension GameFinderPriceModeValue on GameFinderPriceMode {
+  String get apiValue => name.toUpperCase();
+  String get label => this == GameFinderPriceMode.free ? '무료' : '유료';
+  bool get showsPriceRange => this == GameFinderPriceMode.paid;
+}

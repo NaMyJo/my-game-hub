@@ -53,6 +53,24 @@ class GameFinderTagSearchServiceTest {
         verifyNoInteractions(games, relations);
     }
 
+    @Test
+    void explicitPlayAndPriceModesReachTheSharedDatabaseFilter() {
+        var games = mock(SteamGameRepository.class);
+        var relations = mock(SteamGameTagRepository.class);
+        when(relations.findFilteredAppIdsMatchingAll(anyCollection(), eq(1L), anyInt(),
+                anyInt(), anyBoolean(), anyBoolean(), anyInt(), anyInt(), anyBoolean(),
+                eq("MULTI"), eq("FREE"), any(Pageable.class))).thenReturn(List.of());
+
+        var request = new GameFinderTagSearchRequest("", List.of("coop"),
+                20000, 41000, false, 1, 15, 0, 20, PlayMode.MULTI, PriceMode.FREE);
+        new GameFinderTagSearchService(games, relations, new GameTagTaxonomy())
+                .searchPage(request);
+
+        verify(relations).findFilteredAppIdsMatchingAll(anyCollection(), eq(1L),
+                eq(20000), eq(41000), eq(false), eq(false), eq(1), eq(15), eq(true),
+                eq("MULTI"), eq("FREE"), any(Pageable.class));
+    }
+
     private SteamGame game(long id, Integer price, Integer min, Integer max) {
         var game = new SteamGame(id, "G" + id, 0, 0);
         game.updateStoreDetail("game", null, null, false, "KRW", price, price,

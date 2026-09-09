@@ -116,6 +116,9 @@ class GameFinderPlayerMissingClassification {
     required this.multiplayerCandidateCount,
     required this.singleplayerOnlyCandidateCount,
     required this.unknownCount,
+    required this.recoverablePlayerCount,
+    required this.multiplayerKnownButCapacityUnknown,
+    required this.insufficientSourceCount,
     required this.igdbSuccessPlayerDataMissingTotal,
     required this.igdbSuccessMultiplayerCandidateCount,
     required this.igdbSuccessSingleplayerOnlyCandidateCount,
@@ -127,6 +130,9 @@ class GameFinderPlayerMissingClassification {
         multiplayerCandidateCount = 0,
         singleplayerOnlyCandidateCount = 0,
         unknownCount = 0,
+        recoverablePlayerCount = 0,
+        multiplayerKnownButCapacityUnknown = 0,
+        insufficientSourceCount = 0,
         igdbSuccessPlayerDataMissingTotal = 0,
         igdbSuccessMultiplayerCandidateCount = 0,
         igdbSuccessSingleplayerOnlyCandidateCount = 0,
@@ -136,6 +142,9 @@ class GameFinderPlayerMissingClassification {
   final int multiplayerCandidateCount;
   final int singleplayerOnlyCandidateCount;
   final int unknownCount;
+  final int recoverablePlayerCount;
+  final int multiplayerKnownButCapacityUnknown;
+  final int insufficientSourceCount;
   final int igdbSuccessPlayerDataMissingTotal;
   final int igdbSuccessMultiplayerCandidateCount;
   final int igdbSuccessSingleplayerOnlyCandidateCount;
@@ -151,6 +160,12 @@ class GameFinderPlayerMissingClassification {
         singleplayerOnlyCandidateCount:
             (json['singleplayerOnlyCandidateCount'] as num?)?.toInt() ?? 0,
         unknownCount: (json['unknownCount'] as num?)?.toInt() ?? 0,
+        recoverablePlayerCount:
+            (json['recoverablePlayerCount'] as num?)?.toInt() ?? 0,
+        multiplayerKnownButCapacityUnknown:
+            (json['multiplayerKnownButCapacityUnknown'] as num?)?.toInt() ?? 0,
+        insufficientSourceCount:
+            (json['insufficientSourceCount'] as num?)?.toInt() ?? 0,
         igdbSuccessPlayerDataMissingTotal:
             (json['igdbSuccessPlayerDataMissingTotal'] as num?)?.toInt() ?? 0,
         igdbSuccessMultiplayerCandidateCount:

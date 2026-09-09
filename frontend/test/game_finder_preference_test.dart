@@ -39,4 +39,18 @@ void main() {
     expect(balanced.releasePreference, GameFinderReleasePreference.balanced);
     expect(legacy.releasePreference, GameFinderReleasePreference.recent);
   });
+
+  test('플레이 방식에 따라 인원 범위 표시 여부를 결정한다', () {
+    expect(GameFinderPlayMode.single.showsPlayerRange, isFalse);
+    expect(GameFinderPlayMode.multi.showsPlayerRange, isTrue);
+    expect(GameFinderPlayMode.single.apiValue, 'SINGLE');
+    expect(GameFinderPlayMode.multi.apiValue, 'MULTI');
+  });
+
+  test('가격 유형에 따라 가격 범위 표시 여부를 결정한다', () {
+    expect(GameFinderPriceMode.free.showsPriceRange, isFalse);
+    expect(GameFinderPriceMode.paid.showsPriceRange, isTrue);
+    expect(GameFinderPriceMode.free.apiValue, 'FREE');
+    expect(GameFinderPriceMode.paid.apiValue, 'PAID');
+  });
 }

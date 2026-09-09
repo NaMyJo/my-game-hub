@@ -159,6 +159,7 @@ class SteamGameRepositoryFinderQueryTest {
                 20000, 41000, false, false, 4, 6, false);
 
         assertThat(counts.getEligible()).isEqualTo(4);
+        assertThat(counts.getAfterPlayMode()).isEqualTo(4);
         assertThat(counts.getAfterPrice()).isEqualTo(3);
         assertThat(counts.getAfterAdult()).isEqualTo(2);
         assertThat(counts.getAfterPlayer()).isEqualTo(1);
@@ -200,6 +201,9 @@ class SteamGameRepositoryFinderQueryTest {
         assertThat(result.getMultiplayerCandidateCount()).isEqualTo(3);
         assertThat(result.getSingleplayerOnlyCandidateCount()).isEqualTo(1);
         assertThat(result.getUnknownCount()).isEqualTo(1);
+        assertThat(result.getRecoverablePlayerCount()).isZero();
+        assertThat(result.getMultiplayerKnownButCapacityUnknown()).isEqualTo(3);
+        assertThat(result.getInsufficientSourceCount()).isZero();
         assertThat(result.getPlayerDataMissingTotal()).isEqualTo(
                 result.getMultiplayerCandidateCount()
                         + result.getSingleplayerOnlyCandidateCount() + result.getUnknownCount());
@@ -213,6 +217,59 @@ class SteamGameRepositoryFinderQueryTest {
         assertThat(samples).extracting(PlayerMissingSampleProjection::getSteamAppId)
                 .containsExactly(101L, 102L, 104L);
         assertThat(samples.getFirst().getCanonicalTags()).contains("multiplayer");
+    }
+
+    @Test
+    void playModeUsesStructuredEvidenceAndOnlyAppliesRangeWhenMultiIsLimited() {
+        long single = insertTag("singleplayer");
+        long multi = insertTag("multiplayer");
+        long coop = insertTag("coop");
+        insertGameWithoutPlayerData(201, 30000);
+        insertGameWithoutPlayerData(202, 30000);
+        insertGameWithoutPlayerData(203, 30000);
+        insertGameWithoutPlayerData(204, 30000);
+        insertGame(205, 30000, "NON_ADULT", 1, 8, true, "game", "ACTIVE");
+        insertRelation(201, single);
+        insertRelation(202, single);
+        insertRelation(202, multi);
+        insertRelation(203, multi);
+        insertRelation(204, coop);
+        insertRelation(205, multi);
+
+        var singleResult = relations.findRankedRecommendationAppIds(List.of("__none__"),
+                0, 100000, true, false, 1, 15, true, "SINGLE", null,
+                false, 1, PageRequest.of(0, 20));
+        var multiUnrestricted = relations.findRankedRecommendationAppIds(List.of("__none__"),
+                0, 100000, true, false, 1, 15, true, "MULTI", null,
+                false, 1, PageRequest.of(0, 20));
+        var multiLimited = relations.findRankedRecommendationAppIds(List.of("__none__"),
+                0, 100000, true, false, 4, 6, false, "MULTI", null,
+                false, 1, PageRequest.of(0, 20));
+
+        assertThat(singleResult).containsExactlyInAnyOrder(201L, 202L);
+        assertThat(multiUnrestricted).containsExactlyInAnyOrder(202L, 203L, 204L, 205L);
+        assertThat(multiLimited).containsExactly(205L);
+    }
+
+    @Test
+    void priceModeSeparatesFreeAndKnownCurrentPaidPrices() {
+        long action = insertTag("action");
+        insertGameWithoutPlayerData(301, 0);
+        insertGameWithoutPlayerData(302, 30000);
+        insertGameWithoutPlayerData(303, 0);
+        jdbc.update("update steam_games set is_free=true where steam_app_id=301");
+        jdbc.update("update steam_games set price_current=null where steam_app_id=303");
+        for (long appId : List.of(301L, 302L, 303L)) insertRelation(appId, action);
+
+        var free = relations.findRankedRecommendationAppIds(List.of("action"),
+                20000, 41000, false, false, 1, 15, true, null, "FREE",
+                false, 1, PageRequest.of(0, 20));
+        var paid = relations.findRankedRecommendationAppIds(List.of("action"),
+                20000, 41000, false, false, 1, 15, true, null, "PAID",
+                false, 1, PageRequest.of(0, 20));
+
+        assertThat(free).containsExactly(301L);
+        assertThat(paid).containsExactly(302L);
     }
 
     @Test

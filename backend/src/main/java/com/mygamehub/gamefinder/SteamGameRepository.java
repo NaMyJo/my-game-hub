@@ -27,21 +27,30 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "from SteamGame g where g.steamAppId in :appIds")
     List<GameFinderRecommendationCandidate> findRecommendationCandidatesByAppIds(
             @org.springframework.data.repository.query.Param("appIds") Collection<Long> appIds);
-    @Query(value = "select count(*) as eligible, "
-            + "count(*) filter (where (:priceUnrestricted=true or "
-            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax)) as \"afterPrice\", "
-            + "count(*) filter (where (:priceUnrestricted=true or "
-            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
-            + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT')) as \"afterAdult\", "
-            + "count(*) filter (where (:priceUnrestricted=true or "
-            + "(case when g.is_free=true then 0 else g.price_current end) between :priceMin and :priceMax) "
-            + "and (:includeAdult=true or g.adult_status is null or g.adult_status<>'ADULT') "
-            + "and (:playersUnrestricted=true or "
-            + "(greatest(coalesce(g.max_players,0),coalesce(g.online_max_players,0),coalesce(g.online_coop_max_players,0))>=:playerMin "
-            + "and coalesce(g.min_players,1)<=:playerMax))) as \"afterPlayer\" "
-            + "from steam_games g where g.game_catalog_eligible=true "
-            + "and g.metadata_status='SUCCESS' and g.metadata_updated_at is not null "
-            + "and g.store_type='game' and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE')",
+    @Query(value = "with scoped as (select g.*, (:playMode is null or "
+            + "(:playMode='SINGLE' and exists (select 1 from steam_game_tags ps join game_tags pt on pt.id=ps.tag_id where ps.steam_app_id=g.steam_app_id and pt.canonical_name='singleplayer')) "
+            + "or (:playMode='MULTI' and (exists (select 1 from steam_game_tags pm join game_tags mt on mt.id=pm.tag_id where pm.steam_app_id=g.steam_app_id and mt.canonical_name in ('multiplayer','coop','online-coop','local-coop','pvp','online-pvp','massively-multiplayer')) or exists (select 1 from steam_game_igdb_terms im join igdb_taxonomy_terms it on it.id=im.taxonomy_term_id where im.steam_app_id=g.steam_app_id and it.source_type='GAME_MODE' and it.igdb_term_id in (2,3,4,5,6))))) play_match "
+            + "from steam_games g where g.game_catalog_eligible=true and g.metadata_status='SUCCESS' "
+            + "and g.metadata_updated_at is not null and g.store_type='game' "
+            + "and (g.lifecycle_status is null or g.lifecycle_status='ACTIVE')) "
+            + "select count(*) as eligible, count(*) filter (where play_match) as \"afterPlayMode\", "
+            + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
+            + "(case when is_free=true then 0 else price_current end) between :priceMin and :priceMax)) "
+            + "or (:priceMode='FREE' and is_free=true) "
+            + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current between :priceMin and :priceMax)) and play_match) as \"afterPrice\", "
+            + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
+            + "(case when is_free=true then 0 else price_current end) between :priceMin and :priceMax)) "
+            + "or (:priceMode='FREE' and is_free=true) "
+            + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current between :priceMin and :priceMax)) "
+            + "and play_match and (:includeAdult=true or adult_status is null or adult_status<>'ADULT')) as \"afterAdult\", "
+            + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
+            + "(case when is_free=true then 0 else price_current end) between :priceMin and :priceMax)) "
+            + "or (:priceMode='FREE' and is_free=true) "
+            + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current between :priceMin and :priceMax)) "
+            + "and play_match and (:includeAdult=true or adult_status is null or adult_status<>'ADULT') "
+            + "and (:playMode='SINGLE' or :playersUnrestricted=true or "
+            + "(greatest(coalesce(max_players,0),coalesce(online_max_players,0),coalesce(online_coop_max_players,0))>=:playerMin "
+            + "and coalesce(min_players,1)<=:playerMax))) as \"afterPlayer\" from scoped",
             nativeQuery = true)
     HardFilterDiagnosticCounts countRecommendationHardFilterStages(
             @org.springframework.data.repository.query.Param("priceMin") int priceMin,
@@ -50,7 +59,16 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             @org.springframework.data.repository.query.Param("includeAdult") boolean includeAdult,
             @org.springframework.data.repository.query.Param("playerMin") int playerMin,
             @org.springframework.data.repository.query.Param("playerMax") int playerMax,
-            @org.springframework.data.repository.query.Param("playersUnrestricted") boolean playersUnrestricted);
+            @org.springframework.data.repository.query.Param("playersUnrestricted") boolean playersUnrestricted,
+            @org.springframework.data.repository.query.Param("playMode") String playMode,
+            @org.springframework.data.repository.query.Param("priceMode") String priceMode);
+
+    default HardFilterDiagnosticCounts countRecommendationHardFilterStages(
+            int priceMin, int priceMax, boolean priceUnrestricted, boolean includeAdult,
+            int playerMin, int playerMax, boolean playersUnrestricted) {
+        return countRecommendationHardFilterStages(priceMin, priceMax, priceUnrestricted,
+                includeAdult, playerMin, playerMax, playersUnrestricted, null, null);
+    }
     List<SteamGame> findByMetadataUpdatedAtIsNullOrMetadataUpdatedAtBefore(Instant before, Pageable pageable);
     List<SteamGame> findByPriceUpdatedAtIsNull(Pageable pageable);
     @Query(value="select * from steam_games where ((metadata_status is null and metadata_updated_at is null) "
@@ -195,6 +213,9 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "count(*) filter (where multi_evidence) as \"multiplayerCandidateCount\", "
             + "count(*) filter (where not multi_evidence and single_evidence) as \"singleplayerOnlyCandidateCount\", "
             + "count(*) filter (where not multi_evidence and not single_evidence) as \"unknownCount\", "
+            + "0 as \"recoverablePlayerCount\", "
+            + "count(*) filter (where multi_evidence) as \"multiplayerKnownButCapacityUnknown\", "
+            + "0 as \"insufficientSourceCount\", "
             + "count(*) filter (where igdb_status='SUCCESS') as \"igdbSuccessPlayerDataMissingTotal\", "
             + "count(*) filter (where igdb_status='SUCCESS' and multi_evidence) as \"igdbSuccessMultiplayerCandidateCount\", "
             + "count(*) filter (where igdb_status='SUCCESS' and not multi_evidence and single_evidence) "
@@ -203,7 +224,7 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "as \"igdbSuccessUnknownCount\" from missing", nativeQuery = true)
     PlayerMissingClassificationProjection playerMissingClassification();
 
-    @Query(value = "with evidence as (select g.steam_app_id, g.name, g.igdb_game_id, "
+    @Query(value = "with evidence as (select g.steam_app_id, g.name, g.igdb_game_id, g.categories, "
             + "g.min_players, g.max_players, g.online_max_players, g.online_coop_max_players, "
             + "(exists (select 1 from steam_game_tags r join game_tags t on t.id=r.tag_id "
             + "where r.steam_app_id=g.steam_app_id and t.canonical_name in "
@@ -226,6 +247,7 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "c.igdb_game_id as \"igdbGameId\", c.min_players as \"minPlayers\", "
             + "c.max_players as \"maxPlayers\", c.online_max_players as \"onlineMaxPlayers\", "
             + "c.online_coop_max_players as \"onlineCoopMaxPlayers\", "
+            + "coalesce(c.categories,'') as \"steamCategories\", "
             + "coalesce((select string_agg(distinct t.canonical_name, '|' order by t.canonical_name) "
             + "from steam_game_tags r join game_tags t on t.id=r.tag_id "
             + "where r.steam_app_id=c.steam_app_id),'') as \"canonicalTags\", "

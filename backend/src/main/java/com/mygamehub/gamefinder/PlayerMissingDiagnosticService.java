@@ -8,7 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PlayerMissingDiagnosticService {
     public enum Classification {
-        MULTIPLAYER_CANDIDATE, SINGLEPLAYER_ONLY_CANDIDATE, UNKNOWN
+        MULTIPLAYER_CANDIDATE, SINGLEPLAYER_ONLY_CANDIDATE, UNKNOWN,
+        RECOVERABLE, CAPACITY_UNKNOWN, INSUFFICIENT
     }
 
     private final SteamGameRepository games;
@@ -20,9 +21,15 @@ public class PlayerMissingDiagnosticService {
     @Transactional(readOnly = true)
     public PlayerMissingSampleResponse samples(Classification classification, int limit) {
         int boundedLimit = Math.max(1, Math.min(limit, 50));
-        var values = games.findPlayerMissingSamples(
-                classification.name(), PageRequest.of(0, boundedLimit));
+        String storedClassification = classification == Classification.CAPACITY_UNKNOWN
+                ? Classification.MULTIPLAYER_CANDIDATE.name() : classification.name();
+        var values = classification == Classification.RECOVERABLE
+                        || classification == Classification.INSUFFICIENT
+                ? java.util.List.<PlayerMissingSampleProjection>of()
+                : games.findPlayerMissingSamples(storedClassification,
+                        PageRequest.of(0, boundedLimit));
         return new PlayerMissingSampleResponse(classification.name(), boundedLimit,
-                values.stream().map(PlayerMissingSampleResponse.Game::from).toList());
+                values.stream().map(value -> PlayerMissingSampleResponse.Game.from(
+                        value, storedClassification)).toList());
     }
 }

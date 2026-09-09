@@ -1107,6 +1107,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
             '멀티플레이 후보 ${playerMissing.multiplayerCandidateCount} · '
             '싱글 전용 후보 ${playerMissing.singleplayerOnlyCandidateCount} · '
             '판단 불가 ${playerMissing.unknownCount}'),
+        Text('정확 복원 가능 ${playerMissing.recoverablePlayerCount} · '
+            '멀티 여부만 확인 ${playerMissing.multiplayerKnownButCapacityUnknown} · '
+            '근거 부족 ${playerMissing.insufficientSourceCount}'),
         Text('IGDB SUCCESS ${playerMissing.igdbSuccessPlayerDataMissingTotal} · '
             '멀티플레이 후보 ${playerMissing.igdbSuccessMultiplayerCandidateCount} · '
             '싱글 전용 후보 ${playerMissing.igdbSuccessSingleplayerOnlyCandidateCount} · '

@@ -6,6 +6,7 @@ public interface PlayerMissingSampleProjection {
     Long getIgdbGameId();
     String getCanonicalTags();
     String getIgdbGameModes();
+    String getSteamCategories();
     Integer getMinPlayers();
     Integer getMaxPlayers();
     Integer getOnlineMaxPlayers();

@@ -21,6 +21,8 @@ class GameFinderRepository {
       required bool includeAdult,
       required int playerMin,
       required int playerMax,
+      required GameFinderPlayMode playMode,
+      required GameFinderPriceMode priceMode,
       required GameFinderReleasePreference releasePreference,
       required Set<int> excluded}) async {
     final json =
@@ -32,6 +34,8 @@ class GameFinderRepository {
       'includeAdult': includeAdult,
       'playerMin': playerMin,
       'playerMax': playerMax,
+      'playMode': playMode.apiValue,
+      'priceMode': priceMode.apiValue,
       'releasePreference': releasePreference.apiValue,
       'excludeAppIds': excluded.toList()
     }) as List<dynamic>;
@@ -83,6 +87,8 @@ class GameFinderRepository {
     required bool includeAdult,
     required int playerMin,
     required int playerMax,
+    required GameFinderPlayMode playMode,
+    required GameFinderPriceMode priceMode,
     int page = 0,
     int size = 20,
   }) async {
@@ -95,6 +101,8 @@ class GameFinderRepository {
       'includeAdult': includeAdult,
       'playerMin': playerMin,
       'playerMax': playerMax,
+      'playMode': playMode.apiValue,
+      'priceMode': priceMode.apiValue,
       'page': page,
       'size': size,
     }) as List<dynamic>;

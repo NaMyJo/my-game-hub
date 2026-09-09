@@ -29,6 +29,23 @@ class GameFinderHardFilterTest {
         legacy.updateIgdb(1L,null,null,8,6,true,true,false);
         assertThat(filter.playersMatch(legacy,4,6)).isTrue();
     }
+    @Test void explicitPlayModeSeparatesSingleFromMultiAndKeepsUnknownCapacityForUnrestrictedMulti(){
+        var singleOnly=game(false,0,0,null,null);
+        var multiUnknown=game(false,0,0,null,null);
+        multiUnknown.updateStoreDetail("game",null,null,false,"KRW",0,0,0,null,
+                "UNKNOWN",null,null,false,false,Set.of(),Set.of(),false,true,false,false);
+        assertThat(filter.playersMatch(singleOnly,1,15,PlayMode.SINGLE)).isTrue();
+        assertThat(filter.playersMatch(multiUnknown,1,15,PlayMode.MULTI)).isTrue();
+        assertThat(filter.playersMatch(multiUnknown,4,6,PlayMode.MULTI)).isFalse();
+    }
+    @Test void explicitPriceModeUsesFreeFlagOrKnownCurrentPaidPrice(){
+        assertThat(filter.priceMatches(game(true,null,null,null,null),20000,41000,
+                PriceMode.FREE)).isTrue();
+        assertThat(filter.priceMatches(game(false,50000,30000,null,null),20000,41000,
+                PriceMode.PAID)).isTrue();
+        assertThat(filter.priceMatches(game(false,50000,null,null,null),20000,41000,
+                PriceMode.PAID)).isFalse();
+    }
     @Test void adultUnknownIsAllowedButReliableAdultIsExcluded(){
         var request=new GameFinderRecommendRequest(List.of(1L),List.of(),0,100000,false,1,15,List.of());
         var adult=game(false,0,0,null,null);adult.updateStoreDetail("game",null,null,false,"KRW",0,0,0,18,"ADULT",null,null,false,false,Set.of(),Set.of(),null,null,null,null);

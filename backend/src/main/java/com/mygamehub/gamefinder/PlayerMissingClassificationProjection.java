@@ -5,6 +5,9 @@ public interface PlayerMissingClassificationProjection {
     long getMultiplayerCandidateCount();
     long getSingleplayerOnlyCandidateCount();
     long getUnknownCount();
+    long getRecoverablePlayerCount();
+    long getMultiplayerKnownButCapacityUnknown();
+    long getInsufficientSourceCount();
     long getIgdbSuccessPlayerDataMissingTotal();
     long getIgdbSuccessMultiplayerCandidateCount();
     long getIgdbSuccessSingleplayerOnlyCandidateCount();

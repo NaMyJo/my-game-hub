@@ -7,9 +7,16 @@ import org.springframework.stereotype.Component;
 public class GameFinderHardFilter {
     public boolean matches(SteamGame game, GameFinderFilterCriteria request) {
         return game.isDiscoverable()
-                && priceMatches(game, request.priceMin(), request.priceMax())
+                && priceMatches(game, request.priceMin(), request.priceMax(), request.priceMode())
                 && adultMatches(game, request.includeAdult())
-                && playersMatch(game, request.playerMin(), request.playerMax());
+                && playersMatch(game, request.playerMin(), request.playerMax(), request.playMode());
+    }
+    boolean priceMatches(SteamGame game, int min, int max, PriceMode mode) {
+        if (mode == PriceMode.FREE) return Boolean.TRUE.equals(game.getIsFree());
+        if (mode == PriceMode.PAID) return !Boolean.TRUE.equals(game.getIsFree())
+                && game.getPriceCurrent() != null && game.getPriceCurrent() >= min
+                && game.getPriceCurrent() <= max;
+        return priceMatches(game, min, max);
     }
     boolean priceMatches(SteamGame game, int min, int max) {
         boolean unrestricted = min == 0 && max == 100000;
@@ -31,6 +38,15 @@ public class GameFinderHardFilter {
         // known positive maximum as the continuous supported interval starting at one.
         if (gameMin == null) gameMin = 1;
         return gameMax >= selectedMin && gameMin <= selectedMax;
+    }
+    boolean playersMatch(SteamGame game, int selectedMin, int selectedMax, PlayMode mode) {
+        if (mode == PlayMode.SINGLE) return Boolean.TRUE.equals(game.getSinglePlayer());
+        if (mode == PlayMode.MULTI && selectedMin == 1 && selectedMax == 15) {
+            return Boolean.TRUE.equals(game.getMultiplayer())
+                    || Boolean.TRUE.equals(game.getOnlineCoop())
+                    || Boolean.TRUE.equals(game.getOfflineCoop());
+        }
+        return playersMatch(game, selectedMin, selectedMax);
     }
 
     private Integer maximumKnownPlayers(SteamGame game) {
