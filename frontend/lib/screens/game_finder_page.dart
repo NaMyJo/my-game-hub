@@ -19,10 +19,14 @@ class GameFinderPage extends StatefulWidget {
     this.isAdmin = false,
     this.onOpenAdmin,
     this.webScrollController,
+    this.mobileScrollController,
+    this.active = true,
   });
   final bool isAdmin;
   final VoidCallback? onOpenAdmin;
   final ScrollController? webScrollController;
+  final ScrollController? mobileScrollController;
+  final bool active;
   @override
   State<GameFinderPage> createState() => _GameFinderPageState();
 }
@@ -176,11 +180,26 @@ class _GameFinderPageState extends State<GameFinderPage> {
   List<GameFinderRecommendation> recommendations = [];
   bool loading = false;
   String? error;
+  ScrollController? get _pageScrollController =>
+      widget.webScrollController ?? widget.mobileScrollController;
+
   @override
   void initState() {
     super.initState();
-    widget.webScrollController?.addListener(_handleWebScroll);
+    _pageScrollController?.addListener(_handlePageScroll);
     _loadPreferences();
+  }
+
+  @override
+  void didUpdateWidget(covariant GameFinderPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active && !widget.active) {
+      _removeFloatingActions();
+    } else if (!oldWidget.active && widget.active) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handlePageScroll();
+      });
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -219,7 +238,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   @override
   void dispose() {
-    widget.webScrollController?.removeListener(_handleWebScroll);
+    _pageScrollController?.removeListener(_handlePageScroll);
     _floatingActions?.remove();
     debounce?.cancel();
     searchController.dispose();
@@ -266,16 +285,17 @@ class _GameFinderPageState extends State<GameFinderPage> {
         ),
       );
 
-  void _handleWebScroll() {
+  void _handlePageScroll() {
     final visible = shouldShowGameFinderFloatingActions(
-        step, widget.webScrollController?.offset ?? 0);
+            step, _pageScrollController?.offset ?? 0) &&
+        widget.active;
     if (visible == _showFloatingActions) return;
     _showFloatingActions = visible;
     if (visible) {
       _floatingActions = OverlayEntry(
         builder: (context) => Positioned(
-          right: 28,
-          bottom: 28,
+          right: widget.mobileScrollController == null ? 28 : 14,
+          bottom: widget.mobileScrollController == null ? 28 : 84,
           child: Material(
             color: Colors.transparent,
             child: _resultActions(floating: true),
@@ -290,10 +310,16 @@ class _GameFinderPageState extends State<GameFinderPage> {
     if (mounted) setState(() {});
   }
 
+  void _removeFloatingActions() {
+    _floatingActions?.remove();
+    _floatingActions = null;
+    _showFloatingActions = false;
+  }
+
   void _setStep(int value) {
     setState(() => step = value);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _handleWebScroll();
+      if (mounted) _handlePageScroll();
     });
   }
 
@@ -330,6 +356,9 @@ class _GameFinderPageState extends State<GameFinderPage> {
       runSpacing: 8,
       children: [
         OutlinedButton.icon(
+          key: floating
+              ? const ValueKey('game-finder-floating-edit-conditions')
+              : null,
           style: secondaryStyle,
           onPressed: () {
             _floatingActions?.remove();
@@ -341,6 +370,9 @@ class _GameFinderPageState extends State<GameFinderPage> {
           label: const Text('조건 수정'),
         ),
         FilledButton.icon(
+          key: floating
+              ? const ValueKey('game-finder-floating-more-games')
+              : null,
           style: primaryStyle,
           onPressed: loading ? null : () => recommend(more: true),
           icon: const Icon(Icons.refresh),
@@ -366,6 +398,16 @@ class _GameFinderPageState extends State<GameFinderPage> {
       } finally {
         if (mounted) setState(() => loading = false);
       }
+    });
+  }
+
+  void _addSearchResult(SteamGameSearchItem game) {
+    debounce?.cancel();
+    setState(() {
+      selected.add(game);
+      searchController.clear();
+      searchResults = [];
+      error = null;
     });
   }
 
@@ -411,7 +453,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
           maxVisitedStep = 3;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _handleWebScroll();
+          if (!mounted) return;
+          final mobileController = widget.mobileScrollController;
+          if (!more && mobileController?.hasClients == true) {
+            mobileController!.jumpTo(0);
+          }
+          _handlePageScroll();
         });
       }
     } catch (_) {
@@ -442,19 +489,21 @@ class _GameFinderPageState extends State<GameFinderPage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
-          child: webStyle
-              ? const IconPageHeader(
-                  icon: Icons.explore_rounded, title: 'GAME FINDER')
-              : const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('GAME FINDER',
-                        style: TextStyle(
-                            fontSize: 28, fontWeight: FontWeight.w900)),
-                    SizedBox(height: 8),
-                    Text('취향과 조건에 맞는 Steam 게임을 찾아보세요.'),
-                  ],
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconPageHeader(icon: Icons.explore_rounded, title: 'GAME FINDER'),
+              SizedBox(height: 5),
+              Text(
+                '취향 반영 스팀 내 게임 검색 서비스',
+                style: TextStyle(
+                  color: Color(0xFF8290A4),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
+              ),
+            ],
+          ),
         ),
         if (widget.isAdmin)
           OutlinedButton.icon(
@@ -589,6 +638,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-player-range'),
                 debugLabel: 'player',
+                enableTrackTap: true,
                 values: players,
                 min: 1,
                 max: 15,
@@ -663,6 +713,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
             CrossableRangeSlider(
                 key: const ValueKey('game-finder-price-range'),
                 debugLabel: 'price',
+                enableTrackTap: true,
                 values: price,
                 min: 0,
                 max: 100000,
@@ -728,9 +779,18 @@ class _GameFinderPageState extends State<GameFinderPage> {
                                 fontSize: 12, color: Color(0xFF8290A4))),
                       ],
                     )
-                  : const Text('재미있게 했던 게임',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w900))),
+                  : const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('게임 추가',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.w900)),
+                        SizedBox(height: 4),
+                        Text('추가 시 취향 일치도에 반영됩니다',
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF8290A4))),
+                      ],
+                    )),
           Text('${selected.length} / 10')
         ]),
         const SizedBox(height: 14),
@@ -783,9 +843,8 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 leading: _image(g.imageUrl, 48),
                 title: Text(g.name),
                 trailing: const Icon(Icons.add_circle_outline),
-                onTap: selected.length >= 10
-                    ? null
-                    : () => setState(() => selected.add(g)))),
+                onTap:
+                    selected.length >= 10 ? null : () => _addSearchResult(g))),
         const Divider(height: 34),
         Row(children: [
           const Expanded(
@@ -852,18 +911,18 @@ class _GameFinderPageState extends State<GameFinderPage> {
           Align(alignment: Alignment.centerRight, child: _resultActions()),
           const SizedBox(height: 12),
         ],
-        _panel(Wrap(spacing: 14, runSpacing: 8, children: [
-          Text('플레이 방식 ${playMode.label}'),
+        _panel(Wrap(spacing: 16, runSpacing: 10, children: [
+          _resultCondition('플레이 방식', playMode.label),
           if (playMode.showsPlayerRange)
-            Text(
-                '인원 ${players.start.round()}명~${players.end == 15 ? '15명+' : '${players.end.round()}명'}'),
-          Text('가격 유형 ${priceMode.label}'),
+            _resultCondition('인원',
+                '${players.start.round()}명~${players.end == 15 ? '15명+' : '${players.end.round()}명'}'),
+          _resultCondition('가격 유형', priceMode.label),
           if (priceMode.showsPriceRange)
-            Text(
-                '가격 ${_won(price.start.round())}~${price.end == 100000 ? '₩100,000+' : _won(price.end.round())}'),
-          Text(includeAdult ? '성인 포함' : '성인 제외'),
-          Text('취향 게임 ${selected.length}개'),
-          Text(releasePreference.label)
+            _resultCondition('가격',
+                '${_won(price.start.round())}~${price.end == 100000 ? '₩100,000+' : _won(price.end.round())}'),
+          _resultCondition('성인 게임', includeAdult ? '포함' : '제외'),
+          _resultCondition('취향 게임', '${selected.length}개'),
+          _resultCondition('출시 선호', releasePreference.label)
         ])),
         const SizedBox(height: 16),
         if (recommendations.isEmpty)
@@ -909,6 +968,26 @@ class _GameFinderPageState extends State<GameFinderPage> {
           }),
         const SizedBox(height: 18),
       ]);
+
+  Widget _resultCondition(String label, String value) => RichText(
+        text: TextSpan(
+          style: DefaultTextStyle.of(context).style.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: const TextStyle(color: Color(0xFF9B8CFF)),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(color: Color(0xFFF4F1FF)),
+            ),
+          ],
+        ),
+      );
+
   Widget _card(GameFinderRecommendation g) => Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(

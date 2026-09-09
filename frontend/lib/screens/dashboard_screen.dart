@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -42,6 +43,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _desktopScrollController = ScrollController();
+  final ScrollController _mobileFinderScrollController = ScrollController();
   final List<GameProfile> _games = [];
   GameProfileSummary? _gameProfileSummary;
   UserProfile? _userProfile;
@@ -140,6 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _desktopScrollController.dispose();
+    _mobileFinderScrollController.dispose();
     super.dispose();
   }
 
@@ -1396,8 +1399,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             SingleChildScrollView(
               key: const PageStorageKey('mobile-game-finder'),
+              controller: _mobileFinderScrollController,
               padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-              child: const GameFinderPage(),
+              child: GameFinderPage(
+                mobileScrollController: _mobileFinderScrollController,
+                active: mobilePage == DashboardPage.gameFinder,
+              ),
             ),
             SingleChildScrollView(
               key: const PageStorageKey('mobile-my-page'),
@@ -3340,8 +3347,9 @@ class _ToolsPage extends StatelessWidget {
 
     final opened = await launchUrl(
       uri,
-      mode: LaunchMode.externalApplication,
-      webOnlyWindowName: '_blank',
+      mode:
+          kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      webOnlyWindowName: webStyle ? '_blank' : '_self',
     );
 
     if (!opened) {
@@ -3888,7 +3896,8 @@ class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
       };
 
   @override
-  Size get preferredSize => const Size.fromHeight(58);
+  Size get preferredSize =>
+      Size.fromHeight(page == DashboardPage.gameFinder ? 74 : 58);
 
   @override
   Widget build(BuildContext context) {
@@ -3899,11 +3908,26 @@ class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: const Color(0xFF07101C),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      title: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 20, color: const Color(0xFF9B8CFF)),
-        const SizedBox(width: 9),
-        Text(title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+      toolbarHeight: page == DashboardPage.gameFinder ? 74 : 58,
+      title: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 20, color: const Color(0xFF9B8CFF)),
+          const SizedBox(width: 9),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        ]),
+        if (page == DashboardPage.gameFinder) ...[
+          const SizedBox(height: 4),
+          const Text(
+            '취향 반영 스팀 내 게임 검색 서비스',
+            style: TextStyle(
+              color: Color(0xFF8C9AAF),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ]),
     );
   }

@@ -13,6 +13,22 @@ void main() {
     expect(sortedRange(50000, 40000), const RangeValues(40000, 50000));
   });
 
+  test('track click moves the nearest player thumb to the clicked value', () {
+    expect(moveNearestRangeThumb(const RangeValues(1, 15), 5),
+        const RangeValues(5, 15));
+    expect(moveNearestRangeThumb(const RangeValues(1, 15), 12),
+        const RangeValues(1, 12));
+    expect(moveNearestRangeThumb(const RangeValues(4, 8), 6),
+        const RangeValues(6, 8));
+  });
+
+  test('track click moves the nearest price thumb to the clicked value', () {
+    expect(moveNearestRangeThumb(const RangeValues(0, 100000), 30000),
+        const RangeValues(30000, 100000));
+    expect(moveNearestRangeThumb(const RangeValues(0, 100000), 80000),
+        const RangeValues(0, 80000));
+  });
+
   test('direct ranges are ordered and clamp open-ended slider sentinels', () {
     expect(normalizeDirectRange(8, 4, 1, 15), const RangeValues(4, 8));
     expect(normalizeDirectRange(4, 30, 1, 15), const RangeValues(4, 15));

@@ -5,6 +5,13 @@ import 'package:flutter/material.dart';
 RangeValues sortedRange(double first, double second) =>
     RangeValues(math.min(first, second), math.max(first, second));
 
+RangeValues moveNearestRangeThumb(RangeValues values, double target) {
+  if ((target - values.start).abs() <= (target - values.end).abs()) {
+    return sortedRange(target, values.end);
+  }
+  return sortedRange(values.start, target);
+}
+
 RangeValues normalizeDirectRange(
         int first, int second, int minimum, int maximum) =>
     sortedRange(first.clamp(minimum, maximum).toDouble(),
@@ -24,6 +31,7 @@ class CrossableRangeSlider extends StatefulWidget {
     required this.divisions,
     required this.onChanged,
     this.debugLabel,
+    this.enableTrackTap = false,
   });
 
   final RangeValues values;
@@ -32,6 +40,7 @@ class CrossableRangeSlider extends StatefulWidget {
   final int divisions;
   final ValueChanged<RangeValues> onChanged;
   final String? debugLabel;
+  final bool enableTrackTap;
 
   @override
   State<CrossableRangeSlider> createState() => _CrossableRangeSliderState();
@@ -62,7 +71,11 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
   }
 
   double _value(double dx, double width) {
-    final ratio = (dx / width).clamp(0.0, 1.0);
+    const thumbRadius = 10.0;
+    final usableWidth = math.max(0.0, width - thumbRadius * 2);
+    final ratio = usableWidth == 0
+        ? 0.0
+        : ((dx - thumbRadius) / usableWidth).clamp(0.0, 1.0);
     final raw = widget.min + ratio * (widget.max - widget.min);
     final step = (widget.max - widget.min) / widget.divisions;
     return (widget.min + ((raw - widget.min) / step).round() * step)
@@ -91,6 +104,14 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
     widget.onChanged(sortedRange(_first, _second));
   }
 
+  void _tap(TapUpDetails details, double width) {
+    final target = _value(details.localPosition.dx, width);
+    final next = moveNearestRangeThumb(RangeValues(_first, _second), target);
+    _first = next.start;
+    _second = next.end;
+    widget.onChanged(next);
+  }
+
   void _debugGeometry(double width, double height) {
     assert(() {
       final radius = 10.0;
@@ -101,8 +122,7 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
           ? trackLeft
           : trackLeft +
               (value - widget.min) / (widget.max - widget.min) * trackWidth;
-      final message =
-          '${widget.debugLabel ?? 'range'}_slider_geometry '
+      final message = '${widget.debugLabel ?? 'range'}_slider_geometry '
           'width=$width height=$height trackLeft=$trackLeft '
           'trackRight=$trackRight trackWidth=$trackWidth '
           'thumbA=${position(widget.values.start)} '
@@ -122,39 +142,43 @@ class _CrossableRangeSliderState extends State<CrossableRangeSlider> {
           final width = constraints.maxWidth;
           _debugGeometry(width, crossableRangeSliderHeight);
           return Semantics(
-          label: '범위 선택',
-          value: '${widget.values.start.round()}에서 ${widget.values.end.round()}',
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragStart: (event) =>
-                  _start(event, constraints.maxWidth),
-              onHorizontalDragUpdate: (event) =>
-                  _update(event, constraints.maxWidth),
-              onHorizontalDragEnd: (_) => _end(),
-              onHorizontalDragCancel: _end,
-              child: SizedBox(
-                width: double.infinity,
-                height: crossableRangeSliderHeight,
-                child: CustomPaint(
-                  key: ValueKey(
-                      '${widget.debugLabel ?? 'crossable-range'}-track'),
-                  painter: _CrossableRangePainter(
-                    values: widget.values,
-                    min: widget.min,
-                    max: widget.max,
-                    color: const Color(0xFF806AFF),
-                    inactiveColor:
-                        Theme.of(context).brightness == Brightness.dark
-                            ? crossableRangeDarkInactiveColor
-                            : crossableRangeLightInactiveColor,
+            label: '범위 선택',
+            value:
+                '${widget.values.start.round()}에서 ${widget.values.end.round()}',
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: widget.enableTrackTap
+                    ? (event) => _tap(event, constraints.maxWidth)
+                    : null,
+                onHorizontalDragStart: (event) =>
+                    _start(event, constraints.maxWidth),
+                onHorizontalDragUpdate: (event) =>
+                    _update(event, constraints.maxWidth),
+                onHorizontalDragEnd: (_) => _end(),
+                onHorizontalDragCancel: _end,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: crossableRangeSliderHeight,
+                  child: CustomPaint(
+                    key: ValueKey(
+                        '${widget.debugLabel ?? 'crossable-range'}-track'),
+                    painter: _CrossableRangePainter(
+                      values: widget.values,
+                      min: widget.min,
+                      max: widget.max,
+                      color: const Color(0xFF806AFF),
+                      inactiveColor:
+                          Theme.of(context).brightness == Brightness.dark
+                              ? crossableRangeDarkInactiveColor
+                              : crossableRangeLightInactiveColor,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
+          );
         },
       );
 }
@@ -199,15 +223,15 @@ class _CrossableRangePainter extends CustomPainter {
     for (final position in [start, end]) {
       canvas.drawCircle(Offset(position, y), radius + 2,
           Paint()..color = color.withValues(alpha: .18));
-      canvas.drawCircle(Offset(position, y), radius,
-          Paint()..color = color);
-      canvas.drawCircle(Offset(position, y), radius - 3,
-          Paint()..color = Colors.white);
+      canvas.drawCircle(Offset(position, y), radius, Paint()..color = color);
+      canvas.drawCircle(
+          Offset(position, y), radius - 3, Paint()..color = Colors.white);
     }
   }
 
   @override
   bool shouldRepaint(_CrossableRangePainter oldDelegate) =>
-      oldDelegate.values != values || oldDelegate.color != color ||
+      oldDelegate.values != values ||
+      oldDelegate.color != color ||
       oldDelegate.inactiveColor != inactiveColor;
 }

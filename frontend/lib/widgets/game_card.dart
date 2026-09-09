@@ -505,7 +505,7 @@ class GameCard extends StatelessWidget {
             ],
           ],
           const Spacer(),
-          const Spacer(),
+          if (mobile) const SizedBox(height: 16),
 
 // ====================
 // LOST ARK
@@ -520,10 +520,13 @@ class GameCard extends StatelessWidget {
                       Icons.open_in_new_rounded,
                       size: 15,
                     ),
-                    label: const Text(
-                      'KLOA',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
+                    label: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'KLOA',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                     style: _externalButtonStyle(),
@@ -537,10 +540,13 @@ class GameCard extends StatelessWidget {
                       Icons.open_in_new_rounded,
                       size: 15,
                     ),
-                    label: const Text(
-                      'LOPEC',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
+                    label: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'LOPEC',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                     style: _externalButtonStyle(),
@@ -977,12 +983,19 @@ class _Metric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: compact ? 52 : 90,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isDark ? const Color(0xFF7B899D) : const Color(0xFF687386),
-              fontSize: compact ? 12 : 11,
+          width: compact ? 70 : 90,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(
+                color:
+                    isDark ? const Color(0xFF7B899D) : const Color(0xFF687386),
+                fontSize: compact ? 12 : 11,
+              ),
             ),
           ),
         ),
