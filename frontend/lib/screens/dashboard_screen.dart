@@ -1241,15 +1241,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF0C1624),
+          backgroundColor: isDark ? const Color(0xFF0C1624) : Colors.white,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: isDark ? const Color(0xFF263348) : const Color(0xFFD8DEE8),
+            ),
           ),
           title: Text(
             isGuest ? '게스트 이용 종료' : '로그아웃',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF202636),
             ),
           ),
           content: Text(
@@ -1258,18 +1264,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     '종료하면 현재 게스트 계정의 게임 데이터를 '
                     '다시 불러오지 못할 수 있습니다.'
                 : '정말 로그아웃하시겠습니까?',
-            style: const TextStyle(
-              color: Color(0xFFAEB9C8),
+            style: TextStyle(
+              color: isDark ? const Color(0xFFAEB9C8) : const Color(0xFF596579),
               height: 1.5,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
+              style: TextButton.styleFrom(
+                foregroundColor:
+                    isDark ? const Color(0xFFC4B5FF) : const Color(0xFF5D4BB3),
+              ),
               child: const Text('취소'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor:
+                    isDark ? const Color(0xFF6959C8) : const Color(0xFF6750D8),
+              ),
               child: Text(
                 isGuest ? '게스트 종료' : '로그아웃',
               ),
@@ -1921,21 +1936,24 @@ class _SidebarState extends State<_Sidebar> {
                             ],
                           ),
                         ),
-                      InkWell(
-                        onTap: widget.onToggleCollapsed,
-                        borderRadius: BorderRadius.circular(8),
-                        hoverColor: Colors.white10,
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        child: SizedBox(
-                          width: 36,
-                          height: 36,
-                          child: Icon(
-                            widget.collapsed
-                                ? Icons.view_sidebar_outlined
-                                : Icons.menu_open_rounded,
-                            color: const Color(0xFF9AA8BA),
-                            size: 22,
+                      Tooltip(
+                        message: widget.collapsed ? '사이드바 펼치기' : '사이드바 접기',
+                        child: InkWell(
+                          onTap: widget.onToggleCollapsed,
+                          borderRadius: BorderRadius.circular(8),
+                          hoverColor: Colors.white10,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Icon(
+                              widget.collapsed
+                                  ? Icons.view_sidebar_outlined
+                                  : Icons.menu_open_rounded,
+                              color: const Color(0xFF9AA8BA),
+                              size: 22,
+                            ),
                           ),
                         ),
                       ),
