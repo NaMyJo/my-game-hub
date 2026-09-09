@@ -89,6 +89,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  Future<void> _signInFromMyPage() async {
+    await AuthService.instance.signInWithGoogle();
+    if (!mounted) return;
+
+    setState(() {
+      _currentPage = DashboardPage.dashboard;
+      _dashboardMenuExpanded = true;
+      _deleteMode = false;
+      _selectedGameIds.clear();
+      _userProfile = null;
+      _gameProfileSummary = null;
+      _isLoadingGameProfile = true;
+    });
+
+    await _loadGames();
+    await _loadUserProfile();
+    try {
+      await _loadGameProfileSummary();
+    } catch (_) {
+      // 개별 로더가 이미 화면 상태와 로그를 갱신한다.
+    }
+    await _loadGameFinderAdminAccess();
+  }
+
   void _openGameFinderAdmin() {
     if (!_isGameFinderAdmin) return;
     setState(() {
@@ -1382,7 +1406,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 user: _user,
                 profile: _userProfile,
                 onSignOut: _confirmSignOut,
-                onGoogleLogin: AuthService.instance.signInWithGoogle,
+                onGoogleLogin: _signInFromMyPage,
               ),
             ),
           ],

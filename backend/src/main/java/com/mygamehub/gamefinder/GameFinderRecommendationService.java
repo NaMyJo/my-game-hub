@@ -124,15 +124,20 @@ public class GameFinderRecommendationService {
             log.info("game_finder_recommendation_repository strategy={} method=findRankedRecommendationAppIds "
                             + "preferRecent={} candidateLimit={} tieSeed={}",
                     CANDIDATE_STRATEGY, preferRecent, MAX_CANDIDATE_POOL, tieSeed);
-            HardFilterDiagnosticCounts counts = repository.countRecommendationHardFilterStages(
-                    request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
-                    request.playerMin(), request.playerMax(), playersUnrestricted,
-                    request.playMode() == null ? null : request.playMode().name(),
-                    request.priceMode() == null ? null : request.priceMode().name());
-            log.info("game_finder_recommendation_hard_filter eligible={} afterPlayMode={} "
-                            + "afterPrice={} afterAdult={} afterPlayer={}", counts.getEligible(),
-                    counts.getAfterPlayMode(), counts.getAfterPrice(), counts.getAfterAdult(),
-                    counts.getAfterPlayer());
+            try {
+                HardFilterDiagnosticCounts counts = repository.countRecommendationHardFilterStages(
+                        request.priceMin(), request.priceMax(), priceUnrestricted, request.includeAdult(),
+                        request.playerMin(), request.playerMax(), playersUnrestricted,
+                        request.playMode() == null ? null : request.playMode().name(),
+                        request.priceMode() == null ? null : request.priceMode().name());
+                log.info("game_finder_recommendation_hard_filter eligible={} afterPlayMode={} "
+                                + "afterPrice={} afterAdult={} afterPlayer={}", counts.getEligible(),
+                        counts.getAfterPlayMode(), counts.getAfterPrice(), counts.getAfterAdult(),
+                        counts.getAfterPlayer());
+            } catch (RuntimeException error) {
+                log.warn("game_finder_recommendation_hard_filter_diagnostic_failed errorType={}",
+                        error.getClass().getSimpleName());
+            }
         }
         List<Long> rankedIds;
         if (request.playMode() == null && request.priceMode() == null) {

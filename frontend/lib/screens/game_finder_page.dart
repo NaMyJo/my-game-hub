@@ -426,12 +426,6 @@ class _GameFinderPageState extends State<GameFinderPage> {
     final webStyle = widget.webScrollController != null;
     if (!webStyle) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (error != null)
-          Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              color: Colors.red.withValues(alpha: .1),
-              child: Text(error!)),
         if (step == 3)
           _results()
         else ...[
@@ -683,21 +677,39 @@ class _GameFinderPageState extends State<GameFinderPage> {
             value: includeAdult,
             onChanged: (v) => setState(() => includeAdult = v)),
         const SizedBox(height: 18),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          if (widget.webScrollController != null)
-            TextButton(
-                onPressed: () => _setStep(1), child: const Text('취향 게임 수정'))
-          else
-            const SizedBox.shrink(),
-          FilledButton.icon(
-              onPressed: !canRequestGameFinderRecommendation(
-                          selected.map((game) => game.appId), selectedTags) ||
-                      loading
-                  ? null
-                  : () => recommend(),
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('게임 추천받기'))
-        ])
+        Row(
+            mainAxisAlignment: widget.webScrollController != null
+                ? MainAxisAlignment.spaceBetween
+                : MainAxisAlignment.center,
+            children: [
+              if (widget.webScrollController != null)
+                TextButton(
+                    onPressed: () => _setStep(1), child: const Text('취향 게임 수정'))
+              else
+                const SizedBox.shrink(),
+              FilledButton.icon(
+                  onPressed: !canRequestGameFinderRecommendation(
+                              selected.map((game) => game.appId),
+                              selectedTags) ||
+                          loading
+                      ? null
+                      : () => recommend(),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('게임 추천받기'))
+            ]),
+        if (widget.webScrollController == null && error != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF321823),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF6B3041)),
+            ),
+            child: Text(error!, textAlign: TextAlign.center),
+          ),
+        ],
       ]));
   Widget _taste() =>
       _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

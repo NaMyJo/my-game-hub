@@ -113,8 +113,17 @@ class GameCard extends StatelessWidget {
 
   ButtonStyle _externalButtonStyle() {
     return OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
+      padding: EdgeInsets.symmetric(
+        horizontal: mobile ? 4 : 12,
+        vertical: mobile ? 6 : 12,
+      ),
+      minimumSize: mobile ? const Size(0, 34) : null,
+      tapTargetSize: mobile
+          ? MaterialTapTargetSize.shrinkWrap
+          : MaterialTapTargetSize.padded,
+      textStyle: TextStyle(
+        fontSize: mobile ? 11 : 14,
+        fontWeight: FontWeight.w700,
       ),
       side: const BorderSide(
         color: Color(0xFF35465F),
@@ -374,9 +383,8 @@ class GameCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isDark
-                    ? const Color(0xFFE7ECF4)
-                    : const Color(0xFF202636),
+                color:
+                    isDark ? const Color(0xFFE7ECF4) : const Color(0xFF202636),
                 fontSize: mobile ? 15 : 18,
                 fontWeight: FontWeight.w800,
               ),
@@ -387,10 +395,10 @@ class GameCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: isDark
-                    ? const Color(0xFFAEB9C8)
-                    : const Color(0xFF687386),
-                fontSize: 12,
+                color:
+                    isDark ? const Color(0xFFAEB9C8) : const Color(0xFF687386),
+                fontSize: mobile ? 16 : 12,
+                fontWeight: mobile ? FontWeight.w800 : FontWeight.normal,
               ),
             ),
           const SizedBox(height: 22),
@@ -401,17 +409,20 @@ class GameCard extends StatelessWidget {
               value: profile.primaryValue,
               color: accent,
               prominent: true,
+              compact: mobile,
             ),
             const SizedBox(height: 12),
             _Metric(
               label: 'RP',
               value: profile.secondaryValue ?? '-',
+              compact: mobile,
             ),
             const SizedBox(height: 12),
             _Metric(
               label: '판수',
               value:
                   profile.totalGames == null ? '-' : '${profile.totalGames}판',
+              compact: mobile,
             ),
             const SizedBox(height: 12),
             _Metric(
@@ -419,6 +430,7 @@ class GameCard extends StatelessWidget {
               value: profile.averagePlacement == null
                   ? '-'
                   : profile.averagePlacement!.toStringAsFixed(2),
+              compact: mobile,
             ),
             if (!mobile) ...[
               const SizedBox(height: 16),
@@ -470,6 +482,7 @@ class GameCard extends StatelessWidget {
                 value: profile.primaryValue,
                 color: accent,
                 prominent: true,
+                compact: mobile,
               ),
               if (profile.secondaryLabel != null &&
                   profile.secondaryValue != null) ...[
@@ -477,6 +490,7 @@ class GameCard extends StatelessWidget {
                 _Metric(
                   label: profile.secondaryLabel!,
                   value: profile.secondaryValue!,
+                  compact: mobile,
                 ),
               ],
               if (profile.tertiaryLabel != null &&
@@ -485,6 +499,7 @@ class GameCard extends StatelessWidget {
                 _Metric(
                   label: profile.tertiaryLabel!,
                   value: profile.tertiaryValue!,
+                  compact: mobile,
                 ),
               ],
             ],
@@ -946,12 +961,14 @@ class _Metric extends StatelessWidget {
     required this.value,
     this.color,
     this.prominent = false,
+    this.compact = false,
   });
 
   final String label;
   final String value;
   final Color? color;
   final bool prominent;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -960,18 +977,16 @@ class _Metric extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 90,
+          width: compact ? 52 : 90,
           child: Text(
             label,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFF7B899D)
-                  : const Color(0xFF687386),
-              fontSize: 11,
+              color: isDark ? const Color(0xFF7B899D) : const Color(0xFF687386),
+              fontSize: compact ? 12 : 11,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: compact ? 4 : 12),
         Expanded(
           child: Align(
             alignment: Alignment.centerRight,
@@ -986,7 +1001,8 @@ class _Metric extends StatelessWidget {
                       (isDark
                           ? const Color(0xFFD2DBE7)
                           : const Color(0xFF354052)),
-                  fontSize: prominent ? 19 : 14,
+                  fontSize:
+                      prominent ? (compact ? 17 : 19) : (compact ? 15 : 14),
                   fontWeight: prominent ? FontWeight.w800 : FontWeight.w700,
                 ),
               ),
@@ -1042,9 +1058,7 @@ class _FavoriteCharacter extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFD2DBE7)
-                  : const Color(0xFF354052),
+              color: isDark ? const Color(0xFFD2DBE7) : const Color(0xFF354052),
               fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
@@ -1087,7 +1101,7 @@ class _MobileTier extends StatelessWidget {
           '티어',
           style: TextStyle(
             color: Color(0xFF7B899D),
-            fontSize: 11,
+            fontSize: 12,
           ),
         ),
         const SizedBox(height: 7),
@@ -1097,7 +1111,7 @@ class _MobileTier extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
-            fontSize: 17,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
           ),
         ),

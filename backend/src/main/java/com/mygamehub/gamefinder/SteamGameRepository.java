@@ -37,12 +37,12 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
             + "((case when is_free=true then 0 else price_current end)>=:priceMin and (:priceMax=100000 or (case when is_free=true then 0 else price_current end)<=:priceMax))) "
             + "or (:priceMode='FREE' and is_free=true) "
-            + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current>=:priceMin and (:priceMax=100000 or price_current<=:priceMax))) and play_match) as \"afterPrice\", "
+            + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current>=:priceMin and (:priceMax=100000 or price_current<=:priceMax))) and play_match)) as \"afterPrice\", "
             + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
             + "((case when is_free=true then 0 else price_current end)>=:priceMin and (:priceMax=100000 or (case when is_free=true then 0 else price_current end)<=:priceMax))) "
             + "or (:priceMode='FREE' and is_free=true) "
             + "or (:priceMode='PAID' and is_free is not true and price_current is not null and price_current>=:priceMin and (:priceMax=100000 or price_current<=:priceMax))) "
-            + "and play_match and (:includeAdult=true or adult_status is null or adult_status<>'ADULT')) as \"afterAdult\", "
+            + "and play_match and (:includeAdult=true or adult_status is null or adult_status<>'ADULT'))) as \"afterAdult\", "
             + "count(*) filter (where ((:priceMode is null and (:priceUnrestricted=true or "
             + "((case when is_free=true then 0 else price_current end)>=:priceMin and (:priceMax=100000 or (case when is_free=true then 0 else price_current end)<=:priceMax))) "
             + "or (:priceMode='FREE' and is_free=true) "
@@ -50,7 +50,7 @@ public interface SteamGameRepository extends JpaRepository<SteamGame, Long> {
             + "and play_match and (:includeAdult=true or adult_status is null or adult_status<>'ADULT') "
             + "and (:playMode='SINGLE' or :playersUnrestricted=true or "
             + "(greatest(coalesce(max_players,0),coalesce(online_max_players,0),coalesce(online_coop_max_players,0))>=:playerMin "
-            + "and (:playerMax=15 or coalesce(min_players,1)<=:playerMax)))) as \"afterPlayer\" from scoped",
+            + "and (:playerMax=15 or coalesce(min_players,1)<=:playerMax))))) as \"afterPlayer\" from scoped",
             nativeQuery = true)
     HardFilterDiagnosticCounts countRecommendationHardFilterStages(
             @org.springframework.data.repository.query.Param("priceMin") int priceMin,
