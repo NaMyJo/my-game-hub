@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/privacy_policy_page.dart';
 import 'screens/public_pages.dart';
 import 'theme/app_theme_controller.dart';
 import 'theme/app_typography.dart';
@@ -44,6 +45,12 @@ class MyGameHubApp extends StatelessWidget {
         ),
         onGenerateRoute: (settings) {
           final uri = Uri.parse(settings.name ?? '/');
+          if (uri.path == PrivacyPolicyPage.path) {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => const PrivacyPolicyPage(),
+            );
+          }
           if (uri.pathSegments.length == 2 &&
               uri.pathSegments.first == 'profile') {
             return MaterialPageRoute<void>(

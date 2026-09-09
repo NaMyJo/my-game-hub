@@ -221,6 +221,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 12,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed('/privacy'),
+                    child: const Text(
+                      '개인정보처리방침',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -415,8 +424,27 @@ class _WebLanding extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Text('MY GAME HUB · 게임 기록과 취향 탐색을 위한 개인 허브',
-                    style: TextStyle(color: Color(0xFF68758A), fontSize: 12)),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('MY GAME HUB · 게임 기록과 취향 탐색을 위한 개인 허브',
+                        style:
+                            TextStyle(color: Color(0xFF68758A), fontSize: 12)),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFF8F9BAE),
+                      ),
+                      onPressed: () =>
+                          Navigator.of(context).pushNamed('/privacy'),
+                      child: const Text('개인정보처리방침',
+                          style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ]),
             ),
           ),
