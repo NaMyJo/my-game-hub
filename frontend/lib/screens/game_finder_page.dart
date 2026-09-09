@@ -178,6 +178,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
   final selectedTags = <String>{};
   final shown = <int>{};
   List<GameFinderRecommendation> recommendations = [];
+  bool initialLoading = true;
   bool loading = false;
   String? error;
   ScrollController? get _pageScrollController =>
@@ -204,8 +205,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   Future<void> _loadPreferences() async {
     try {
-      final prefs = await GameFinderRepository.instance.preferences();
-      final tags = await GameFinderRepository.instance.tags();
+      final results = await Future.wait<Object>([
+        GameFinderRepository.instance.preferences(),
+        GameFinderRepository.instance.tags(),
+      ]);
+      final prefs = results[0] as GameFinderPreferences;
+      final tags = results[1] as List<GameFinderTag>;
       if (!mounted) return;
       setState(() {
         selected
@@ -230,9 +235,11 @@ class _GameFinderPageState extends State<GameFinderPage> {
         availableTags
           ..clear()
           ..addAll(tags);
+        initialLoading = false;
       });
     } catch (_) {
       // 저장 조건을 불러오지 못해도 Finder 기본값으로 계속 이용합니다.
+      if (mounted) setState(() => initialLoading = false);
     }
   }
 
@@ -471,6 +478,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
   @override
   Widget build(BuildContext context) {
     final webStyle = widget.webScrollController != null;
+    if (initialLoading) {
+      return const SizedBox(
+        height: 320,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     if (!webStyle) {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (step == 3)
@@ -969,24 +982,32 @@ class _GameFinderPageState extends State<GameFinderPage> {
         const SizedBox(height: 18),
       ]);
 
-  Widget _resultCondition(String label, String value) => RichText(
-        text: TextSpan(
-          style: DefaultTextStyle.of(context).style.copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-          children: [
-            TextSpan(
-              text: '$label ',
-              style: const TextStyle(color: Color(0xFF9B8CFF)),
+  Widget _resultCondition(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor =
+        isDark ? const Color(0xFF9B8CFF) : const Color(0xFF654ED6);
+    final valueColor =
+        isDark ? const Color(0xFFF4F1FF) : const Color(0xFF202638);
+
+    return RichText(
+      text: TextSpan(
+        style: DefaultTextStyle.of(context).style.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
             ),
-            TextSpan(
-              text: value,
-              style: const TextStyle(color: Color(0xFFF4F1FF)),
-            ),
-          ],
-        ),
-      );
+        children: [
+          TextSpan(
+            text: '$label ',
+            style: TextStyle(color: labelColor),
+          ),
+          TextSpan(
+            text: value,
+            style: TextStyle(color: valueColor),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _card(GameFinderRecommendation g) => Card(
       clipBehavior: Clip.antiAlias,
