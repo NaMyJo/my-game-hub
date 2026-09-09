@@ -69,6 +69,12 @@ public class GameFinderController {
         return preferences.save(currentUser(request).uid(), body);
     }
 
+    @DeleteMapping("/v1/me/recent-games/{steamAppId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void removeRecent(@PathVariable long steamAppId, HttpServletRequest request) {
+        preferences.removeRecent(currentUser(request).uid(), steamAppId);
+    }
+
     private AuthenticatedUser currentUser(HttpServletRequest request) {
         Object value = request.getAttribute(FirebaseAuthInterceptor.USER_ATTRIBUTE);
         if (value instanceof AuthenticatedUser user) return user;

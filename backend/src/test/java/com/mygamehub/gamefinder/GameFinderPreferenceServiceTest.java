@@ -50,6 +50,19 @@ class GameFinderPreferenceServiceTest {
         assertThat(second.preferredTags()).containsExactly("coop");
     }
 
+    @Test
+    void removesOnlyRequestedUsersRecentGame() {
+        games.save(new SteamGame(570, "Dota 2", 1, 1));
+        service.save("uid-a", request(List.of(570L), List.of("AOS")));
+        service.save("uid-b", request(List.of(570L), List.of("AOS")));
+
+        service.removeRecent("uid-a", 570);
+
+        assertThat(service.get("uid-a").recentGames()).isEmpty();
+        assertThat(service.get("uid-b").recentGames()).hasSize(1);
+        assertThat(service.get("uid-a").selectedGames()).hasSize(1);
+    }
+
     private GameFinderPreferenceRequest request(List<Long> ids, List<String> tags) {
         return new GameFinderPreferenceRequest(ids, tags, 1000, 50000, false, 1, 4);
     }

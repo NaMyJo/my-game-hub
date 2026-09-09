@@ -24,6 +24,7 @@ public class GameFinderPreferenceService {
   if(retained.size()>20)recents.deleteAll(retained.subList(20,retained.size()));
   return response(p,body.selectedSteamAppIds(),recents.findByFirebaseUidOrderBySelectedAtDesc(uid,PageRequest.of(0,20)).stream().map(GameFinderRecentSeed::getSteamAppId).toList());
  }
+ @Transactional public void removeRecent(String uid,long steamAppId){recents.deleteByFirebaseUidAndSteamAppId(uid,steamAppId);}
  private GameFinderPreferenceResponse response(GameFinderUserPreference p,List<Long> selected,List<Long> recent){
   Set<Long> allIds=new LinkedHashSet<>(selected); allIds.addAll(recent);
   Map<Long,SteamGame> byId=new HashMap<>(); games.findBySteamAppIdIn(new ArrayList<>(allIds)).forEach(g->byId.put(g.getSteamAppId(),g));

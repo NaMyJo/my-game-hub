@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/game_finder.dart';
 import '../services/game_finder_repository.dart';
+import '../services/my_game_picks_controller.dart';
 import '../theme/app_typography.dart';
 import '../widgets/icon_page_header.dart';
 import '../widgets/crossable_range_slider.dart';
@@ -414,6 +415,28 @@ class _GameFinderPageState extends State<GameFinderPage> {
       searchResults = [];
       error = null;
     });
+  }
+
+  Future<void> _removeRecent(SteamGameSearchItem game) async {
+    final index = recent.indexOf(game);
+    setState(() => recent.remove(game));
+    try {
+      await GameFinderRepository.instance.removeRecentGame(game.appId);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => recent.insert(index.clamp(0, recent.length), game));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('최근 선택 기록을 삭제하지 못했습니다.')),
+      );
+    }
+  }
+
+  void _addPickToTaste(int appId, String name, String? imageUrl) {
+    if (selected.length >= 10 || selected.any((game) => game.appId == appId)) {
+      return;
+    }
+    setState(() => selected.add(
+        SteamGameSearchItem(appId: appId, name: name, imageUrl: imageUrl)));
   }
 
   Future<void> recommend({bool more = false}) async {
@@ -850,14 +873,58 @@ class _GameFinderPageState extends State<GameFinderPage> {
               children: recent
                   .where((g) => !selected.any((s) => s.appId == g.appId))
                   .take(20)
-                  .map((g) => ActionChip(
+                  .map((g) => InputChip(
                       avatar: const Icon(Icons.history, size: 16),
                       label: Text(g.name),
                       onPressed: selected.length >= 10
                           ? null
-                          : () => setState(() => selected.add(g))))
+                          : () => setState(() => selected.add(g)),
+                      deleteIcon:
+                          const Icon(Icons.delete_outline_rounded, size: 18),
+                      deleteButtonTooltipMessage: '최근 선택 기록 삭제',
+                      onDeleted: () => _removeRecent(g)))
                   .toList()),
         ],
+        const SizedBox(height: 18),
+        const Text('My Game Picks',
+            style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 5),
+        const Text('저장한 게임 중 이번 검색의 취향에 반영할 게임을 선택하세요.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF8290A4))),
+        const SizedBox(height: 8),
+        AnimatedBuilder(
+          animation: MyGamePicksController.instance,
+          builder: (context, _) {
+            final picks = MyGamePicksController.instance.items
+                .where(
+                    (pick) => !selected.any((game) => game.appId == pick.appId))
+                .toList();
+            if (MyGamePicksController.instance.loading) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: LinearProgressIndicator(),
+              );
+            }
+            if (picks.isEmpty) {
+              return const Text('추가할 수 있는 저장 게임이 없습니다.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF8290A4)));
+            }
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: picks
+                  .map((game) => ActionChip(
+                        avatar: const Icon(Icons.bookmark_rounded, size: 16),
+                        label: Text(game.name),
+                        onPressed: selected.length >= 10
+                            ? null
+                            : () => _addPickToTaste(
+                                game.appId, game.name, game.imageUrl),
+                      ))
+                  .toList(),
+            );
+          },
+        ),
         const SizedBox(height: 14),
         if (!loading &&
             searchController.text.length >= 2 &&
@@ -938,7 +1005,12 @@ class _GameFinderPageState extends State<GameFinderPage> {
   Widget _results() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!_showFloatingActions) ...[
-          Align(alignment: Alignment.centerRight, child: _resultActions()),
+          Align(
+            alignment: widget.webScrollController == null
+                ? Alignment.center
+                : Alignment.centerRight,
+            child: _resultActions(),
+          ),
           const SizedBox(height: 12),
         ],
         _panel(Wrap(spacing: 16, runSpacing: 10, children: [

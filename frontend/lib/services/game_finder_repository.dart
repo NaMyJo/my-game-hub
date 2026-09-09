@@ -79,6 +79,9 @@ class GameFinderRepository {
         'releasePreference': releasePreference.apiValue
       }) as Map<String, dynamic>);
 
+  Future<void> removeRecentGame(int appId) =>
+      ApiClient.instance.delete('/api/game-finder/v1/me/recent-games/$appId');
+
   Future<List<GameFinderTagSearchResult>> searchByTags({
     String query = '',
     List<String> tags = const [],
