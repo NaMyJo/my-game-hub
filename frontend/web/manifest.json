@@ -1,6 +1,6 @@
 {
-    "name": "my_game_hub",
-    "short_name": "my_game_hub",
+    "name": "MY GAME HUB",
+    "short_name": "MY GAME HUB",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
