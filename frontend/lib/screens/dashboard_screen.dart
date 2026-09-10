@@ -1591,7 +1591,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: SingleChildScrollView(
                 controller: _desktopScrollController,
                 padding: const EdgeInsets.all(26),
-                child: Center(
+                child: Align(
+                  alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(
                       maxWidth: 1500,
