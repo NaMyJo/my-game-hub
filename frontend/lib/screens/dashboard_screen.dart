@@ -46,7 +46,11 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _desktopScrollController = ScrollController();
+  final ScrollController _mobileDashboardScrollController = ScrollController();
+  final ScrollController _mobileToolsScrollController = ScrollController();
+  final ScrollController _mobileIdentityScrollController = ScrollController();
   final ScrollController _mobileFinderScrollController = ScrollController();
+  final ScrollController _mobileMyPageScrollController = ScrollController();
   final List<GameProfile> _games = [];
   GameProfileSummary? _gameProfileSummary;
   UserProfile? _userProfile;
@@ -112,6 +116,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     });
+  }
+
+  void _handleMobileNavigationTap({
+    required bool isSelected,
+    required ScrollController scrollController,
+    required VoidCallback openPage,
+  }) {
+    if (!isSelected) {
+      openPage();
+      return;
+    }
+
+    if (!scrollController.hasClients) return;
+    scrollController.animateTo(
+      scrollController.position.minScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _signInFromMyPage() async {
@@ -181,7 +203,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _desktopScrollController.dispose();
+    _mobileDashboardScrollController.dispose();
+    _mobileToolsScrollController.dispose();
+    _mobileIdentityScrollController.dispose();
     _mobileFinderScrollController.dispose();
+    _mobileMyPageScrollController.dispose();
     super.dispose();
   }
 
@@ -1361,11 +1387,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       bottomNavigationBar: MobileBottomBar(
         currentPage: mobilePage,
-        onDashboard: _openDashboard,
-        onTools: _openTools,
-        onGameIdentity: _openGameIdentity,
-        onGameFinder: _openGameFinder,
-        onMyPage: _openMyPage,
+        onDashboard: () => _handleMobileNavigationTap(
+          isSelected: mobilePage == DashboardPage.dashboard,
+          scrollController: _mobileDashboardScrollController,
+          openPage: _openDashboard,
+        ),
+        onTools: () => _handleMobileNavigationTap(
+          isSelected: mobilePage == DashboardPage.tools,
+          scrollController: _mobileToolsScrollController,
+          openPage: _openTools,
+        ),
+        onGameIdentity: () => _handleMobileNavigationTap(
+          isSelected: mobilePage == DashboardPage.gameIdentity,
+          scrollController: _mobileIdentityScrollController,
+          openPage: _openGameIdentity,
+        ),
+        onGameFinder: () => _handleMobileNavigationTap(
+          isSelected: mobilePage == DashboardPage.gameFinder,
+          scrollController: _mobileFinderScrollController,
+          openPage: _openGameFinder,
+        ),
+        onMyPage: () => _handleMobileNavigationTap(
+          isSelected: mobilePage == DashboardPage.myPage,
+          scrollController: _mobileMyPageScrollController,
+          openPage: _openMyPage,
+        ),
       ),
       body: SafeArea(
         bottom: false,
@@ -1373,6 +1419,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           index: mobileIndex,
           children: [
             SingleChildScrollView(
+              controller: _mobileDashboardScrollController,
               padding: const EdgeInsets.fromLTRB(
                 14,
                 16,
@@ -1432,13 +1479,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-            const SingleChildScrollView(
-              key: PageStorageKey('mobile-tools'),
-              padding: EdgeInsets.fromLTRB(14, 20, 14, 100),
-              child: _ToolsPage(),
+            SingleChildScrollView(
+              key: const PageStorageKey('mobile-tools'),
+              controller: _mobileToolsScrollController,
+              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
+              child: const _ToolsPage(),
             ),
             SingleChildScrollView(
               key: const PageStorageKey('mobile-game-identity'),
+              controller: _mobileIdentityScrollController,
               padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
               child: GameIdentityPage(
                 games: _games,
@@ -1464,6 +1513,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             SingleChildScrollView(
               key: const PageStorageKey('mobile-my-page'),
+              controller: _mobileMyPageScrollController,
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
               child: _MobileMyPage(
                 user: _user,
@@ -4134,7 +4184,7 @@ class _MobileGameGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 410 ? 3 : 2;
+      final columns = constraints.maxWidth >= 540 ? 3 : 2;
       return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),

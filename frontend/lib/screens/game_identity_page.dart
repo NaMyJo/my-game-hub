@@ -1269,24 +1269,36 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
-              const Icon(
-                Icons.history_rounded,
-                color: Color(0xFF9B8BFF),
-                size: 20,
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    color: Color(0xFF9B8BFF),
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    '최근 생성한 게임 신분증',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              const Text(
-                '최근 생성한 게임 신분증',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const Spacer(),
               Text(
                 identity.issuedDate,
+                maxLines: 1,
+                softWrap: false,
                 style: const TextStyle(
                   color: Color(0xFF748197),
                   fontSize: 10,
@@ -1295,77 +1307,140 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF40398A),
-                      Color(0xFF232B5C),
-                    ],
+          LayoutBuilder(
+            builder: (context, summaryConstraints) {
+              final narrowLayout = summaryConstraints.maxWidth < 520;
+              final iconSize = narrowLayout ? 54.0 : 64.0;
+
+              final identityInfo = Row(
+                children: [
+                  Container(
+                    width: iconSize,
+                    height: iconSize,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF40398A),
+                          Color(0xFF232B5C),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        narrowLayout ? 15 : 17,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.badge_rounded,
+                      color: const Color(0xFFC2B8FF),
+                      size: narrowLayout ? 27 : 31,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: const Icon(
-                  Icons.badge_rounded,
-                  color: Color(0xFFC2B8FF),
-                  size: 31,
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  SizedBox(width: narrowLayout ? 12 : 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          identity.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '등록 게임 ${identity.gameCount}개',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: const TextStyle(
+                            color: Color(0xFF8996A9),
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          percent == null
+                              ? 'RPG / 기타 게임 프로필'
+                              : '게임력 상위 ${_formatTopPercent(percent)}%',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: const TextStyle(
+                            color: Color(0xFFA99DFF),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final buttons = Row(
+                mainAxisSize:
+                    narrowLayout ? MainAxisSize.max : MainAxisSize.min,
+                children: [
+                  if (narrowLayout) const Spacer(),
+                  FilledButton.tonalIcon(
+                    onPressed: _shareLatestIdentity,
+                    style: narrowLayout
+                        ? FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                          )
+                        : null,
+                    icon: const Icon(Icons.share_rounded, size: 14),
+                    label: const Text(
+                      '공유하기',
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _openLatestIdentity(identity);
+                    },
+                    style: narrowLayout
+                        ? OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                          )
+                        : null,
+                    icon: const Icon(
+                      Icons.open_in_new_rounded,
+                      size: 14,
+                    ),
+                    label: const Text(
+                      '다시보기',
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+                ],
+              );
+
+              if (narrowLayout) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      identity.displayName,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '등록 게임 ${identity.gameCount}개',
-                      style: const TextStyle(
-                        color: Color(0xFF8996A9),
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      percent == null
-                          ? 'RPG / 기타 게임 프로필'
-                          : '게임력 상위 ${_formatTopPercent(percent)}%',
-                      style: const TextStyle(
-                        color: Color(0xFFA99DFF),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+                    identityInfo,
+                    const SizedBox(height: 14),
+                    buttons,
                   ],
-                ),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: _shareLatestIdentity,
-                icon: const Icon(Icons.share_rounded, size: 14),
-                label: const Text('공유하기'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: () {
-                  _openLatestIdentity(identity);
-                },
-                icon: const Icon(
-                  Icons.open_in_new_rounded,
-                  size: 14,
-                ),
-                label: const Text('다시보기'),
-              ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: identityInfo),
+                  const SizedBox(width: 16),
+                  buttons,
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1374,9 +1449,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Widget _buildWizard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isMobile = MediaQuery.sizeOf(context).width < 700;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF081321) : Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -1818,23 +1894,55 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             ),
           ),
         const SizedBox(height: 24),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: _isAddingGame ? null : () => _moveToStep(1),
-              child: const Text('이전'),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: _isAddingGame ? null : () => _moveToStep(3),
-              child: const Text('건너뛰기'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _isAddingGame ? null : () => _moveToStep(3),
-              child: const Text('최종 확인'),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            if (!compact) {
+              return Row(
+                children: [
+                  OutlinedButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(1),
+                    child: const Text('이전'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
+                    child: const Text('건너뛰기'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
+                    child: const Text('최종 확인'),
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(1),
+                    child: const FittedBox(child: Text('이전')),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
+                    child: const FittedBox(child: Text('건너뛰기')),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
+                    child: const FittedBox(child: Text('최종 확인')),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -1935,8 +2043,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     return Center(
       child: RepaintBoundary(
         key: _identityCardKey,
-        child: SizedBox(
-          width: 430,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
           child: _GameIdentityPreview(
             displayName: _previewDisplayName,
             identityNumber: _identityNumber,

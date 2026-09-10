@@ -251,7 +251,7 @@ class GameCard extends StatelessWidget {
       height: mobile
           ? switch (profile.type) {
               GameType.lostArk => 300,
-              GameType.leagueOfLegends => 260,
+              GameType.leagueOfLegends => 320,
               GameType.tft => 260,
               GameType.eternalReturn => 330,
               GameType.mapleStory => 320,
@@ -284,8 +284,8 @@ class GameCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: mobile ? 34 : 38,
+                height: mobile ? 34 : 38,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -305,7 +305,7 @@ class GameCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: mobile ? 8 : 10),
               Expanded(
                 child: Text(
                   profile.type.displayName,
@@ -321,6 +321,10 @@ class GameCard extends StatelessWidget {
               IconButton(
                 tooltip: '최신 정보 불러오기',
                 onPressed: isRefreshing ? null : onRefresh,
+                padding: mobile ? EdgeInsets.zero : null,
+                constraints: mobile
+                    ? const BoxConstraints.tightFor(width: 36, height: 36)
+                    : null,
                 icon: AnimatedRotation(
                   turns: isRefreshing ? 1 : 0,
                   duration: const Duration(milliseconds: 700),
@@ -330,6 +334,10 @@ class GameCard extends StatelessWidget {
               ),
               PopupMenuButton<String>(
                 tooltip: '게임 메뉴',
+                padding: mobile ? EdgeInsets.zero : const EdgeInsets.all(8),
+                constraints: mobile
+                    ? const BoxConstraints.tightFor(width: 36, height: 36)
+                    : null,
                 onSelected: (value) {
                   if (value == 'remove') onRemove();
                 },
@@ -470,10 +478,24 @@ class GameCard extends StatelessWidget {
               ),
             ],
           ] else ...[
-            if (mobile &&
-                (profile.type == GameType.leagueOfLegends ||
-                    profile.type == GameType.tft))
+            if (mobile && profile.type == GameType.leagueOfLegends) ...[
               _MobileTier(
+                label: profile.primaryLabel,
+                value: _mobileTier(profile.primaryValue),
+                color: accent,
+              ),
+              if (profile.secondaryLabel != null &&
+                  profile.secondaryValue != null) ...[
+                const SizedBox(height: 12),
+                _MobileTier(
+                  label: profile.secondaryLabel!,
+                  value: _mobileTier(profile.secondaryValue!),
+                  color: accent,
+                ),
+              ],
+            ] else if (mobile && profile.type == GameType.tft)
+              _MobileTier(
+                label: profile.primaryLabel,
                 value: _mobileTier(profile.primaryValue),
                 color: accent,
               )
@@ -1099,10 +1121,12 @@ class _FavoriteCharacter extends StatelessWidget {
 
 class _MobileTier extends StatelessWidget {
   const _MobileTier({
+    required this.label,
     required this.value,
     required this.color,
   });
 
+  final String label;
   final String value;
   final Color color;
 
@@ -1111,9 +1135,9 @@ class _MobileTier extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '티어',
-          style: TextStyle(
+        Text(
+          label,
+          style: const TextStyle(
             color: Color(0xFF7B899D),
             fontSize: 12,
           ),
