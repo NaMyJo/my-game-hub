@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/my_game_pick.dart';
 import '../services/my_game_picks_controller.dart';
+import '../utils/steam_store_launcher.dart';
 import '../widgets/game_pick_button.dart';
 import '../widgets/icon_page_header.dart';
 
@@ -150,7 +150,7 @@ class _PickCard extends StatelessWidget {
         child: InkWell(
           onTap: game.storeUrl.isEmpty
               ? null
-              : () => launchUrl(Uri.parse(game.storeUrl)),
+              : () => launchSteamStore(game.storeUrl),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(

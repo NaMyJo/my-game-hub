@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/game_finder.dart';
 import '../services/game_finder_repository.dart';
 import '../services/my_game_picks_controller.dart';
 import '../theme/app_typography.dart';
+import '../utils/steam_store_launcher.dart';
 import '../widgets/icon_page_header.dart';
 import '../widgets/crossable_range_slider.dart';
 import '../widgets/game_pick_button.dart';
@@ -1120,8 +1120,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
   Widget _card(GameFinderRecommendation g) => Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-          onTap: () =>
-              launchUrl(Uri.parse(g.storeUrl), webOnlyWindowName: '_blank'),
+          onTap: () => launchSteamStore(g.storeUrl),
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             AspectRatio(
