@@ -1888,23 +1888,27 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               final mobileLayout = MediaQuery.sizeOf(context).width < 1100;
               final centerCardRows = mobileLayout || singleColumn;
 
-              return Wrap(
-                alignment:
-                    centerCardRows ? WrapAlignment.center : WrapAlignment.start,
-                spacing: spacing,
-                runSpacing: spacing,
-                children: widget.games.map((game) {
-                  final selected = _selectedGameIds.contains(game.id);
+              return SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: centerCardRows
+                      ? WrapAlignment.center
+                      : WrapAlignment.start,
+                  spacing: spacing,
+                  runSpacing: spacing,
+                  children: widget.games.map((game) {
+                    final selected = _selectedGameIds.contains(game.id);
 
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _SelectableGameAccountCard(
-                      game: game,
-                      selected: selected,
-                      onTap: () => _toggleGame(game),
-                    ),
-                  );
-                }).toList(),
+                    return SizedBox(
+                      width: cardWidth,
+                      child: _SelectableGameAccountCard(
+                        game: game,
+                        selected: selected,
+                        onTap: () => _toggleGame(game),
+                      ),
+                    );
+                  }).toList(),
+                ),
               );
             },
           ),
