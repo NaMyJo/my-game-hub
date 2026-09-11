@@ -16,7 +16,7 @@ import '../services/game_identity_repository.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/public_profile_repository.dart';
 import '../utils/image_download.dart';
-import '../utils/profile_image_picker.dart';
+import '../widgets/profile_image_input_overlay.dart';
 import 'public_pages.dart';
 
 Uint8List _normalizeIdentityProfileImage(Uint8List bytes) {
@@ -117,14 +117,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   final TextEditingController _customGameInfoController =
       TextEditingController();
 
-  Future<void> _pickAndCropProfileImage() async {
+  Future<void> _processSelectedProfileImage(Uint8List imageBytes) async {
     try {
       FocusManager.instance.primaryFocus?.unfocus();
-      final imageBytes = await pickProfileImageBytes();
-
-      if (imageBytes == null || !mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final croppedBytes = await showDialog<Uint8List>(
         context: context,
@@ -148,6 +144,17 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       if (mounted) {
         _showMessageBubble('사진을 불러오지 못했습니다. 다시 시도해주세요.');
       }
+    }
+  }
+
+  void _handleProfileImagePickerError(
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    debugPrint('PROFILE IMAGE PICK ERROR: $error');
+    debugPrint('$stackTrace');
+    if (mounted) {
+      _showMessageBubble('사진을 불러오지 못했습니다. 다시 시도해주세요.');
     }
   }
 
@@ -1676,33 +1683,47 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            GestureDetector(
-              onTap: _pickAndCropProfileImage,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                width: 92,
-                height: 92,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF18213C)
-                      : const Color(0xFFECE9FF),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFF7565E8),
-                  ),
-                ),
-                child: _profileImageBytes == null
-                    ? const Icon(
-                        Icons.add_a_photo_outlined,
-                        color: Color(0xFF8B72FF),
-                        size: 30,
-                      )
-                    : Image.memory(
-                        _profileImageBytes!,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
+            SizedBox(
+              width: 92,
+              height: 92,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ExcludeSemantics(
+                    child: IgnorePointer(
+                      child: Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF18213C)
+                              : const Color(0xFFECE9FF),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color(0xFF7565E8),
+                          ),
+                        ),
+                        child: _profileImageBytes == null
+                            ? const Icon(
+                                Icons.add_a_photo_outlined,
+                                color: Color(0xFF8B72FF),
+                                size: 30,
+                              )
+                            : Image.memory(
+                                _profileImageBytes!,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
                       ),
+                    ),
+                  ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: ProfileImageInputOverlay(
+                      onImageSelected: _processSelectedProfileImage,
+                      onError: _handleProfileImagePickerError,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 16),
@@ -1731,28 +1752,40 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      ExcludeFocus(
-                        child: OutlinedButton.icon(
-                          onPressed: _pickAndCropProfileImage,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 11,
+                      Stack(
+                        children: [
+                          ExcludeSemantics(
+                            child: IgnorePointer(
+                              child: OutlinedButton.icon(
+                                onPressed: () {},
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 11,
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.photo_library_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  _profileImageBytes == null
+                                      ? '사진 선택'
+                                      : '사진 변경',
+                                ),
+                              ),
                             ),
-                          ).copyWith(
-                            overlayColor: const WidgetStatePropertyAll<Color>(
-                              Colors.transparent,
+                          ),
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: ProfileImageInputOverlay(
+                                onImageSelected: _processSelectedProfileImage,
+                                onError: _handleProfileImagePickerError,
+                              ),
                             ),
-                            splashFactory: NoSplash.splashFactory,
                           ),
-                          icon: const Icon(
-                            Icons.photo_library_outlined,
-                            size: 16,
-                          ),
-                          label: Text(
-                            _profileImageBytes == null ? '사진 선택' : '사진 변경',
-                          ),
-                        ),
+                        ],
                       ),
                       if (_profileImageBytes != null)
                         OutlinedButton(

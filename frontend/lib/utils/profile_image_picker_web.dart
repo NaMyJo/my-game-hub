@@ -9,18 +9,7 @@ Future<Uint8List?> pickProfileImageBytesImpl() {
   final input = web.HTMLInputElement()
     ..type = 'file'
     ..accept = 'image/*'
-    // iOS in-app WebView는 display:none인 file input의 기준 위치를 찾지
-    // 못하면 마지막 터치 지점 주변에 팝오버를 배치할 수 있다. 화면 상단의
-    // 투명한 실제 요소를 기준점으로 제공해 선택 메뉴가 아래로 열리도록
-    // 유도한다. 요소는 포인터 입력과 화면 배치에는 영향을 주지 않는다.
-    ..style.position = 'fixed'
-    ..style.top = '8px'
-    ..style.left = '50%'
-    ..style.width = '1px'
-    ..style.height = '1px'
-    ..style.opacity = '0'
-    ..style.pointerEvents = 'none'
-    ..style.zIndex = '0';
+    ..style.display = 'none';
 
   void complete(Uint8List? bytes) {
     if (!completer.isCompleted) {
