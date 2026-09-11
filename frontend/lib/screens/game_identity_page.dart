@@ -119,6 +119,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Future<void> _pickAndCropProfileImage() async {
     try {
+      FocusManager.instance.primaryFocus?.unfocus();
       final imageBytes = await pickProfileImageBytes();
 
       if (imageBytes == null || !mounted) {
@@ -1675,15 +1676,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            InkWell(
+            GestureDetector(
               onTap: _pickAndCropProfileImage,
-              borderRadius: BorderRadius.circular(18),
-              splashFactory: NoSplash.splashFactory,
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              overlayColor:
-                  const WidgetStatePropertyAll<Color>(Colors.transparent),
+              behavior: HitTestBehavior.opaque,
               child: Container(
                 width: 92,
                 height: 92,
@@ -1736,23 +1731,27 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: _pickAndCropProfileImage,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 11,
+                      ExcludeFocus(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickAndCropProfileImage,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 11,
+                            ),
+                          ).copyWith(
+                            overlayColor: const WidgetStatePropertyAll<Color>(
+                              Colors.transparent,
+                            ),
+                            splashFactory: NoSplash.splashFactory,
                           ),
-                        ).copyWith(
-                          overlayColor: const WidgetStatePropertyAll<Color>(
-                            Colors.transparent,
+                          icon: const Icon(
+                            Icons.photo_library_outlined,
+                            size: 16,
                           ),
-                          splashFactory: NoSplash.splashFactory,
-                        ),
-                        icon:
-                            const Icon(Icons.photo_library_outlined, size: 16),
-                        label: Text(
-                          _profileImageBytes == null ? '사진 선택' : '사진 변경',
+                          label: Text(
+                            _profileImageBytes == null ? '사진 선택' : '사진 변경',
+                          ),
                         ),
                       ),
                       if (_profileImageBytes != null)
