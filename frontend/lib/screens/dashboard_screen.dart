@@ -4493,8 +4493,8 @@ class _MobileHeroProfile extends StatelessWidget {
           ],
         ),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 92),
+      child: SizedBox(
+        height: 92,
         child: Stack(
           children: [
             Positioned.fill(

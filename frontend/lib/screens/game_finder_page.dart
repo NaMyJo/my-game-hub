@@ -297,11 +297,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   void _handlePageScroll() {
     final controller = _pageScrollController;
-    final reachedBottom =
-        controller?.hasClients == true && controller!.position.extentAfter <= 8;
+    final floatingExitDistance =
+        widget.mobileScrollController == null ? 110.0 : 170.0;
+    final approachingBottom = controller?.hasClients == true &&
+        controller!.position.extentAfter <= floatingExitDistance;
     final visible =
         shouldShowGameFinderFloatingActions(step, controller?.offset ?? 0) &&
-            !reachedBottom &&
+            !approachingBottom &&
             widget.active;
     if (visible == _showFloatingActions) return;
     _showFloatingActions = visible;
@@ -491,12 +493,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
           playerMax: players.end.round(),
           releasePreference: releasePreference);
       if (mounted) {
+        final orderedResult = _orderRecommendations(result);
         setState(() {
           recent
             ..clear()
             ..addAll(saved.recentGames);
-          recommendations = result;
-          shown.addAll(result.map((e) => e.appId));
+          recommendations = orderedResult;
+          shown.addAll(orderedResult.map((e) => e.appId));
           step = 3;
           maxVisitedStep = 3;
         });
@@ -519,6 +522,43 @@ class _GameFinderPageState extends State<GameFinderPage> {
         });
       }
     }
+  }
+
+  List<GameFinderRecommendation> _orderRecommendations(
+    List<GameFinderRecommendation> values,
+  ) {
+    if (releasePreference != GameFinderReleasePreference.recent) {
+      return values;
+    }
+
+    final today = DateTime.now();
+    final releaseCutoff = DateTime(today.year, today.month, today.day);
+    final ordered = List<GameFinderRecommendation>.from(values);
+    ordered.sort((left, right) {
+      final leftDate = _releasedDate(left.releaseDate, releaseCutoff);
+      final rightDate = _releasedDate(right.releaseDate, releaseCutoff);
+
+      if (leftDate == null && rightDate == null) {
+        final scoreOrder = right.matchScore.compareTo(left.matchScore);
+        return scoreOrder != 0 ? scoreOrder : left.appId.compareTo(right.appId);
+      }
+      if (leftDate == null) return 1;
+      if (rightDate == null) return -1;
+
+      final dateOrder = rightDate.compareTo(leftDate);
+      if (dateOrder != 0) return dateOrder;
+
+      final scoreOrder = right.matchScore.compareTo(left.matchScore);
+      return scoreOrder != 0 ? scoreOrder : left.appId.compareTo(right.appId);
+    });
+    return ordered;
+  }
+
+  DateTime? _releasedDate(String? value, DateTime releaseCutoff) {
+    if (value == null) return null;
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null || parsed.isAfter(releaseCutoff)) return null;
+    return parsed;
   }
 
   @override

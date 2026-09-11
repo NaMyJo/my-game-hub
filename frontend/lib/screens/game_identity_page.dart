@@ -65,9 +65,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   final Set<int> _selectedGameIds = {};
   final GlobalKey _identityCardKey = GlobalKey();
+  final GlobalKey _pageTopKey = GlobalKey();
   Uint8List? _profileImageBytes;
 
   bool _isGeneratingImage = false;
+  bool _showPreview = false;
+  bool _showLatestIdentity = false;
   int _currentStep = 0;
   late final String _identityNumber;
   List<GameProfile> get _selectedGames {
@@ -194,38 +197,59 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         alpha: 0.78,
       ),
       builder: (dialogContext) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            Navigator.of(dialogContext).pop();
-          },
-          child: Center(
-            child: GestureDetector(
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () {
-                // 카드 내부 클릭은 닫히지 않도록 막음
+                Navigator.of(dialogContext).pop();
               },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: SizedBox(
-                  width: 430,
-                  child: _GameIdentityPreview(
-                    displayName: identity.displayName,
-                    profileImageBytes: identity.profileImageBytes,
-                    identityNumber: identity.identityNumber,
-                    issuedDate: identity.issuedDate,
-                    selectedGames: identity.selectedGames,
-                    customGames: identity.customGames,
-                    hasCompetitiveGame: identity.hasCompetitiveGame,
-                    hasRpgGame: identity.hasRpgGame,
-                    previewResult: identity.previewResult,
-                    isLoadingPreview: false,
-                    previewError: identity.previewError,
-                    showDetailActions: true,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    // 카드 내부 클릭은 닫히지 않도록 막음
+                  },
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: SizedBox(
+                      width: 430,
+                      child: _GameIdentityPreview(
+                        displayName: identity.displayName,
+                        profileImageBytes: identity.profileImageBytes,
+                        identityNumber: identity.identityNumber,
+                        issuedDate: identity.issuedDate,
+                        selectedGames: identity.selectedGames,
+                        customGames: identity.customGames,
+                        hasCompetitiveGame: identity.hasCompetitiveGame,
+                        hasRpgGame: identity.hasRpgGame,
+                        previewResult: identity.previewResult,
+                        isLoadingPreview: false,
+                        previewError: identity.previewError,
+                        showDetailActions: true,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+            Positioned(
+              top: MediaQuery.paddingOf(dialogContext).top + 12,
+              right: 12,
+              child: Material(
+                color: const Color(0xFF111B2B),
+                shape: const CircleBorder(
+                  side: BorderSide(color: Color(0xFF40506A)),
+                ),
+                child: IconButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  tooltip: '닫기',
+                  color: const Color(0xFFF2EFFF),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -233,20 +257,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Future<void> _generateIdentityCardImage() async {
     if (_isGeneratingImage) return;
+    final restorePreviewHidden = !_showPreview;
 
-    final displayName = _displayNameController.text.trim();
-
-    if (displayName.isEmpty) {
-      _showMessageBubble(
-        '신분증에서 사용할 닉네임을 입력해주세요.',
-      );
-      return;
-    }
+    final displayName = _previewDisplayName;
 
     if (!_hasAnyGame) {
-      _showMessageBubble(
-        '게임 신분증에 사용할 게임을 하나 이상 추가해주세요.',
-      );
+      _showMessageBubble('게임을 하나 이상 선택해주세요.');
       return;
     }
 
@@ -259,9 +275,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
     setState(() {
       _isGeneratingImage = true;
+      _showPreview = true;
     });
 
     try {
+      await WidgetsBinding.instance.endOfFrame;
+
       /*
      * 아직 Preview API를 요청한 적이 없는 경우에만 호출한다.
      *
@@ -347,6 +366,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       if (mounted) {
         setState(() {
           _isGeneratingImage = false;
+          if (restorePreviewHidden) _showPreview = false;
         });
       }
     }
@@ -405,7 +425,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Future<void> _applyIdentityToDashboardProfile() async {
-    final displayName = _displayNameController.text.trim();
+    final displayName = _previewDisplayName;
 
     /*
    * 경쟁 게임이 있으면 계산된 평균 게임력.
@@ -537,11 +557,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Future<void> _saveLatestIdentity() async {
-    final displayName = _displayNameController.text.trim();
-
-    if (displayName.isEmpty) {
-      return;
-    }
+    final displayName = _previewDisplayName;
 
     String evaluationMessage;
 
@@ -574,14 +590,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Future<void> _loadIdentityPreview() async {
-    final displayName = _displayNameController.text.trim();
-
-    if (displayName.isEmpty) {
-      _showMessageBubble(
-        '신분증에서 사용할 닉네임을 입력해주세요.',
-      );
-      return;
-    }
+    final displayName = _previewDisplayName;
 
     /*
    * 기타 게임만 등록한 경우에는
@@ -658,6 +667,49 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     }
 
     return value;
+  }
+
+  Future<void> _editDisplayNameFromFinalStep() async {
+    final controller = TextEditingController(text: _previewDisplayName);
+    final editedName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('신분증 닉네임 수정'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 12,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            labelText: '신분증 닉네임',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('수정'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (!mounted || editedName == null) return;
+
+    final normalizedName =
+        editedName.trim().isEmpty ? '신분증 닉네임' : editedName.trim();
+    setState(() {
+      _displayNameController.text = normalizedName;
+      _previewResult = null;
+      _previewError = null;
+    });
+    await _loadIdentityPreview();
   }
 
   String _buildIdentitySnapshotJson() {
@@ -777,6 +829,20 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     if (step == 3) {
       await _loadIdentityPreview();
     }
+  }
+
+  Future<void> _moveToStepAndScrollTop(int step) async {
+    await _moveToStep(step);
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    final topContext = _pageTopKey.currentContext;
+    if (topContext == null || !topContext.mounted) return;
+    await Scrollable.ensureVisible(
+      topContext,
+      alignment: 0,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _showMessageBubble(String message) {
@@ -1233,6 +1299,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         final wideLayout = constraints.maxWidth >= 1100;
 
         return Column(
+          key: _pageTopKey,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.showHeader) ...[
@@ -1255,10 +1322,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     ),
                   ),
                   const SizedBox(width: 24),
-                  Expanded(
-                    flex: 4,
-                    child: _buildPreview(),
-                  ),
+                  Expanded(flex: 4, child: _buildPreview()),
                 ],
               )
             else
@@ -1266,15 +1330,48 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildWizard(),
+                  if (_showPreview) ...[
+                    const SizedBox(height: 24),
+                    _buildClosablePreview(),
+                  ],
                   const SizedBox(height: 28),
-                  _buildLatestIdentitySection(),
-                  const SizedBox(height: 24),
-                  _buildPreview(),
+                  _buildLatestIdentityDisclosure(),
                 ],
               ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildLatestIdentityDisclosure() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => setState(
+            () => _showLatestIdentity = !_showLatestIdentity,
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor:
+                isDark ? const Color(0xFFC8BEFF) : const Color(0xFF5946B8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          icon: Icon(
+            _showLatestIdentity
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.history_rounded,
+          ),
+          label: Text(
+            _showLatestIdentity ? '최근 생성한 게임 신분증 숨기기' : '최근 생성한 게임 신분증 보기',
+          ),
+        ),
+        if (_showLatestIdentity) ...[
+          const SizedBox(height: 12),
+          _buildLatestIdentitySection(),
+        ],
+      ],
     );
   }
 
@@ -1752,21 +1849,32 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         if (widget.games.isEmpty)
           const _EmptyGameAccountNotice()
         else
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: widget.games.map((game) {
-              final selected = _selectedGameIds.contains(game.id);
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const cardWidth = 250.0;
+              const spacing = 12.0;
+              final singleColumn =
+                  constraints.maxWidth < cardWidth * 2 + spacing;
 
-              return SizedBox(
-                width: 250,
-                child: _SelectableGameAccountCard(
-                  game: game,
-                  selected: selected,
-                  onTap: () => _toggleGame(game),
-                ),
+              return Wrap(
+                alignment:
+                    singleColumn ? WrapAlignment.center : WrapAlignment.start,
+                spacing: spacing,
+                runSpacing: spacing,
+                children: widget.games.map((game) {
+                  final selected = _selectedGameIds.contains(game.id);
+
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _SelectableGameAccountCard(
+                      game: game,
+                      selected: selected,
+                      onTap: () => _toggleGame(game),
+                    ),
+                  );
+                }).toList(),
               );
-            }).toList(),
+            },
           ),
         const SizedBox(height: 24),
         Row(
@@ -1776,8 +1884,18 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               child: const Text('이전'),
             ),
             const Spacer(),
+            if (MediaQuery.sizeOf(context).width < 1100) ...[
+              IconButton.outlined(
+                onPressed: () => setState(() => _showPreview = true),
+                tooltip: '현재 게임 신분증 미리보기',
+                icon: const Icon(Icons.image_outlined),
+              ),
+              const SizedBox(width: 8),
+            ],
             FilledButton.icon(
-              onPressed: () => _moveToStep(2),
+              onPressed: () => MediaQuery.sizeOf(context).width < 1100
+                  ? _moveToStepAndScrollTop(2)
+                  : _moveToStep(2),
               icon: const Icon(
                 Icons.arrow_forward_rounded,
                 size: 18,
@@ -2157,6 +2275,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         _FinalInformationRow(
           label: '신분증 닉네임',
           value: _previewDisplayName,
+          trailing: IconButton(
+            onPressed: _editDisplayNameFromFinalStep,
+            tooltip: '신분증 닉네임 수정',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+          ),
         ),
         _FinalInformationRow(
           label: '선택한 게임',
@@ -2199,9 +2323,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             ),
             const Spacer(),
             FilledButton.icon(
-              onPressed: _hasAnyGame && !_isGeneratingImage
-                  ? _createIdentityCard
-                  : null,
+              onPressed: _isGeneratingImage ? null : _createIdentityCard,
               icon: _isGeneratingImage
                   ? const SizedBox(
                       width: 17,
@@ -2246,6 +2368,30 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildClosablePreview() {
+    return Stack(
+      children: [
+        _buildPreview(),
+        Positioned(
+          left: 8,
+          top: 8,
+          child: Material(
+            color: const Color(0xFF111B2B).withValues(alpha: 0.92),
+            shape: const CircleBorder(
+              side: BorderSide(color: Color(0xFF40506A)),
+            ),
+            child: IconButton(
+              onPressed: () => setState(() => _showPreview = false),
+              tooltip: '미리보기 닫기',
+              color: const Color(0xFFF2EFFF),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3991,10 +4137,12 @@ class _FinalInformationRow extends StatelessWidget {
   const _FinalInformationRow({
     required this.label,
     required this.value,
+    this.trailing,
   });
 
   final String label;
   final String value;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -4019,6 +4167,10 @@ class _FinalInformationRow extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 4),
+            trailing!,
+          ],
         ],
       ),
     );
