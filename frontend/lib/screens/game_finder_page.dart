@@ -296,9 +296,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
       );
 
   void _handlePageScroll() {
-    final visible = shouldShowGameFinderFloatingActions(
-            step, _pageScrollController?.offset ?? 0) &&
-        widget.active;
+    final controller = _pageScrollController;
+    final reachedBottom =
+        controller?.hasClients == true && controller!.position.extentAfter <= 8;
+    final visible =
+        shouldShowGameFinderFloatingActions(step, controller?.offset ?? 0) &&
+            !reachedBottom &&
+            widget.active;
     if (visible == _showFloatingActions) return;
     _showFloatingActions = visible;
     if (visible) {
@@ -390,14 +394,19 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   void searchChanged(String value) {
     debounce?.cancel();
-    debounce = Timer(const Duration(milliseconds: 450), () async {
-      if (value.trim().length < 2) {
-        if (mounted) setState(() => searchResults = []);
-        return;
+    final query = value.trim();
+    setState(() {
+      if (query.length < 2) {
+        searchResults = [];
+        loading = false;
       }
+    });
+    if (query.length < 2) return;
+
+    debounce = Timer(const Duration(milliseconds: 450), () async {
       setState(() => loading = true);
       try {
-        final result = await GameFinderRepository.instance.search(value);
+        final result = await GameFinderRepository.instance.search(query);
         if (mounted) setState(() => searchResults = result);
       } catch (_) {
         if (mounted) setState(() => error = 'Steam 게임 검색에 실패했습니다.');
@@ -851,6 +860,16 @@ class _GameFinderPageState extends State<GameFinderPage> {
                 prefixIcon: Icon(Icons.search),
                 hintText: 'Steam 게임명 검색',
                 border: OutlineInputBorder())),
+        if (searchController.text.trim().length == 1) ...[
+          const SizedBox(height: 6),
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text(
+              '두 글자 이상 입력해 주세요',
+              style: TextStyle(fontSize: 12, color: Color(0xFF8290A4)),
+            ),
+          ),
+        ],
         if (selected.isNotEmpty) ...[
           const SizedBox(height: 12),
           Wrap(
@@ -1081,13 +1100,16 @@ class _GameFinderPageState extends State<GameFinderPage> {
                     childAspectRatio: mobileResults ? .61 : .82),
                 itemBuilder: (_, i) => _card(recommendations[i]));
           }),
-        SizedBox(
-          height: recommendations.isEmpty
-              ? 18
-              : widget.mobileScrollController == null
-                  ? 92
-                  : 160,
-        ),
+        if (recommendations.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          Align(
+            alignment: widget.webScrollController == null
+                ? Alignment.center
+                : Alignment.centerRight,
+            child: _resultActions(),
+          ),
+        ],
+        const SizedBox(height: 18),
       ]);
 
   Widget _resultCondition(String label, String value) {
@@ -1129,101 +1151,114 @@ class _GameFinderPageState extends State<GameFinderPage> {
             Expanded(
                 child: Padding(
                     padding: const EdgeInsets.all(14),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(g.name,
+                    child: Scrollbar(
+                        child: SingleChildScrollView(
+                            primary: false,
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(g.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w900)),
+                                      ),
+                                      GamePickButton(steamAppId: g.appId),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Text('취향 일치도 ${g.matchScore}%',
+                                      style: AppTypography.numericStyle
+                                          .copyWith(
+                                              color: Color(0xFF8D79FF),
+                                              fontWeight: FontWeight.w800)),
+                                  if (g.genres.any(selectedTags.contains)) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                        '선호 태그 ${g.genres.where(selectedTags.contains).take(2).map(_tagLabel).join(' · ')} 일치',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall),
+                                  ],
+                                  const SizedBox(height: 7),
+                                  Text(
+                                    _price(g),
+                                    style: AppTypography.numericStyle.copyWith(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(0xFF65D6B4)
+                                          : const Color(0xFF087F68),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _release(g),
+                                    style: AppTypography.numericStyle.copyWith(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(0xFF8DBDFF)
+                                          : const Color(0xFF2866B1),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Text(
+                                      [
+                                        if (g.singlePlayer == true) '싱글',
+                                        if (g.multiplayer == true) '멀티',
+                                        if (g.onlineCoop == true) '온라인 협동',
+                                        if (g.maxPlayers != null)
+                                          '최대 ${g.maxPlayers}명'
+                                      ].join(' · '),
+                                      maxLines: 2),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    g.genres.take(3).map(_tagLabel).join(' · '),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900)),
-                              ),
-                              GamePickButton(steamAppId: g.appId),
-                            ],
-                          ),
-                          const SizedBox(height: 7),
-                          Text('취향 일치도 ${g.matchScore}%',
-                              style: AppTypography.numericStyle.copyWith(
-                                  color: Color(0xFF8D79FF),
-                                  fontWeight: FontWeight.w800)),
-                          if (g.genres.any(selectedTags.contains)) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                                '선호 태그 ${g.genres.where(selectedTags.contains).take(2).map(_tagLabel).join(' · ')} 일치',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall),
-                          ],
-                          const SizedBox(height: 7),
-                          Text(
-                            _price(g),
-                            style: AppTypography.numericStyle.copyWith(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? const Color(0xFF65D6B4)
-                                  : const Color(0xFF087F68),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _release(g),
-                            style: AppTypography.numericStyle.copyWith(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? const Color(0xFF8DBDFF)
-                                  : const Color(0xFF2866B1),
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                              [
-                                if (g.singlePlayer == true) '싱글',
-                                if (g.multiplayer == true) '멀티',
-                                if (g.onlineCoop == true) '온라인 협동',
-                                if (g.maxPlayers != null) '최대 ${g.maxPlayers}명'
-                              ].join(' · '),
-                              maxLines: 2),
-                          const Spacer(),
-                          Text(
-                            g.genres.take(3).map(_tagLabel).join(' · '),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? const Color(0xFFC1B7F4)
-                                  : const Color(0xFF6756A8),
-                              fontSize:
-                                  widget.webScrollController == null ? 11 : 13,
-                              height: 1.25,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Steam Store',
-                                  style: TextStyle(
-                                    fontSize: widget.webScrollController == null
-                                        ? 11
-                                        : 13,
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? const Color(0xFFB4BECD)
-                                        : const Color(0xFF596579),
+                                    style: TextStyle(
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(0xFFC1B7F4)
+                                          : const Color(0xFF6756A8),
+                                      fontSize:
+                                          widget.webScrollController == null
+                                              ? 11
+                                              : 13,
+                                      height: 1.25,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.open_in_new, size: 13)
-                              ])
-                        ])))
+                                  const SizedBox(height: 8),
+                                  Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Steam Store',
+                                          style: TextStyle(
+                                            fontSize:
+                                                widget.webScrollController ==
+                                                        null
+                                                    ? 11
+                                                    : 13,
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? const Color(0xFFB4BECD)
+                                                    : const Color(0xFF596579),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.open_in_new, size: 13)
+                                      ])
+                                ])))))
           ])));
   Widget _image(String? url, double size) => url == null || url.isEmpty
       ? Container(

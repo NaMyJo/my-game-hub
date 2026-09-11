@@ -2492,128 +2492,111 @@ class _HeroProfile extends StatelessWidget {
 
     final introduction = profile?.introduction ?? '게임을 사랑하는 게이머';
 
-    final email = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 850;
 
-        final userInfo = Transform.translate(
-          offset: const Offset(0, 8),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 88),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF172438)
-                            : const Color(0xFFECE9FF),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        size: 34,
-                        color: Color(0xFFA495FF),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            introduction,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFF8996A9)
-                                  : const Color(0xFF596579),
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            email,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: isDark
-                                  ? const Color(0xFF6F7E92)
-                                  : const Color(0xFF778196),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: 42,
-                bottom: 0,
-                child: IconButton(
-                  onPressed: isRefreshingAll ? null : onRefreshAll,
-                  tooltip: '전체 새로고침',
-                  style: IconButton.styleFrom(
-                    backgroundColor: isDark
-                        ? const Color(0xFF101D30)
-                        : const Color(0xFFF0F3F8),
-                    foregroundColor: const Color(0xFF7D6CF0),
-                    side: BorderSide(
+        final userInfo = Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 88),
+              child: Row(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
                       color: isDark
-                          ? const Color(0xFF2B3A50)
-                          : const Color(0xFFD8DEEA),
+                          ? const Color(0xFF172438)
+                          : const Color(0xFFECE9FF),
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    minimumSize: const Size(34, 34),
-                    padding: EdgeInsets.zero,
+                    child: const Icon(
+                      Icons.person_rounded,
+                      size: 34,
+                      color: Color(0xFFA495FF),
+                    ),
                   ),
-                  icon: isRefreshingAll
-                      ? const SizedBox(
-                          width: 15,
-                          height: 15,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded, size: 17),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: IconButton(
-                  onPressed: onEdit,
-                  tooltip: '프로필 수정',
-                  style: IconButton.styleFrom(
-                    backgroundColor: isDark
-                        ? const Color(0xFF171F3B)
-                        : const Color(0xFFECE9FF),
-                    foregroundColor: const Color(0xFFA99DFF),
-                    side: const BorderSide(color: Color(0xFF393568)),
-                    minimumSize: const Size(34, 34),
-                    padding: EdgeInsets.zero,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          introduction,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFF8996A9)
+                                : const Color(0xFF596579),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  icon: const Icon(Icons.edit_rounded, size: 15),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              right: 42,
+              bottom: 0,
+              child: IconButton(
+                onPressed: isRefreshingAll ? null : onRefreshAll,
+                tooltip: '전체 새로고침',
+                style: IconButton.styleFrom(
+                  backgroundColor: isDark
+                      ? const Color(0xFF101D30)
+                      : const Color(0xFFF0F3F8),
+                  foregroundColor: const Color(0xFF7D6CF0),
+                  side: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF2B3A50)
+                        : const Color(0xFFD8DEEA),
+                  ),
+                  minimumSize: const Size(34, 34),
+                  padding: EdgeInsets.zero,
+                ),
+                icon: isRefreshingAll
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 17),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: IconButton(
+                onPressed: onEdit,
+                tooltip: '프로필 수정',
+                style: IconButton.styleFrom(
+                  backgroundColor: isDark
+                      ? const Color(0xFF171F3B)
+                      : const Color(0xFFECE9FF),
+                  foregroundColor: const Color(0xFFA99DFF),
+                  side: const BorderSide(color: Color(0xFF393568)),
+                  minimumSize: const Size(34, 34),
+                  padding: EdgeInsets.zero,
+                ),
+                icon: const Icon(Icons.edit_rounded, size: 15),
+              ),
+            ),
+          ],
         );
 
         return Container(
@@ -4495,8 +4478,6 @@ class _MobileHeroProfile extends StatelessWidget {
 
     final introduction = profile?.introduction ?? '게임을 사랑하는 게이머';
 
-    final accountText = isGuest ? '로그인 없이 이용 중' : (user?.email ?? '');
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -4512,93 +4493,101 @@ class _MobileHeroProfile extends StatelessWidget {
           ],
         ),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: const Color(0xFF6E56E9),
-            backgroundImage:
-                user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
-            child: user?.photoURL == null
-                ? const Icon(Icons.person_rounded)
-                : null,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  introduction,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF9AA7B9),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  accountText,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF8290A4),
-                    fontSize: 11,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Align(
-                  alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 92),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 82),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        onPressed: isRefreshingAll ? null : onRefreshAll,
-                        tooltip: '전체 새로고침',
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF182740),
-                          foregroundColor: const Color(0xFF9B8CFF),
-                          minimumSize: const Size(32, 32),
-                          padding: EdgeInsets.zero,
-                        ),
-                        icon: isRefreshingAll
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh_rounded, size: 15),
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: const Color(0xFF6E56E9),
+                        backgroundImage: user?.photoURL == null
+                            ? null
+                            : NetworkImage(user!.photoURL!),
+                        child: user?.photoURL == null
+                            ? const Icon(Icons.person_rounded)
+                            : null,
                       ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        onPressed: onEdit,
-                        tooltip: '프로필 수정',
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF24234C),
-                          foregroundColor: const Color(0xFFB8AEFF),
-                          minimumSize: const Size(32, 32),
-                          padding: EdgeInsets.zero,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              introduction,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF9AA7B9),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
-                        icon: const Icon(Icons.edit_rounded, size: 14),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    onPressed: isRefreshingAll ? null : onRefreshAll,
+                    tooltip: '전체 새로고침',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF182740),
+                      foregroundColor: const Color(0xFF9B8CFF),
+                      minimumSize: const Size(32, 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: isRefreshingAll
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 15),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    onPressed: onEdit,
+                    tooltip: '프로필 수정',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF24234C),
+                      foregroundColor: const Color(0xFFB8AEFF),
+                      minimumSize: const Size(32, 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: const Icon(Icons.edit_rounded, size: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

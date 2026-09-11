@@ -19,6 +19,26 @@ import '../utils/image_download.dart';
 import '../utils/profile_image_picker.dart';
 import 'public_pages.dart';
 
+Uint8List _normalizeIdentityProfileImage(Uint8List bytes) {
+  final decodedImage = image_lib.decodeImage(bytes);
+
+  if (decodedImage == null) {
+    return bytes;
+  }
+
+  return Uint8List.fromList(
+    image_lib.encodeJpg(
+      image_lib.copyResize(
+        decodedImage,
+        width: 512,
+        height: 512,
+        interpolation: image_lib.Interpolation.linear,
+      ),
+      quality: 86,
+    ),
+  );
+}
+
 class GameIdentityPage extends StatefulWidget {
   const GameIdentityPage({
     super.key,
@@ -114,23 +134,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         return;
       }
 
-      final decodedImage = image_lib.decodeImage(croppedBytes);
-      final normalizedBytes = decodedImage == null
-          ? croppedBytes
-          : Uint8List.fromList(
-              image_lib.encodeJpg(
-                image_lib.copyResize(
-                  decodedImage,
-                  width: 512,
-                  height: 512,
-                  interpolation: image_lib.Interpolation.linear,
-                ),
-                quality: 86,
-              ),
-            );
-
       setState(() {
-        _profileImageBytes = normalizedBytes;
+        _profileImageBytes = croppedBytes;
       });
     } catch (error, stackTrace) {
       debugPrint('PROFILE IMAGE PICK ERROR: $error');
@@ -1578,6 +1583,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             InkWell(
               onTap: _pickAndCropProfileImage,
               borderRadius: BorderRadius.circular(18),
+              splashFactory: NoSplash.splashFactory,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              overlayColor:
+                  const WidgetStatePropertyAll<Color>(Colors.transparent),
               child: Container(
                 width: 92,
                 height: 92,
@@ -1632,6 +1643,17 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     children: [
                       OutlinedButton.icon(
                         onPressed: _pickAndCropProfileImage,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 11,
+                          ),
+                        ).copyWith(
+                          overlayColor: const WidgetStatePropertyAll<Color>(
+                            Colors.transparent,
+                          ),
+                          splashFactory: NoSplash.splashFactory,
+                        ),
                         icon:
                             const Icon(Icons.photo_library_outlined, size: 16),
                         label: Text(
@@ -2548,6 +2570,17 @@ class _GameIdentityPreview extends StatelessWidget {
   final bool isLoadingPreview;
   final String? previewError;
   final bool showDetailActions;
+
+  double get _displayNameFontSize {
+    final characterCount = displayName.runes.length;
+
+    if (characterCount <= 6) return 24;
+    if (characterCount <= 8) return 21;
+    if (characterCount <= 10) return 18;
+    if (characterCount == 11) return 16;
+    return 15;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2909,14 +2942,24 @@ class _GameIdentityPreview extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFF0EEFF),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
+                SizedBox(
+                  height: 30,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        displayName,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: const Color(0xFFF0EEFF),
+                          fontSize: _displayNameFontSize,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -3996,22 +4039,46 @@ class _SquarePhotoCropDialogState extends State<_SquarePhotoCropDialog> {
   bool _isCropping = false;
   String? _errorMessage;
 
-  void _crop() {
+  Future<void> _crop() async {
     if (_isCropping) return;
 
     setState(() {
       _isCropping = true;
       _errorMessage = null;
     });
+
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+
+    if (!mounted) return;
     _cropController.crop();
   }
 
-  void _onCropped(CropResult result) {
+  Future<void> _onCropped(CropResult result) async {
     if (!mounted) return;
 
     switch (result) {
       case CropSuccess(:final croppedImage):
-        Navigator.of(context).pop(croppedImage);
+        try {
+          final normalizedImage = await compute(
+            _normalizeIdentityProfileImage,
+            croppedImage,
+          );
+
+          if (mounted) {
+            Navigator.of(context).pop(normalizedImage);
+          }
+        } catch (error, stackTrace) {
+          debugPrint('PROFILE IMAGE RESIZE ERROR: $error');
+          debugPrint('$stackTrace');
+
+          if (mounted) {
+            setState(() {
+              _isCropping = false;
+              _errorMessage = '사진을 적용하지 못했습니다. 다시 시도해주세요.';
+            });
+          }
+        }
       case CropFailure(:final cause):
         debugPrint('PROFILE IMAGE CROP ERROR: $cause');
         setState(() {
@@ -4056,7 +4123,9 @@ class _SquarePhotoCropDialogState extends State<_SquarePhotoCropDialog> {
                   child: Crop(
                     image: widget.imageBytes,
                     controller: _cropController,
-                    onCropped: _onCropped,
+                    onCropped: (result) {
+                      _onCropped(result);
+                    },
                     aspectRatio: 1,
                     initialRectBuilder: InitialRectBuilder.withSizeAndRatio(
                       size: 0.9,

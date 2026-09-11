@@ -332,21 +332,14 @@ class GameCard extends StatelessWidget {
                   child: const Icon(Icons.refresh),
                 ),
               ),
-              PopupMenuButton<String>(
-                tooltip: '게임 메뉴',
+              IconButton(
+                tooltip: '게임 카드 삭제',
                 padding: mobile ? EdgeInsets.zero : const EdgeInsets.all(8),
                 constraints: mobile
                     ? const BoxConstraints.tightFor(width: 36, height: 36)
                     : null,
-                onSelected: (value) {
-                  if (value == 'remove') onRemove();
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: 'remove',
-                    child: Text('삭제'),
-                  ),
-                ],
+                onPressed: onRemove,
+                icon: const Icon(Icons.delete_outline_rounded),
               ),
             ],
           ),

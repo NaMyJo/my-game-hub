@@ -2,15 +2,25 @@ bool canRequestGameFinderRecommendation(
         Iterable<int> seedAppIds, Iterable<String> preferredTags) =>
     seedAppIds.isNotEmpty || preferredTags.isNotEmpty;
 
-enum GameFinderReleasePreference { balanced, recent, any }
+enum GameFinderReleasePreference { balanced, recent }
 
 extension GameFinderReleasePreferenceValue on GameFinderReleasePreference {
   String get apiValue => name.toUpperCase();
   String get label => switch (this) {
-        GameFinderReleasePreference.balanced => '균형 추천',
+        GameFinderReleasePreference.balanced => '취향 우선',
         GameFinderReleasePreference.recent => '최신 게임 우선',
-        GameFinderReleasePreference.any => '출시일 무관',
       };
+}
+
+GameFinderReleasePreference _releasePreferenceFromApi(Object? value) {
+  final apiValue = value?.toString() ?? 'RECENT';
+  // 과거에 저장된 ANY 설정은 제거된 선택지를 다시 노출하지 않고
+  // 취향 점수를 우선하는 BALANCED 동작으로 자연스럽게 이전합니다.
+  if (apiValue == 'ANY') return GameFinderReleasePreference.balanced;
+  return GameFinderReleasePreference.values.firstWhere(
+    (preference) => preference.apiValue == apiValue,
+    orElse: () => GameFinderReleasePreference.recent,
+  );
 }
 
 class SteamGameSearchItem {
@@ -68,9 +78,8 @@ class GameFinderPreferences {
           includeAdult: json['includeAdult'] as bool? ?? false,
           playerMin: (json['playerMin'] as num?)?.toInt() ?? 1,
           playerMax: (json['playerMax'] as num?)?.toInt() ?? 15,
-          releasePreference: GameFinderReleasePreference.values.firstWhere(
-              (value) => value.apiValue == (json['releasePreference'] ?? 'RECENT'),
-              orElse: () => GameFinderReleasePreference.recent),
+          releasePreference:
+              _releasePreferenceFromApi(json['releasePreference']),
           recentGames: (json['recentGames'] as List<dynamic>? ?? const [])
               .map((v) =>
                   SteamGameSearchItem.fromJson(v as Map<String, dynamic>))
@@ -178,6 +187,7 @@ class GameFinderTagSearchResult {
         storeUrl: json['storeUrl'] as String? ?? '',
       );
 }
+
 enum GameFinderPlayMode { single, multi }
 
 extension GameFinderPlayModeValue on GameFinderPlayMode {

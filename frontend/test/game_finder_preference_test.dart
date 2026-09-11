@@ -36,8 +36,12 @@ void main() {
       'releasePreference': 'BALANCED',
     });
     final legacy = GameFinderPreferences.fromJson({});
+    final removedAny = GameFinderPreferences.fromJson({
+      'releasePreference': 'ANY',
+    });
     expect(balanced.releasePreference, GameFinderReleasePreference.balanced);
     expect(legacy.releasePreference, GameFinderReleasePreference.recent);
+    expect(removedAny.releasePreference, GameFinderReleasePreference.balanced);
   });
 
   test('플레이 방식에 따라 인원 범위 표시 여부를 결정한다', () {
