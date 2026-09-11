@@ -466,6 +466,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         gamePowerPercent: gamePowerPercent,
         reflectedGameCount: reflectedGameCount,
         evaluationMessage: evaluationMessage,
+        profileImageBytes: _profileImageBytes,
       );
 
       widget.onProfileApplied(savedProfile);
@@ -829,11 +830,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     if (step == 3) {
       await _loadIdentityPreview();
     }
-  }
 
-  Future<void> _moveToStepAndScrollTop(int step) async {
-    await _moveToStep(step);
-    if (!mounted) return;
+    if (!mounted || MediaQuery.sizeOf(context).width >= 1100) return;
     await WidgetsBinding.instance.endOfFrame;
     final topContext = _pageTopKey.currentContext;
     if (topContext == null || !topContext.mounted) return;
@@ -1855,10 +1853,12 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               const spacing = 12.0;
               final singleColumn =
                   constraints.maxWidth < cardWidth * 2 + spacing;
+              final mobileLayout = MediaQuery.sizeOf(context).width < 1100;
+              final centerCardRows = mobileLayout || singleColumn;
 
               return Wrap(
                 alignment:
-                    singleColumn ? WrapAlignment.center : WrapAlignment.start,
+                    centerCardRows ? WrapAlignment.center : WrapAlignment.start,
                 spacing: spacing,
                 runSpacing: spacing,
                 children: widget.games.map((game) {
@@ -1886,16 +1886,16 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             const Spacer(),
             if (MediaQuery.sizeOf(context).width < 1100) ...[
               IconButton.outlined(
-                onPressed: () => setState(() => _showPreview = true),
-                tooltip: '현재 게임 신분증 미리보기',
-                icon: const Icon(Icons.image_outlined),
+                onPressed: () => setState(() => _showPreview = !_showPreview),
+                tooltip: _showPreview ? '현재 게임 신분증 미리보기 닫기' : '현재 게임 신분증 미리보기',
+                icon: Icon(
+                  _showPreview ? Icons.image : Icons.image_outlined,
+                ),
               ),
               const SizedBox(width: 8),
             ],
             FilledButton.icon(
-              onPressed: () => MediaQuery.sizeOf(context).width < 1100
-                  ? _moveToStepAndScrollTop(2)
-                  : _moveToStep(2),
+              onPressed: () => _moveToStep(2),
               icon: const Icon(
                 Icons.arrow_forward_rounded,
                 size: 18,

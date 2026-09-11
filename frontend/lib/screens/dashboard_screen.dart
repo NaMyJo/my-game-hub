@@ -659,13 +659,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   maxLength: 50,
                 ),
                 const SizedBox(height: 14),
-                _ProfileEditField(
-                  controller: introductionController,
-                  label: '소개 문구',
-                  hintText: '나를 표현하는 한마디',
-                  icon: Icons.notes_rounded,
-                  maxLength: 120,
-                  maxLines: 3,
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: introductionController,
+                  builder: (context, value, child) {
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final painter = TextPainter(
+                          text: TextSpan(
+                            text: value.text,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          maxLines: 2,
+                          textDirection: TextDirection.ltr,
+                        )..layout(
+                            maxWidth:
+                                (constraints.maxWidth - 64).clamp(1, 1000),
+                          );
+                        final exceedsVisibleLines = painter.didExceedMaxLines;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _ProfileEditField(
+                              controller: introductionController,
+                              label: '소개 문구',
+                              hintText: '나를 표현하는 한마디',
+                              icon: Icons.notes_rounded,
+                              maxLength: 120,
+                              maxLines: 3,
+                            ),
+                            if (exceedsVisibleLines) ...[
+                              const SizedBox(height: 6),
+                              const Text(
+                                '프로필 문구는 두 줄까지만 표시됩니다.',
+                                style: TextStyle(
+                                  color: Color(0xFFE0A15A),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
                 const SizedBox(height: 22),
                 Row(
@@ -1436,6 +1477,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _MobileHeroProfile(
                       user: _user,
                       profile: _userProfile,
+                      profileImageBytes: _gameProfileSummary?.profileImageBytes,
                       onEdit: _editUserProfile,
                       onRefreshAll: _refreshAllGames,
                       isRefreshingAll: _isRefreshingAll,
@@ -2505,17 +2547,23 @@ class _HeroProfile extends StatelessWidget {
                   Container(
                     width: 64,
                     height: 64,
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: isDark
                           ? const Color(0xFF172438)
                           : const Color(0xFFECE9FF),
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      size: 34,
-                      color: Color(0xFFA495FF),
-                    ),
+                    child: gameProfileSummary?.profileImageBytes == null
+                        ? const Icon(
+                            Icons.person_rounded,
+                            size: 34,
+                            color: Color(0xFFA495FF),
+                          )
+                        : Image.memory(
+                            gameProfileSummary!.profileImageBytes!,
+                            fit: BoxFit.cover,
+                          ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -2532,7 +2580,7 @@ class _HeroProfile extends StatelessWidget {
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 8),
                         Text(
                           introduction,
                           maxLines: 2,
@@ -4459,6 +4507,7 @@ class _MobileHeroProfile extends StatelessWidget {
   const _MobileHeroProfile({
     required this.user,
     required this.profile,
+    required this.profileImageBytes,
     required this.onEdit,
     required this.onRefreshAll,
     required this.isRefreshingAll,
@@ -4466,6 +4515,7 @@ class _MobileHeroProfile extends StatelessWidget {
 
   final User? user;
   final UserProfile? profile;
+  final Uint8List? profileImageBytes;
   final VoidCallback onEdit;
   final VoidCallback onRefreshAll;
   final bool isRefreshingAll;
@@ -4507,10 +4557,10 @@ class _MobileHeroProfile extends StatelessWidget {
                       CircleAvatar(
                         radius: 30,
                         backgroundColor: const Color(0xFF6E56E9),
-                        backgroundImage: user?.photoURL == null
+                        backgroundImage: profileImageBytes == null
                             ? null
-                            : NetworkImage(user!.photoURL!),
-                        child: user?.photoURL == null
+                            : MemoryImage(profileImageBytes!),
+                        child: profileImageBytes == null
                             ? const Icon(Icons.person_rounded)
                             : null,
                       ),
@@ -4528,7 +4578,7 @@ class _MobileHeroProfile extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 8),
                             Text(
                               introduction,
                               maxLines: 2,

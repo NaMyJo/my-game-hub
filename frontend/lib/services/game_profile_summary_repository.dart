@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/game_profile_summary.dart';
@@ -40,12 +43,15 @@ class GameProfileSummaryRepository {
     required double? gamePowerPercent,
     required int reflectedGameCount,
     required String? evaluationMessage,
+    required Uint8List? profileImageBytes,
   }) async {
     final body = {
       'identityNickname': identityNickname,
       'gamePowerPercent': gamePowerPercent,
       'reflectedGameCount': reflectedGameCount,
       'evaluationMessage': evaluationMessage,
+      'profileImageBase64':
+          profileImageBytes == null ? null : base64Encode(profileImageBytes),
     };
 
     debugPrint('===== SAVE GAME PROFILE =====');

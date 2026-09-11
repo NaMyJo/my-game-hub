@@ -527,13 +527,17 @@ class _GameFinderPageState extends State<GameFinderPage> {
   List<GameFinderRecommendation> _orderRecommendations(
     List<GameFinderRecommendation> values,
   ) {
+    final ordered = List<GameFinderRecommendation>.from(values);
     if (releasePreference != GameFinderReleasePreference.recent) {
-      return values;
+      ordered.sort((left, right) {
+        final scoreOrder = right.matchScore.compareTo(left.matchScore);
+        return scoreOrder != 0 ? scoreOrder : left.appId.compareTo(right.appId);
+      });
+      return ordered;
     }
 
     final today = DateTime.now();
     final releaseCutoff = DateTime(today.year, today.month, today.day);
-    final ordered = List<GameFinderRecommendation>.from(values);
     ordered.sort((left, right) {
       final leftDate = _releasedDate(left.releaseDate, releaseCutoff);
       final rightDate = _releasedDate(right.releaseDate, releaseCutoff);
@@ -1063,15 +1067,19 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   Widget _results() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (!_showFloatingActions) ...[
-          Align(
+        Visibility(
+          visible: !_showFloatingActions,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: Align(
             alignment: widget.webScrollController == null
                 ? Alignment.center
                 : Alignment.centerRight,
             child: _resultActions(),
           ),
-          const SizedBox(height: 12),
-        ],
+        ),
+        const SizedBox(height: 12),
         _panel(Wrap(spacing: 16, runSpacing: 10, children: [
           _resultCondition('플레이 방식', playMode.label),
           if (playMode.showsPlayerRange)
