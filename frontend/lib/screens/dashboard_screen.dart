@@ -8,22 +8,23 @@ import '../models/game_profile_summary.dart';
 import '../models/user_profile.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
-import '../services/game_profile_summary_repository.dart';
 import '../services/game_finder_admin_repository.dart';
+import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
-import '../services/public_profile_repository.dart';
 import '../services/my_game_picks_controller.dart';
+import '../services/public_profile_repository.dart';
 import '../services/user_profile_repository.dart';
 import '../theme/app_theme_controller.dart';
 import '../widgets/add_game_dialog.dart';
+import '../widgets/bottom_reach_glow.dart';
 import '../widgets/game_card.dart';
-import '../widgets/stat_card.dart';
 import '../widgets/icon_page_header.dart';
-import 'game_identity_page.dart';
-import 'game_finder_page.dart';
+import '../widgets/stat_card.dart';
 import 'game_finder_admin_page.dart';
-import 'public_pages.dart';
+import 'game_finder_page.dart';
+import 'game_identity_page.dart';
 import 'my_game_picks_page.dart';
+import 'public_pages.dart';
 
 enum DashboardPage {
   dashboard,
@@ -61,6 +62,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isRefreshingAll = false;
   bool _loadGamesTakingLong = false;
   bool _dashboardMenuExpanded = true;
+  bool _mobileSummaryExpanded = true;
   bool _deleteMode = false;
   bool _sidebarCollapsed = false;
   bool _isGameFinderAdmin = false;
@@ -683,9 +685,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: () {
-                        final nickname = nicknameController.text.trim();
-
-                        if (nickname.isEmpty) return;
+                        final enteredNickname = nicknameController.text.trim();
+                        final nickname = enteredNickname.isEmpty
+                            ? 'The Gamer'
+                            : enteredNickname;
 
                         Navigator.pop(
                           dialogContext,
@@ -1415,115 +1418,123 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(
-          index: mobileIndex,
-          children: [
-            SingleChildScrollView(
-              controller: _mobileDashboardScrollController,
-              padding: const EdgeInsets.fromLTRB(
-                14,
-                16,
-                14,
-                100,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _MobileHeroProfile(
-                    user: _user,
-                    profile: _userProfile,
-                    onEdit: _editUserProfile,
-                    onRefreshAll: _refreshAllGames,
-                    isRefreshingAll: _isRefreshingAll,
-                  ),
-                  const SizedBox(height: 14),
-                  if (_isLoadingGames)
-                    _buildGameLoadingState()
-                  else if (_loadGamesError != null)
-                    _buildGameLoadErrorState()
-                  else ...[
-                    _MobileSummaryGrid(
-                      lostArkCount: lostArkCount,
-                      lolCount: lolCount,
-                      tftCount: tftCount,
-                      eternalReturnCount: eternalReturnCount,
-                      mapleStoryCount: mapleStoryCount,
-                      dungeonFighterCount: dungeonFighterCount,
-                      battlegroundsCount: battlegroundsCount,
-                      valorantCount: valorantCount,
-                      lastSyncText: lastSyncText,
+        child: BottomReachGlow(
+          child: IndexedStack(
+            index: mobileIndex,
+            children: [
+              SingleChildScrollView(
+                controller: _mobileDashboardScrollController,
+                padding: const EdgeInsets.fromLTRB(
+                  14,
+                  16,
+                  14,
+                  50,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MobileHeroProfile(
+                      user: _user,
+                      profile: _userProfile,
+                      onEdit: _editUserProfile,
+                      onRefreshAll: _refreshAllGames,
+                      isRefreshingAll: _isRefreshingAll,
                     ),
                     const SizedBox(height: 14),
-                    _MobileGameGrid(
-                      games: _games,
-                      refreshingGameId: _refreshingGameId,
-                      onRefresh: _refreshGame,
-                      onRemove: (game) async {
-                        try {
-                          await GameRepository.instance.deleteGame(game.id);
-
-                          if (!mounted) return;
-
+                    if (_isLoadingGames)
+                      _buildGameLoadingState()
+                    else if (_loadGamesError != null)
+                      _buildGameLoadErrorState()
+                    else ...[
+                      _MobileSummaryGrid(
+                        expanded: _mobileSummaryExpanded,
+                        onToggle: () {
                           setState(() {
-                            _games.remove(game);
+                            _mobileSummaryExpanded = !_mobileSummaryExpanded;
                           });
-                        } catch (error) {
-                          if (!mounted) return;
-                          await _showApiError();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    MobileAddGameAction(onTap: _openAddGame),
+                        },
+                        lostArkCount: lostArkCount,
+                        lolCount: lolCount,
+                        tftCount: tftCount,
+                        eternalReturnCount: eternalReturnCount,
+                        mapleStoryCount: mapleStoryCount,
+                        dungeonFighterCount: dungeonFighterCount,
+                        battlegroundsCount: battlegroundsCount,
+                        valorantCount: valorantCount,
+                        lastSyncText: lastSyncText,
+                      ),
+                      const SizedBox(height: 14),
+                      _MobileGameGrid(
+                        games: _games,
+                        refreshingGameId: _refreshingGameId,
+                        onRefresh: _refreshGame,
+                        onRemove: (game) async {
+                          try {
+                            await GameRepository.instance.deleteGame(game.id);
+
+                            if (!mounted) return;
+
+                            setState(() {
+                              _games.remove(game);
+                            });
+                          } catch (error) {
+                            if (!mounted) return;
+                            await _showApiError();
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      MobileAddGameAction(onTap: _openAddGame),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            SingleChildScrollView(
-              key: const PageStorageKey('mobile-tools'),
-              controller: _mobileToolsScrollController,
-              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-              child: const _ToolsPage(),
-            ),
-            SingleChildScrollView(
-              key: const PageStorageKey('mobile-game-identity'),
-              controller: _mobileIdentityScrollController,
-              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-              child: GameIdentityPage(
-                games: _games,
-                onAddGame: _addGameForIdentity,
-                showHeader: false,
-                onProfileApplied: (profile) {
-                  if (!mounted) return;
-                  setState(() {
-                    _gameProfileSummary = profile;
-                    _isLoadingGameProfile = false;
-                  });
-                },
+              SingleChildScrollView(
+                key: const PageStorageKey('mobile-tools'),
+                controller: _mobileToolsScrollController,
+                padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
+                child: const _ToolsPage(),
               ),
-            ),
-            SingleChildScrollView(
-              key: const PageStorageKey('mobile-game-finder'),
-              controller: _mobileFinderScrollController,
-              padding: const EdgeInsets.fromLTRB(14, 20, 14, 100),
-              child: GameFinderPage(
-                mobileScrollController: _mobileFinderScrollController,
-                active: mobilePage == DashboardPage.gameFinder,
+              SingleChildScrollView(
+                key: const PageStorageKey('mobile-game-identity'),
+                controller: _mobileIdentityScrollController,
+                padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
+                child: GameIdentityPage(
+                  games: _games,
+                  onAddGame: _addGameForIdentity,
+                  showHeader: false,
+                  onProfileApplied: (profile) {
+                    if (!mounted) return;
+                    setState(() {
+                      _gameProfileSummary = profile;
+                      _isLoadingGameProfile = false;
+                    });
+                  },
+                ),
               ),
-            ),
-            SingleChildScrollView(
-              key: const PageStorageKey('mobile-my-page'),
-              controller: _mobileMyPageScrollController,
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-              child: _MobileMyPage(
-                user: _user,
-                profile: _userProfile,
-                onSignOut: _confirmSignOut,
-                onGoogleLogin: _signInFromMyPage,
-                onOpenGameFinder: _openGameFinder,
+              SingleChildScrollView(
+                key: const PageStorageKey('mobile-game-finder'),
+                controller: _mobileFinderScrollController,
+                padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
+                child: GameFinderPage(
+                  mobileScrollController: _mobileFinderScrollController,
+                  active: mobilePage == DashboardPage.gameFinder,
+                ),
               ),
-            ),
-          ],
+              SingleChildScrollView(
+                key: const PageStorageKey('mobile-my-page'),
+                controller: _mobileMyPageScrollController,
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 50),
+                child: _MobileMyPage(
+                  user: _user,
+                  profile: _userProfile,
+                  onSignOut: _confirmSignOut,
+                  onGoogleLogin: _signInFromMyPage,
+                  onOpenGameFinder: _openGameFinder,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1637,110 +1648,112 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           Expanded(
-            child: SafeArea(
-              child: SingleChildScrollView(
-                controller: _desktopScrollController,
-                padding: const EdgeInsets.all(26),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 1500,
-                    ),
-                    child: switch (_currentPage) {
-                      DashboardPage.dashboard => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _HeroProfile(
-                              user: _user,
-                              profile: _userProfile,
-                              onEdit: _editUserProfile,
-                              gameProfileSummary: _gameProfileSummary,
-                              isLoadingGameProfile: _isLoadingGameProfile,
-                              onOpenAnalysis: _openGamePowerAnalysis,
-                              onPublicProfile: _openPublicProfileSettings,
-                              onRefreshAll: _refreshAllGames,
-                              isRefreshingAll: _isRefreshingAll,
-                            ),
-                            const SizedBox(height: 18),
-                            if (_isLoadingGames)
-                              _buildGameLoadingState()
-                            else if (_loadGamesError != null)
-                              _buildGameLoadErrorState()
-                            else ...[
-                              _SummaryRow(
-                                lostArkCount: lostArkCount,
-                                lolCount: lolCount,
-                                tftCount: tftCount,
-                                eternalReturnCount: eternalReturnCount,
-                                mapleStoryCount: mapleStoryCount,
-                                dungeonFighterCount: dungeonFighterCount,
-                                battlegroundsCount: battlegroundsCount,
-                                valorantCount: valorantCount,
-                                lastSyncText: lastSyncText,
+            child: BottomReachGlow(
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  controller: _desktopScrollController,
+                  padding: const EdgeInsets.all(26),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 1500,
+                      ),
+                      child: switch (_currentPage) {
+                        DashboardPage.dashboard => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _HeroProfile(
+                                user: _user,
+                                profile: _userProfile,
+                                onEdit: _editUserProfile,
+                                gameProfileSummary: _gameProfileSummary,
+                                isLoadingGameProfile: _isLoadingGameProfile,
+                                onOpenAnalysis: _openGamePowerAnalysis,
+                                onPublicProfile: _openPublicProfileSettings,
+                                onRefreshAll: _refreshAllGames,
+                                isRefreshingAll: _isRefreshingAll,
                               ),
                               const SizedBox(height: 18),
-                              if (_deleteMode) ...[
-                                _DeleteModeBar(
-                                  selectedCount: _selectedGameIds.length,
-                                  onCancel: _cancelDeleteMode,
-                                  onDelete: _deleteSelectedGames,
+                              if (_isLoadingGames)
+                                _buildGameLoadingState()
+                              else if (_loadGamesError != null)
+                                _buildGameLoadErrorState()
+                              else ...[
+                                _SummaryRow(
+                                  lostArkCount: lostArkCount,
+                                  lolCount: lolCount,
+                                  tftCount: tftCount,
+                                  eternalReturnCount: eternalReturnCount,
+                                  mapleStoryCount: mapleStoryCount,
+                                  dungeonFighterCount: dungeonFighterCount,
+                                  battlegroundsCount: battlegroundsCount,
+                                  valorantCount: valorantCount,
+                                  lastSyncText: lastSyncText,
                                 ),
                                 const SizedBox(height: 18),
+                                if (_deleteMode) ...[
+                                  _DeleteModeBar(
+                                    selectedCount: _selectedGameIds.length,
+                                    onCancel: _cancelDeleteMode,
+                                    onDelete: _deleteSelectedGames,
+                                  ),
+                                  const SizedBox(height: 18),
+                                ],
+                                _GameGrid(
+                                  games: _games,
+                                  refreshingGameId: _refreshingGameId,
+                                  onAddGame: _openAddGame,
+                                  onRefresh: _refreshGame,
+                                  onReorder: _reorderGame,
+                                  deleteMode: _deleteMode,
+                                  selectedGameIds: _selectedGameIds,
+                                  onToggleSelection: _toggleGameSelection,
+                                  onRemove: (game) async {
+                                    try {
+                                      await GameRepository.instance
+                                          .deleteGame(game.id);
+
+                                      if (!mounted) return;
+
+                                      setState(() {
+                                        _games.remove(game);
+                                      });
+                                    } catch (error) {
+                                      if (!mounted) return;
+                                      await _showApiError();
+                                    }
+                                  },
+                                ),
                               ],
-                              _GameGrid(
-                                games: _games,
-                                refreshingGameId: _refreshingGameId,
-                                onAddGame: _openAddGame,
-                                onRefresh: _refreshGame,
-                                onReorder: _reorderGame,
-                                deleteMode: _deleteMode,
-                                selectedGameIds: _selectedGameIds,
-                                onToggleSelection: _toggleGameSelection,
-                                onRemove: (game) async {
-                                  try {
-                                    await GameRepository.instance
-                                        .deleteGame(game.id);
-
-                                    if (!mounted) return;
-
-                                    setState(() {
-                                      _games.remove(game);
-                                    });
-                                  } catch (error) {
-                                    if (!mounted) return;
-                                    await _showApiError();
-                                  }
-                                },
-                              ),
                             ],
-                          ],
-                        ),
-                      DashboardPage.tools => const _ToolsPage(webStyle: true),
-                      DashboardPage.gameIdentity => GameIdentityPage(
-                          games: _games,
-                          onAddGame: _addGameForIdentity,
-                          onProfileApplied: (profile) {
-                            if (!mounted) return;
+                          ),
+                        DashboardPage.tools => const _ToolsPage(webStyle: true),
+                        DashboardPage.gameIdentity => GameIdentityPage(
+                            games: _games,
+                            onAddGame: _addGameForIdentity,
+                            onProfileApplied: (profile) {
+                              if (!mounted) return;
 
-                            setState(() {
-                              _gameProfileSummary = profile;
-                              _isLoadingGameProfile = false;
-                            });
-                          },
-                        ),
-                      DashboardPage.gameFinder => GameFinderPage(
-                          isAdmin: _isGameFinderAdmin,
-                          onOpenAdmin: _openGameFinderAdmin,
-                          webScrollController: _desktopScrollController,
-                        ),
-                      DashboardPage.myGamePicks => MyGamePicksPage(
-                          onOpenGameFinder: _openGameFinder,
-                        ),
-                      DashboardPage.gameFinderAdmin =>
-                        const GameFinderAdminPage(),
-                      DashboardPage.myPage => const SizedBox.shrink(),
-                    },
+                              setState(() {
+                                _gameProfileSummary = profile;
+                                _isLoadingGameProfile = false;
+                              });
+                            },
+                          ),
+                        DashboardPage.gameFinder => GameFinderPage(
+                            isAdmin: _isGameFinderAdmin,
+                            onOpenAdmin: _openGameFinderAdmin,
+                            webScrollController: _desktopScrollController,
+                          ),
+                        DashboardPage.myGamePicks => MyGamePicksPage(
+                            onOpenGameFinder: _openGameFinder,
+                          ),
+                        DashboardPage.gameFinderAdmin =>
+                          const GameFinderAdminPage(),
+                        DashboardPage.myPage => const SizedBox.shrink(),
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -3724,6 +3737,7 @@ class _ToolSection extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
+          key: PageStorageKey<String>('mobile-tool-section-$title'),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           iconColor: const Color(0xFF9B8CFF),
@@ -4212,6 +4226,8 @@ class _MobileGameGrid extends StatelessWidget {
 
 class _MobileSummaryGrid extends StatelessWidget {
   const _MobileSummaryGrid({
+    required this.expanded,
+    required this.onToggle,
     required this.lostArkCount,
     required this.lolCount,
     required this.tftCount,
@@ -4223,6 +4239,8 @@ class _MobileSummaryGrid extends StatelessWidget {
     required this.lastSyncText,
   });
 
+  final bool expanded;
+  final VoidCallback onToggle;
   final int lostArkCount;
   final int lolCount;
   final int tftCount;
@@ -4235,63 +4253,124 @@ class _MobileSummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _MobileSummaryGroup(
-            items: [
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/lol.png',
-                label: 'RIOT GAMES',
-                value: 'LoL $lolCount · TFT $tftCount',
-              ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/pubg.png',
-                label: 'BATTLEGROUNDS',
-                value: '$battlegroundsCount개',
-              ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/lostark.png',
-                label: 'LOST ARK',
-                value: '$lostArkCount개',
-              ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/dungeon_fighter.png',
-                label: 'DUNGEON & FIGHTER',
-                value: '$dungeonFighterCount개',
-              ),
-            ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dividerColor =
+        isDark ? const Color(0xFF1F3046) : const Color(0xFFDDE3EC);
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF091322) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: dividerColor),
+      ),
+      child: Column(
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            child: expanded
+                ? Column(
+                    key: const ValueKey('mobile-summary-expanded'),
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _MobileSummaryGroup(
+                              items: [
+                                _MobileSummaryItem(
+                                  imageAsset: 'assets/game_icons/lol.png',
+                                  label: 'RIOT GAMES',
+                                  value: 'LoL $lolCount · TFT $tftCount',
+                                ),
+                                _MobileSummaryItem(
+                                  imageAsset: 'assets/game_icons/pubg.png',
+                                  label: 'BATTLEGROUNDS',
+                                  value: '$battlegroundsCount개',
+                                ),
+                                _MobileSummaryItem(
+                                  imageAsset: 'assets/game_icons/lostark.png',
+                                  label: 'LOST ARK',
+                                  value: '$lostArkCount개',
+                                ),
+                                _MobileSummaryItem(
+                                  imageAsset:
+                                      'assets/game_icons/dungeon_fighter.png',
+                                  label: 'DUNGEON & FIGHTER',
+                                  value: '$dungeonFighterCount개',
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(width: 1, height: 304, color: dividerColor),
+                          Expanded(
+                            child: _MobileSummaryGroup(
+                              items: [
+                                _MobileSummaryItem(
+                                  imageAsset: 'assets/game_icons/valorant.png',
+                                  label: 'VALORANT',
+                                  value: '$valorantCount개',
+                                ),
+                                _MobileSummaryItem(
+                                  imageAsset:
+                                      'assets/game_icons/eternal_return.png',
+                                  label: 'ETERNAL RETURN',
+                                  value: '$eternalReturnCount개',
+                                ),
+                                _MobileSummaryItem(
+                                  imageAsset:
+                                      'assets/game_icons/maplestory.png',
+                                  label: 'MAPLESTORY',
+                                  value: '$mapleStoryCount개',
+                                ),
+                                _MobileSummaryItem(
+                                  icon: Icons.bolt_rounded,
+                                  label: '데이터 동기화',
+                                  value: lastSyncText,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(height: 1, thickness: 1, color: dividerColor),
+                    ],
+                  )
+                : const SizedBox(
+                    key: ValueKey('mobile-summary-collapsed'),
+                  ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _MobileSummaryGroup(
-            items: [
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/valorant.png',
-                label: 'VALORANT',
-                value: '$valorantCount개',
+          InkWell(
+            onTap: onToggle,
+            child: SizedBox(
+              height: 34,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 17,
+                    color: const Color(0xFF9B8CFF),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    expanded ? '요약 접기' : '요약 펼치기',
+                    style: const TextStyle(
+                      color: Color(0xFF9B8CFF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/eternal_return.png',
-                label: 'ETERNAL RETURN',
-                value: '$eternalReturnCount개',
-              ),
-              _MobileSummaryItem(
-                imageAsset: 'assets/game_icons/maplestory.png',
-                label: 'MAPLESTORY',
-                value: '$mapleStoryCount개',
-              ),
-              _MobileSummaryItem(
-                icon: Icons.bolt_rounded,
-                label: '데이터 동기화',
-                value: lastSyncText,
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -4306,22 +4385,14 @@ class _MobileSummaryGroup extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final dividerColor =
         isDark ? const Color(0xFF1F3046) : const Color(0xFFDDE3EC);
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF091322) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: dividerColor),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < items.length; index++) ...[
-            items[index],
-            if (index != items.length - 1)
-              Divider(height: 1, thickness: 1, color: dividerColor),
-          ],
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          items[index],
+          if (index != items.length - 1)
+            Divider(height: 1, thickness: 1, color: dividerColor),
         ],
-      ),
+      ],
     );
   }
 }

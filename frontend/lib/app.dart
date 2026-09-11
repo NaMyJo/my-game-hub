@@ -13,6 +13,29 @@ class MyGameHubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lightTheme = ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: const Color(0xFFF4F6FA),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF6750D8),
+        brightness: Brightness.light,
+      ),
+      fontFamily: AppTypography.body,
+      textTheme: AppTypography.textTheme(const Color(0xFF202636)),
+      useMaterial3: true,
+    );
+    final darkTheme = ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF050A13),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF7C5CFF),
+        brightness: Brightness.dark,
+      ),
+      fontFamily: AppTypography.body,
+      textTheme: AppTypography.textTheme(const Color(0xFFF4F1FF)),
+      useMaterial3: true,
+    );
+
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: appThemeMode,
       builder: (context, themeMode, _) => MaterialApp(
@@ -21,28 +44,16 @@ class MyGameHubApp extends StatelessWidget {
         themeMode: themeMode,
         themeAnimationDuration: const Duration(milliseconds: 140),
         themeAnimationCurve: Curves.easeOutCubic,
-        theme: ThemeData(
-          brightness: Brightness.light,
-          scaffoldBackgroundColor: const Color(0xFFF4F6FA),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750D8),
-            brightness: Brightness.light,
-          ),
-          fontFamily: AppTypography.body,
-          textTheme: AppTypography.textTheme(const Color(0xFF202636)),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xFF050A13),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF7C5CFF),
-            brightness: Brightness.dark,
-          ),
-          fontFamily: AppTypography.body,
-          textTheme: AppTypography.textTheme(const Color(0xFFF4F1FF)),
-          useMaterial3: true,
-        ),
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        builder: (context, child) {
+          if (child == null) {
+            return const SizedBox.shrink();
+          }
+
+          final isMobile = MediaQuery.sizeOf(context).width < 700;
+          return isMobile ? Theme(data: darkTheme, child: child) : child;
+        },
         onGenerateRoute: (settings) {
           final uri = Uri.parse(settings.name ?? '/');
           if (uri.path == PrivacyPolicyPage.path) {

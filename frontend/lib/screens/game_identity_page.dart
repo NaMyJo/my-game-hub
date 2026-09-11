@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:crop_your_image/crop_your_image.dart';
+import 'package:image/image.dart' as image_lib;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_identity_preview.dart';
@@ -14,6 +16,7 @@ import '../services/game_identity_repository.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/public_profile_repository.dart';
 import '../utils/image_download.dart';
+import '../utils/profile_image_picker.dart';
 import 'public_pages.dart';
 
 class GameIdentityPage extends StatefulWidget {
@@ -42,6 +45,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   final Set<int> _selectedGameIds = {};
   final GlobalKey _identityCardKey = GlobalKey();
+  Uint8List? _profileImageBytes;
 
   bool _isGeneratingImage = false;
   int _currentStep = 0;
@@ -89,6 +93,55 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   final TextEditingController _customGameInfoController =
       TextEditingController();
+
+  Future<void> _pickAndCropProfileImage() async {
+    try {
+      final imageBytes = await pickProfileImageBytes();
+
+      if (imageBytes == null || !mounted) {
+        return;
+      }
+
+      final croppedBytes = await showDialog<Uint8List>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _SquarePhotoCropDialog(
+          imageBytes: imageBytes,
+        ),
+      );
+
+      if (croppedBytes == null || !mounted) {
+        return;
+      }
+
+      final decodedImage = image_lib.decodeImage(croppedBytes);
+      final normalizedBytes = decodedImage == null
+          ? croppedBytes
+          : Uint8List.fromList(
+              image_lib.encodeJpg(
+                image_lib.copyResize(
+                  decodedImage,
+                  width: 512,
+                  height: 512,
+                  interpolation: image_lib.Interpolation.linear,
+                ),
+                quality: 86,
+              ),
+            );
+
+      setState(() {
+        _profileImageBytes = normalizedBytes;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('PROFILE IMAGE PICK ERROR: $error');
+      debugPrint('$stackTrace');
+
+      if (mounted) {
+        _showMessageBubble('사진을 불러오지 못했습니다. 다시 시도해주세요.');
+      }
+    }
+  }
+
   Future<Uint8List> _captureIdentityCard() async {
     final context = _identityCardKey.currentContext;
 
@@ -152,6 +205,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                   width: 430,
                   child: _GameIdentityPreview(
                     displayName: identity.displayName,
+                    profileImageBytes: identity.profileImageBytes,
                     identityNumber: identity.identityNumber,
                     issuedDate: identity.issuedDate,
                     selectedGames: identity.selectedGames,
@@ -241,6 +295,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       setState(() {
         _latestIdentity = GameIdentityHistory(
           displayName: displayName,
+          profileImageBytes: _profileImageBytes,
           identityNumber: _identityNumber,
           issuedDate: _issuedDateText,
           selectedGames: List<GameProfile>.from(
@@ -628,6 +683,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         };
       }).toList(),
       'averageTopPercent': _previewResult?.averageTopPercent,
+      'profileImageBase64':
+          _profileImageBytes == null ? null : base64Encode(_profileImageBytes!),
       'displayName':
           _previewResult?.displayName ?? _displayNameController.text.trim(),
       'evaluationType': _previewResult?.evaluationType,
@@ -895,6 +952,16 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       final displayName = json['displayName']?.toString() ?? '';
 
+      Uint8List? profileImageBytes;
+      final profileImageBase64 = decoded['profileImageBase64'];
+      if (profileImageBase64 is String && profileImageBase64.isNotEmpty) {
+        try {
+          profileImageBytes = base64Decode(profileImageBase64);
+        } on FormatException {
+          debugPrint('최근 게임 신분증 프로필 사진 복원 실패');
+        }
+      }
+
       final identityNumber = json['identityNumber']?.toString() ?? '';
 
       final issuedDate = json['issuedDate']?.toString() ?? '';
@@ -906,6 +973,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       setState(() {
         _latestIdentity = GameIdentityHistory(
           displayName: displayName,
+          profileImageBytes: profileImageBytes,
           identityNumber: identityNumber,
           issuedDate: issuedDate,
           selectedGames: restoredGames,
@@ -1504,6 +1572,101 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ),
         ),
         const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            InkWell(
+              onTap: _pickAndCropProfileImage,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 92,
+                height: 92,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF18213C)
+                      : const Color(0xFFECE9FF),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFF7565E8),
+                  ),
+                ),
+                child: _profileImageBytes == null
+                    ? const Icon(
+                        Icons.add_a_photo_outlined,
+                        color: Color(0xFF8B72FF),
+                        size: 30,
+                      )
+                    : Image.memory(
+                        _profileImageBytes!,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '신분증 사진 (선택)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    '사진을 선택한 뒤 정사각형에 맞게 확대하고 이동할 수 있어요.',
+                    style: TextStyle(
+                      color: Color(0xFF8290A4),
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _pickAndCropProfileImage,
+                        icon:
+                            const Icon(Icons.photo_library_outlined, size: 16),
+                        label: Text(
+                          _profileImageBytes == null ? '사진 선택' : '사진 변경',
+                        ),
+                      ),
+                      if (_profileImageBytes != null)
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _profileImageBytes = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE78996),
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF8A5260)
+                                  : const Color(0xFFD8959F),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 11,
+                            ),
+                          ),
+                          child: const Text('삭제'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         TextField(
           controller: _displayNameController,
           maxLength: 12,
@@ -2047,6 +2210,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           constraints: const BoxConstraints(maxWidth: 430),
           child: _GameIdentityPreview(
             displayName: _previewDisplayName,
+            profileImageBytes: _profileImageBytes,
             identityNumber: _identityNumber,
             issuedDate: _issuedDateText,
             selectedGames: _selectedGames,
@@ -2356,6 +2520,7 @@ class _EmptyGameAccountNotice extends StatelessWidget {
 class _GameIdentityPreview extends StatelessWidget {
   const _GameIdentityPreview({
     required this.displayName,
+    required this.profileImageBytes,
     required this.identityNumber,
     required this.issuedDate,
     required this.selectedGames,
@@ -2369,6 +2534,7 @@ class _GameIdentityPreview extends StatelessWidget {
   });
 
   final String displayName;
+  final Uint8List? profileImageBytes;
   final String identityNumber;
   final String issuedDate;
 
@@ -2677,6 +2843,7 @@ class _GameIdentityPreview extends StatelessWidget {
           Container(
             width: 62,
             height: 62,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
@@ -2691,11 +2858,17 @@ class _GameIdentityPreview extends StatelessWidget {
                 color: const Color(0xFF5D55A8),
               ),
             ),
-            child: const Icon(
-              Icons.person_rounded,
-              size: 33,
-              color: Color(0xFFC5BCFF),
-            ),
+            child: profileImageBytes == null
+                ? const Icon(
+                    Icons.person_rounded,
+                    size: 33,
+                    color: Color(0xFFC5BCFF),
+                  )
+                : Image.memory(
+                    profileImageBytes!,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -3809,9 +3982,145 @@ class _FinalInformationRow extends StatelessWidget {
   }
 }
 
+class _SquarePhotoCropDialog extends StatefulWidget {
+  const _SquarePhotoCropDialog({required this.imageBytes});
+
+  final Uint8List imageBytes;
+
+  @override
+  State<_SquarePhotoCropDialog> createState() => _SquarePhotoCropDialogState();
+}
+
+class _SquarePhotoCropDialogState extends State<_SquarePhotoCropDialog> {
+  final CropController _cropController = CropController();
+  bool _isCropping = false;
+  String? _errorMessage;
+
+  void _crop() {
+    if (_isCropping) return;
+
+    setState(() {
+      _isCropping = true;
+      _errorMessage = null;
+    });
+    _cropController.crop();
+  }
+
+  void _onCropped(CropResult result) {
+    if (!mounted) return;
+
+    switch (result) {
+      case CropSuccess(:final croppedImage):
+        Navigator.of(context).pop(croppedImage);
+      case CropFailure(:final cause):
+        debugPrint('PROFILE IMAGE CROP ERROR: $cause');
+        setState(() {
+          _isCropping = false;
+          _errorMessage = '사진을 자르지 못했습니다. 다시 시도해주세요.';
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '신분증 사진 맞추기',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '정사각형 안에서 사진을 움직이거나 확대해 위치를 맞춰주세요.',
+                style: TextStyle(
+                  color: Color(0xFF8290A4),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              AspectRatio(
+                aspectRatio: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Crop(
+                    image: widget.imageBytes,
+                    controller: _cropController,
+                    onCropped: _onCropped,
+                    aspectRatio: 1,
+                    initialRectBuilder: InitialRectBuilder.withSizeAndRatio(
+                      size: 0.9,
+                      aspectRatio: 1,
+                    ),
+                    interactive: true,
+                    fixCropRect: true,
+                    baseColor: isDark
+                        ? const Color(0xFF050B14)
+                        : const Color(0xFFE7EAF0),
+                    maskColor: Colors.black.withValues(alpha: 0.58),
+                    cornerDotBuilder: (size, edgeAlignment) =>
+                        const DotControl(color: Color(0xFF8B72FF)),
+                    progressIndicator: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFE86C7A),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed:
+                        _isCropping ? null : () => Navigator.of(context).pop(),
+                    child: const Text('취소'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _isCropping ? null : _crop,
+                    icon: _isCropping
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.crop_rounded, size: 18),
+                    label: Text(_isCropping ? '적용 중' : '사진 적용'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class GameIdentityHistory {
   const GameIdentityHistory({
     required this.displayName,
+    required this.profileImageBytes,
     required this.identityNumber,
     required this.issuedDate,
     required this.selectedGames,
@@ -3823,6 +4132,7 @@ class GameIdentityHistory {
   });
 
   final String displayName;
+  final Uint8List? profileImageBytes;
   final String identityNumber;
   final String issuedDate;
 
