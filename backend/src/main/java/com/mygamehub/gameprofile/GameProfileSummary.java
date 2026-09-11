@@ -42,6 +42,9 @@ public class GameProfileSummary {
     )
     private String evaluationMessage;
 
+    @Column(name = "profile_image_base64", columnDefinition = "TEXT")
+    private String profileImageBase64;
+
     @Column(
             name = "updated_at",
             nullable = false
@@ -56,7 +59,8 @@ public class GameProfileSummary {
             String identityNickname,
             Double gamePowerPercent,
             Integer reflectedGameCount,
-            String evaluationMessage
+            String evaluationMessage,
+            String profileImageBase64
     ) {
         this.userUid = userUid;
         this.identityNickname = identityNickname;
@@ -66,6 +70,7 @@ public class GameProfileSummary {
                         ? 0
                         : reflectedGameCount;
         this.evaluationMessage = evaluationMessage;
+        this.profileImageBase64 = profileImageBase64;
         this.updatedAt = Instant.now();
     }
 
@@ -73,7 +78,8 @@ public class GameProfileSummary {
             String identityNickname,
             Double gamePowerPercent,
             Integer reflectedGameCount,
-            String evaluationMessage
+            String evaluationMessage,
+            String profileImageBase64
     ) {
         this.identityNickname = identityNickname;
         this.gamePowerPercent = gamePowerPercent;
@@ -82,6 +88,7 @@ public class GameProfileSummary {
                         ? 0
                         : reflectedGameCount;
         this.evaluationMessage = evaluationMessage;
+        this.profileImageBase64 = profileImageBase64;
         this.updatedAt = Instant.now();
     }
 
@@ -107,6 +114,10 @@ public class GameProfileSummary {
 
     public String getEvaluationMessage() {
         return evaluationMessage;
+    }
+
+    public String getProfileImageBase64() {
+        return profileImageBase64;
     }
 
     public Instant getUpdatedAt() {

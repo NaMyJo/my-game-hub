@@ -10,6 +10,7 @@ public record GameProfileSummaryResponse(
         Double gamePowerPercent,
         Integer reflectedGameCount,
         String evaluationMessage,
+        String profileImageBase64,
         Instant updatedAt
 ) {
 
@@ -22,6 +23,7 @@ public record GameProfileSummaryResponse(
                 profile.getGamePowerPercent(),
                 profile.getReflectedGameCount(),
                 profile.getEvaluationMessage(),
+                profile.getProfileImageBase64(),
                 profile.getUpdatedAt()
         );
     }

@@ -108,7 +108,7 @@ class SteamGameRepositoryFinderQueryTest {
     }
 
     @Test
-    void recentNeverLetsNewerOneTagMatchBeatOlderThreeTagMatches() {
+    void recentRanksNewerReleaseBeforeOlderHigherTagMatch() {
         long action = insertTag("action");
         long rpg = insertTag("rpg");
         long fantasy = insertTag("fantasy");
@@ -125,7 +125,7 @@ class SteamGameRepositoryFinderQueryTest {
                 List.of("action", "rpg", "fantasy"), 0, 10000, false, false,
                 1, 15, true, true, 17, PageRequest.of(0, 2));
 
-        assertThat(result).containsExactly(10L, 900000L);
+        assertThat(result).containsExactly(900000L, 10L);
     }
 
     @Test

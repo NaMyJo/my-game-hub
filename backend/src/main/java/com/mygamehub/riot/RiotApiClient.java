@@ -3,6 +3,7 @@ package com.mygamehub.riot;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.Arrays;
@@ -87,23 +88,27 @@ public class RiotApiClient {
             String apiKey
     ) {
 
-        return accountClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path(
-                                "/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}"
-                        )
-                        .build(gameName, tagLine)
-                )
-                .header(
-                        "X-Riot-Token",
-                        apiKey
-                )
-                .header(
-                        HttpHeaders.ACCEPT,
-                        "application/json"
-                )
-                .retrieve()
-                .body(RiotAccount.class);
+        try {
+            return accountClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path(
+                                    "/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}"
+                            )
+                            .build(gameName, tagLine)
+                    )
+                    .header(
+                            "X-Riot-Token",
+                            apiKey
+                    )
+                    .header(
+                            HttpHeaders.ACCEPT,
+                            "application/json"
+                    )
+                    .retrieve()
+                    .body(RiotAccount.class);
+        } catch (HttpClientErrorException.NotFound exception) {
+            return null;
+        }
     }
 
     public RiotAccount getLolAccount(

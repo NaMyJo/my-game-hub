@@ -61,9 +61,9 @@ public interface SteamGameTagRepository extends JpaRepository<SteamGameTag,Long>
             + "greatest(coalesce(g.max_players,0),coalesce(g.online_max_players,0),coalesce(g.online_coop_max_players,0))>=:playerMin "
             + "and (:playerMax=15 or coalesce(g.min_players,1)<=:playerMax))) "
             + "group by g.steam_app_id,g.release_date "
-            + "order by count(distinct s.tag_id) desc, "
-            + "case when :preferRecent=true and g.release_date is not null "
+            + "order by case when :preferRecent=true and g.release_date is not null "
             + "and g.release_date<=current_date then g.release_date end desc nulls last, "
+            + "count(distinct s.tag_id) desc, "
             + "mod(g.steam_app_id*1103515245+:tieSeed,2147483647),g.steam_app_id",nativeQuery=true)
     List<Long> findRankedRecommendationAppIds(@Param("tags") Collection<String> tags,
             @Param("priceMin") int priceMin, @Param("priceMax") int priceMax,

@@ -398,7 +398,7 @@ class GameCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color:
-                    isDark ? const Color(0xFFAEB9C8) : const Color(0xFF687386),
+                    isDark ? const Color(0xFFE7ECF4) : const Color(0xFF202636),
                 fontSize: mobile ? 16 : 12,
                 fontWeight: mobile ? FontWeight.w800 : FontWeight.normal,
               ),

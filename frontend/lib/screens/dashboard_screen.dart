@@ -5,10 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/game_profile.dart';
 import '../models/game_profile_summary.dart';
+import '../models/public_profile.dart';
 import '../models/user_profile.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/game_finder_admin_repository.dart';
+import '../services/game_identity_repository.dart';
 import '../services/game_profile_summary_repository.dart';
 import '../services/game_repository.dart';
 import '../services/my_game_picks_controller.dart';
@@ -37,6 +39,265 @@ enum DashboardPage {
 }
 
 DashboardPage pendingDashboardPage = DashboardPage.dashboard;
+
+class _GameRefreshFailure {
+  const _GameRefreshFailure(this.game, this.reason);
+
+  final GameProfile game;
+  final String reason;
+}
+
+class _RefreshSummaryPanel extends StatelessWidget {
+  const _RefreshSummaryPanel({
+    required this.successCount,
+    required this.failureCount,
+    required this.isDark,
+  });
+
+  final int successCount;
+  final int failureCount;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111E32) : const Color(0xFFF5F6FB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF293A55) : const Color(0xFFDDE2EC),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sports_esports_rounded,
+            color: Color(0xFF8B79FF),
+            size: 27,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: _RefreshCount(
+              label: '성공',
+              count: successCount,
+              color: const Color(0xFF42D6A4),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 34,
+            color: isDark ? const Color(0xFF32425B) : const Color(0xFFD8DDE7),
+          ),
+          Expanded(
+            child: _RefreshCount(
+              label: '실패',
+              count: failureCount,
+              color: const Color(0xFFFF667A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RefreshCount extends StatelessWidget {
+  const _RefreshCount({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 3),
+          Text(
+            '$count개',
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      );
+}
+
+class _RefreshFailureRow extends StatelessWidget {
+  const _RefreshFailureRow({
+    required this.failure,
+    required this.isDark,
+    required this.retrying,
+    required this.onRetry,
+  });
+
+  final _GameRefreshFailure failure;
+  final bool isDark;
+  final bool retrying;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111E32) : const Color(0xFFFFF7F8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2B3B55) : const Color(0xFFFFD7DD),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 360;
+          final gameDetails = Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF25254D),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Image.asset(
+                  failure.game.type.iconAsset,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.sports_esports_rounded,
+                    color: Color(0xFF9B8CFF),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      failure.game.type.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      failure.reason,
+                      maxLines: compact ? 3 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isDark
+                            ? const Color(0xFF94A0B3)
+                            : const Color(0xFF687386),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+          final retryButton = OutlinedButton.icon(
+            onPressed: retrying ? null : onRetry,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              foregroundColor: const Color(0xFFB9AEFF),
+              side: const BorderSide(color: Color(0xFF62558F)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(11),
+              ),
+            ),
+            icon: SizedBox.square(
+              dimension: 16,
+              child: retrying
+                  ? const CircularProgressIndicator(strokeWidth: 2)
+                  : const Icon(Icons.refresh_rounded, size: 16),
+            ),
+            label: const Text(
+              '다시 시도',
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                gameDetails,
+                const SizedBox(height: 10),
+                retryButton,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: gameDetails),
+              const SizedBox(width: 8),
+              retryButton,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GradientDialogButton extends StatelessWidget {
+  const _GradientDialogButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+          ),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x387B5CEE),
+              blurRadius: 16,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(15),
+            child: Center(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -83,6 +344,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _deleteMode = false;
       _selectedGameIds.clear();
     });
+  }
+
+  Future<void> _openLatestIdentityPreview() async {
+    try {
+      final json = await GameIdentityRepository.instance.getLatest();
+      if (!mounted) return;
+
+      if (json == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            backgroundColor: const Color(0xFF151F35),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            content: const Text(
+              '먼저 게임 신분증을 제작해주세요.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        );
+        return;
+      }
+
+      final identity = PublicIdentityData.fromJson(json);
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.76),
+        builder: (dialogContext) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+          backgroundColor: Colors.transparent,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 680,
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.9,
+            ),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: SharedIdentityCard(data: identity),
+                ),
+                Positioned(
+                  top: 18,
+                  left: 18,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    tooltip: '닫기',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xD90A1424),
+                      foregroundColor: const Color(0xFFF2EFFF),
+                      side: const BorderSide(color: Color(0xFF4B407E)),
+                    ),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      await _showApiError('최근 게임 신분증을 불러오지 못했습니다.');
+    }
   }
 
   void _openGameFinder() {
@@ -950,7 +1277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context) {
           return AlertDialog(
             content: const Text(
-              'API 연결 오류',
+              '연결 오류',
               textAlign: TextAlign.center,
             ),
             actions: [
@@ -978,7 +1305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() => _isRefreshingAll = true);
     var successCount = 0;
-    final failures = <String>[];
+    final failures = <_GameRefreshFailure>[];
 
     for (final game in List<GameProfile>.from(_games)) {
       if (!mounted) return;
@@ -992,9 +1319,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         successCount++;
       } on ApiException catch (error) {
-        failures.add('${game.accountName}: ${error.message}');
+        failures.add(
+          _GameRefreshFailure(
+            game,
+            _friendlyRefreshFailureReason(error.message),
+          ),
+        );
       } catch (_) {
-        failures.add('${game.accountName}: API 연결 오류');
+        failures.add(_GameRefreshFailure(game, '서버 응답 오류'));
       }
     }
 
@@ -1010,103 +1342,320 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _showRefreshAllResult(
     int successCount,
-    List<String> failures,
+    List<_GameRefreshFailure> failures,
   ) {
+    final totalCount = successCount + failures.length;
+    var currentSuccessCount = successCount;
+    final remainingFailures = List<_GameRefreshFailure>.from(failures);
+    final retryingIds = <int>{};
+
     return showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (dialogContext) {
-        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
-        final accent = failures.isEmpty
-            ? const Color(0xFF57D3A0)
-            : const Color(0xFFFFB75E);
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF0B1727) : Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(
-              color: isDark ? const Color(0xFF263750) : const Color(0xFFDDE3EC),
-            ),
-          ),
-          icon: Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: Icon(
-              failures.isEmpty
-                  ? Icons.done_all_rounded
-                  : Icons.sync_problem_rounded,
-              color: accent,
-              size: 27,
-            ),
-          ),
-          title: const Text('전체 새로고침 완료'),
-          content: SizedBox(
-            width: 460,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            final isDark =
+                Theme.of(dialogContext).brightness == Brightness.dark;
+            final failureCount = remainingFailures.length;
+            final allSucceeded = failureCount == 0;
+            final allFailed = currentSuccessCount == 0 && failureCount > 0;
+            final accent = allSucceeded
+                ? const Color(0xFF42D6A4)
+                : allFailed
+                    ? const Color(0xFFFF667A)
+                    : const Color(0xFFFFB95C);
+            final title = allSucceeded
+                ? '새로고침이 완료되었습니다!'
+                : allFailed
+                    ? '게임 새로고침에 실패했습니다.'
+                    : '일부 게임의 새로고침이 완료되었습니다.';
+            final description = allSucceeded
+                ? '총 $totalCount개의 게임이 새로고침되었습니다.'
+                : allFailed
+                    ? '총 $totalCount개의 게임을 새로고침하지 못했습니다.'
+                    : '총 $totalCount개의 게임 중 $currentSuccessCount개가 새로고침되었습니다.';
+
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 600,
+                  maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.86,
+                ),
+                child: Container(
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
+                    color: isDark
+                        ? const Color(0xFF0E182B)
+                        : const Color(0xFFFFFFFF),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF2C3A59)
+                          : const Color(0xFFD8DDF0),
+                    ),
+                    boxShadow: [
+                      const BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 30,
+                        offset: Offset(0, 12),
+                      ),
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.12),
+                        blurRadius: 24,
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    '$successCount개가 새로고침되었습니다.',
-                    style: TextStyle(
-                      color: isDark ? Colors.white : const Color(0xFF242A38),
-                      fontWeight: FontWeight.w800,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            tooltip: '닫기',
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: IconButton.styleFrom(
+                              backgroundColor: isDark
+                                  ? const Color(0xFF172338)
+                                  : const Color(0xFFF0F2F8),
+                              foregroundColor: isDark
+                                  ? const Color(0xFFAAB5C6)
+                                  : const Color(0xFF667085),
+                            ),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ),
+                        Container(
+                          width: 68,
+                          height: 68,
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.14),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withValues(alpha: 0.22),
+                                blurRadius: 22,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            allSucceeded
+                                ? Icons.done_rounded
+                                : allFailed
+                                    ? Icons.error_outline_rounded
+                                    : Icons.priority_high_rounded,
+                            color: accent,
+                            size: 34,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF202636),
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          description,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: isDark
+                                ? const Color(0xFFAAB5C6)
+                                : const Color(0xFF5F6B7C),
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _RefreshSummaryPanel(
+                          successCount: currentSuccessCount,
+                          failureCount: failureCount,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 18),
+                        if (allSucceeded)
+                          Text(
+                            '모든 게임의 최신 정보를 확인했습니다.',
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFFAAB5C6)
+                                  : const Color(0xFF5F6B7C),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline_rounded,
+                                      color: accent,
+                                      size: 19,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      '새로고침에 실패한 게임',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  '아래 게임은 잠시 후 다시 시도해주세요.',
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? const Color(0xFF8F9CB0)
+                                        : const Color(0xFF687386),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Flexible(
+                                  child: ListView.separated(
+                                    shrinkWrap: true,
+                                    itemCount: remainingFailures.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 8),
+                                    itemBuilder: (context, index) {
+                                      final failure = remainingFailures[index];
+                                      final retrying =
+                                          retryingIds.contains(failure.game.id);
+                                      return _RefreshFailureRow(
+                                        failure: failure,
+                                        isDark: isDark,
+                                        retrying: retrying,
+                                        onRetry: () async {
+                                          if (retrying) return;
+                                          setDialogState(() {
+                                            retryingIds.add(failure.game.id);
+                                          });
+                                          try {
+                                            final refreshed = await GameRepository
+                                                .instance
+                                                .refreshGame(failure.game.id);
+                                            if (mounted) {
+                                              final gameIndex = _games.indexWhere(
+                                                (game) =>
+                                                    game.id == failure.game.id,
+                                              );
+                                              if (gameIndex != -1) {
+                                                setState(() {
+                                                  _games[gameIndex] = refreshed;
+                                                });
+                                              }
+                                            }
+                                            if (!dialogContext.mounted) return;
+                                            setDialogState(() {
+                                              remainingFailures.removeWhere(
+                                                (item) =>
+                                                    item.game.id ==
+                                                    failure.game.id,
+                                              );
+                                              currentSuccessCount++;
+                                            });
+                                          } on ApiException catch (error) {
+                                            if (!dialogContext.mounted) return;
+                                            setDialogState(() {
+                                              final failureIndex =
+                                                  remainingFailures.indexWhere(
+                                                (item) =>
+                                                    item.game.id ==
+                                                    failure.game.id,
+                                              );
+                                              if (failureIndex != -1) {
+                                                remainingFailures[failureIndex] =
+                                                    _GameRefreshFailure(
+                                                  failure.game,
+                                                  _friendlyRefreshFailureReason(
+                                                    error.message,
+                                                  ),
+                                                );
+                                              }
+                                            });
+                                          } catch (_) {
+                                            if (!dialogContext.mounted) return;
+                                            setDialogState(() {
+                                              final failureIndex =
+                                                  remainingFailures.indexWhere(
+                                                (item) =>
+                                                    item.game.id ==
+                                                    failure.game.id,
+                                              );
+                                              if (failureIndex != -1) {
+                                                remainingFailures[failureIndex] =
+                                                    _GameRefreshFailure(
+                                                  failure.game,
+                                                  '서버 응답 오류',
+                                                );
+                                              }
+                                            });
+                                          } finally {
+                                            if (dialogContext.mounted) {
+                                              setDialogState(() {
+                                                retryingIds
+                                                    .remove(failure.game.id);
+                                              });
+                                            }
+                                          }
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 22),
+                        _GradientDialogButton(
+                          label: '확인',
+                          onPressed: () => Navigator.pop(dialogContext),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (failures.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  const Text(
-                    '현재 새로고침에 실패한 계정',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF101E31)
-                          : const Color(0xFFFFF7EC),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 220),
-                      child: SingleChildScrollView(
-                        child: Text(
-                          failures.map((item) => '• $item').join('\n'),
-                          style: const TextStyle(height: 1.55),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('확인'),
-            ),
-          ],
+              ),
+            );
+          },
         );
       },
     );
+  }
+
+  String _friendlyRefreshFailureReason(String reason) {
+    final normalized = reason.toLowerCase();
+    if (normalized.contains('찾을 수 없')) return reason;
+    if (normalized.contains('timeout') || normalized.contains('시간 초과')) {
+      return '연결 시간이 초과되었습니다.';
+    }
+    if (normalized.contains('401') ||
+        normalized.contains('403') ||
+        normalized.contains('인증')) {
+      return '인증 정보를 확인해주세요.';
+    }
+    if (normalized.contains('429') || normalized.contains('rate limit')) {
+      return '잠시 후 다시 시도해주세요.';
+    }
+    if (normalized.contains('서버') || normalized.contains('연결')) {
+      return '서버 응답 오류';
+    }
+    return '새로고침에 실패했습니다.';
   }
 
   Future<void> _reorderGame(
@@ -1186,6 +1735,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final result = await showDialog<AddGameResult>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (_) => const AddGameDialog(),
     );
 
@@ -1225,6 +1775,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final result = await showDialog<AddGameResult>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
       builder: (_) => const AddGameDialog(),
     );
 
@@ -1278,7 +1829,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                'API 연결 오류',
+                '연결 오류',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1479,6 +2030,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       profile: _userProfile,
                       profileImageBytes: _gameProfileSummary?.profileImageBytes,
                       onEdit: _editUserProfile,
+                      onOpenLatestIdentity: _openLatestIdentityPreview,
                       onRefreshAll: _refreshAllGames,
                       isRefreshingAll: _isRefreshingAll,
                     ),
@@ -3769,6 +4321,8 @@ class _ToolSection extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
           key: PageStorageKey<String>('mobile-tool-section-$title'),
+          shape: const Border(),
+          collapsedShape: const Border(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           iconColor: const Color(0xFF9B8CFF),
@@ -4104,40 +4658,71 @@ class _MobileMyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final guest = user?.isAnonymous == true;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
       Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         decoration: BoxDecoration(
-          color: const Color(0xFF101A2A),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF263348)),
+          color: isDark ? const Color(0xFF0E172A) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark ? const Color(0xFF293750) : const Color(0xFFD8DEE8),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 18,
+              offset: Offset(0, 7),
+            ),
+          ],
         ),
-        child: Row(children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: const Color(0xFF6E56E9),
-            backgroundImage:
-                user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
-            child: user?.photoURL == null
-                ? const Icon(Icons.person_rounded)
-                : null,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                  profile?.nickname ??
-                      (guest ? '게스트' : user?.displayName ?? '게이머'),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text(guest ? '로그인 없이 이용 중' : user?.email ?? '',
-                  style: const TextStyle(color: Color(0xFF8C9AAF))),
-            ]),
-          ),
-        ]),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 38,
+              backgroundColor: const Color(0xFF6E56E9),
+              backgroundImage:
+                  user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
+              child: user?.photoURL == null
+                  ? const Icon(Icons.person_rounded)
+                  : null,
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    profile?.nickname ??
+                        (guest ? '게스트' : user?.displayName ?? '게이머'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark
+                          ? const Color(0xFFF5F2FF)
+                          : const Color(0xFF202636),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    guest ? '로그인 없이 이용 중' : user?.email ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF8C9AAF),
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
       const SizedBox(height: 16),
       if (guest)
@@ -4153,14 +4738,37 @@ class _MobileMyPage extends StatelessWidget {
       if (guest) const SizedBox(height: 12),
       SizedBox(
         width: double.infinity,
-        height: 50,
+        height: 54,
         child: OutlinedButton.icon(
           onPressed: onSignOut,
           icon: const Icon(Icons.logout_rounded),
           label: Text(guest ? '게스트 종료' : '로그아웃'),
+          style: ButtonStyle(
+            foregroundColor: const WidgetStatePropertyAll(Color(0xFFC4B8FF)),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) {
+                return const Color(0x247B61FF);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return const Color(0x1F7B61FF);
+              }
+              return isDark
+                  ? const Color(0xFF0A1424)
+                  : const Color(0xFFF7F5FF);
+            }),
+            side: const WidgetStatePropertyAll(
+              BorderSide(color: Color(0xFF54458A)),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
+            textStyle: const WidgetStatePropertyAll(
+              TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
         ),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 32),
       MyGamePicksPage(
         showHeader: false,
         onOpenGameFinder: onOpenGameFinder,
@@ -4509,6 +5117,7 @@ class _MobileHeroProfile extends StatelessWidget {
     required this.profile,
     required this.profileImageBytes,
     required this.onEdit,
+    required this.onOpenLatestIdentity,
     required this.onRefreshAll,
     required this.isRefreshingAll,
   });
@@ -4517,6 +5126,7 @@ class _MobileHeroProfile extends StatelessWidget {
   final UserProfile? profile;
   final Uint8List? profileImageBytes;
   final VoidCallback onEdit;
+  final VoidCallback onOpenLatestIdentity;
   final VoidCallback onRefreshAll;
   final bool isRefreshingAll;
   @override
@@ -4551,7 +5161,7 @@ class _MobileHeroProfile extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 82),
+                  padding: const EdgeInsets.only(right: 120),
                   child: Row(
                     children: [
                       CircleAvatar(
@@ -4602,6 +5212,18 @@ class _MobileHeroProfile extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    onPressed: onOpenLatestIdentity,
+                    tooltip: '최근 게임 신분증',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF182740),
+                      foregroundColor: const Color(0xFF9B8CFF),
+                      minimumSize: const Size(32, 32),
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: const Icon(Icons.image_outlined, size: 15),
+                  ),
+                  const SizedBox(width: 6),
                   IconButton(
                     onPressed: isRefreshingAll ? null : onRefreshAll,
                     tooltip: '전체 새로고침',

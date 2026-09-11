@@ -50,7 +50,8 @@ public class GameProfileSummaryService {
                                         request.identityNickname(),
                                         request.gamePowerPercent(),
                                         request.reflectedGameCount(),
-                                        request.evaluationMessage()
+                                        request.evaluationMessage(),
+                                        request.profileImageBase64()
                                 )
                         );
 
@@ -60,7 +61,8 @@ public class GameProfileSummaryService {
                     request.identityNickname(),
                     request.gamePowerPercent(),
                     request.reflectedGameCount(),
-                    request.evaluationMessage()
+                    request.evaluationMessage(),
+                    request.profileImageBase64()
             );
         }
 

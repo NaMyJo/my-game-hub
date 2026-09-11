@@ -1284,7 +1284,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'API 오류가 발생하였습니다. 잠시 후 다시 시도해주시길 바랍니다.',
+                  '연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
                   style: TextStyle(
                     color: Color(0xFFFFD8DF),
                     fontWeight: FontWeight.w700,
@@ -2358,23 +2358,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               child: const Text('이전'),
             ),
             const Spacer(),
-            FilledButton.icon(
+            _IdentityGenerateButton(
               onPressed: _isGeneratingImage ? null : _createIdentityCard,
-              icon: _isGeneratingImage
-                  ? const SizedBox(
-                      width: 17,
-                      height: 17,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.download_rounded,
-                      size: 18,
-                    ),
-              label: Text(
-                _isGeneratingImage ? '이미지 생성 중' : '게임 신분증 생성',
-              ),
+              isLoading: _isGeneratingImage,
             ),
           ],
         ),
@@ -2428,6 +2414,80 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _IdentityGenerateButton extends StatelessWidget {
+  const _IdentityGenerateButton({
+    required this.onPressed,
+    required this.isLoading,
+  });
+
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    const radius = 15.0;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 160),
+      opacity: isLoading ? 0.76 : 1,
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+          ),
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x387B5CEE),
+              blurRadius: 16,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(radius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox.square(
+                    dimension: 18,
+                    child: isLoading
+                        ? const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          )
+                        : const Icon(
+                            Icons.download_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                  ),
+                  const SizedBox(width: 9),
+                  Text(
+                    isLoading ? '이미지 생성 중' : '게임 신분증 생성',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

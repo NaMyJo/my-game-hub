@@ -89,6 +89,8 @@ public class GameFinderRecommendationService {
 
         Set<Long> excluded = new HashSet<>(request.likedSteamAppIds());
         if (request.excludeAppIds() != null) excluded.addAll(request.excludeAppIds());
+        ReleasePreference releasePreference = ReleasePreference.defaultIfNull(
+                request.releasePreference());
         List<Scored> scored = candidates.stream()
                 .filter(candidate -> !excluded.contains(candidate.steamAppId()))
                 .map(candidate -> new Scored(candidate,
@@ -97,12 +99,14 @@ public class GameFinderRecommendationService {
                                 request.releasePreference()),
                         candidateTags.getOrDefault(candidate.steamAppId(), Set.of())))
                 .filter(value -> request.likedSteamAppIds().isEmpty() || value.score >= 0.08)
-                .sorted(Comparator.comparingDouble(Scored::score).reversed()
-                        .thenComparingLong(value -> value.game().steamAppId()))
+                .sorted(recommendationOrder(releasePreference))
                 .toList();
 
         int offset = page * size;
-        List<Scored> diversified = diversify(scored);
+        // RECENT is an explicit ordering choice, so diversity shuffling must not
+        // move an older release ahead of a newer one.
+        List<Scored> diversified = releasePreference == ReleasePreference.RECENT
+                ? scored : diversify(scored);
         if (diagnosticsEnabled) {
             logCandidateDiagnostics(candidates, candidateTags, retrievalTags);
             logFinalDiagnostics(scored, diversified, taste, preferred,
@@ -111,6 +115,21 @@ public class GameFinderRecommendationService {
         List<GameFinderRecommendationResponse> pageValues = diversified.stream()
                 .skip(offset).limit(size + 1L).map(this::response).toList();
         return GameFinderPageResponse.from(pageValues, page, size);
+    }
+
+    private Comparator<Scored> recommendationOrder(ReleasePreference preference) {
+        Comparator<Scored> scoreOrder = Comparator.comparingDouble(Scored::score).reversed()
+                .thenComparingLong(value -> value.game().steamAppId());
+        if (preference != ReleasePreference.RECENT) return scoreOrder;
+
+        return Comparator.comparing(
+                        (Scored value) -> releasedDate(value.game().releaseDate()),
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(scoreOrder);
+    }
+
+    private LocalDate releasedDate(LocalDate date) {
+        return date != null && !date.isAfter(LocalDate.now()) ? date : null;
     }
 
     private List<GameFinderRecommendationCandidate> candidates(GameFinderRecommendRequest request,

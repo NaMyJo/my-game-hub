@@ -331,7 +331,7 @@ public class GameAccountService {
         if (riotAccount == null ||
                 riotAccount.puuid() == null) {
             throw new IllegalArgumentException(
-                    "Riot 계정을 찾을 수 없습니다."
+                    "리그 오브 레전드 유저를 찾을 수 없습니다."
             );
         }
 
@@ -427,7 +427,7 @@ public class GameAccountService {
         if (riotAccount == null ||
                 riotAccount.puuid() == null) {
             throw new IllegalArgumentException(
-                    "Riot 계정을 찾을 수 없습니다."
+                    "TFT 유저를 찾을 수 없습니다."
             );
         }
 

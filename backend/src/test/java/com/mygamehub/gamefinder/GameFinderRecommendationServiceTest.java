@@ -228,7 +228,7 @@ class GameFinderRecommendationServiceTest {
     }
 
     @Test
-    void releasePreferenceDoesNotOverrideMateriallyHigherTagRelevance() {
+    void recentPreferenceOrdersByReleaseDateBeforeTagRelevance() {
         Fixture fixture = new Fixture();
         fixture.candidates(List.of(
                 candidate(1, "old-match", 0, LocalDate.now().minusYears(12)),
@@ -239,7 +239,7 @@ class GameFinderRecommendationServiceTest {
         var result = fixture.service.recommend(request(List.of(), List.of("action", "rpg"),
                 0, 100000, false, 1, 15, List.of(), ReleasePreference.RECENT));
 
-        assertThat(result).extracting(value -> value.steamAppId()).containsExactly(1L, 2L);
+        assertThat(result).extracting(value -> value.steamAppId()).containsExactly(2L, 1L);
     }
 
     @Test

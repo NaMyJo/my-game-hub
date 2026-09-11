@@ -40,20 +40,58 @@ class GameRepository {
     String? serverId,
     String? platformId,
   }) async {
-    final json = await ApiClient.instance.post(
-      '/api/me/games',
-      body: {
-        'gameType': type.apiValue,
-        'accountName': accountName,
-        if (serverId != null && serverId.isNotEmpty) 'serverId': serverId,
-        if (platformId != null) 'platformId': platformId,
-      },
-    );
+    dynamic json;
+    try {
+      json = await ApiClient.instance.post(
+        '/api/me/games',
+        body: {
+          'gameType': type.apiValue,
+          'accountName': accountName,
+          if (serverId != null && serverId.isNotEmpty) 'serverId': serverId,
+          if (platformId != null) 'platformId': platformId,
+        },
+      );
+    } on ApiException catch (error) {
+      if (_isMissingUser(error.message)) {
+        throw ApiException(
+          _missingUserMessage(type),
+          statusCode: error.statusCode,
+        );
+      }
+      rethrow;
+    }
 
     return GameProfile.fromJson(
       json as Map<String, dynamic>,
     );
   }
+
+  bool _isMissingUser(String message) {
+    final indicatesMissing =
+        message.contains('찾을 수 없') || message.contains('존재하지 않는');
+    final identifiesUser = message.contains('유저') ||
+        message.contains('계정') ||
+        message.contains('캐릭터') ||
+        message.contains('플레이어') ||
+        message.contains('프로필') ||
+        message.contains('Riot ID');
+    final describesGameData = message.contains('랭크') ||
+        message.contains('시즌') ||
+        message.contains('스탯') ||
+        message.contains('UID');
+    return indicatesMissing && identifiesUser && !describesGameData;
+  }
+
+  String _missingUserMessage(GameType type) => switch (type) {
+        GameType.lostArk => '로스트아크 유저를 찾을 수 없습니다.',
+        GameType.leagueOfLegends => '리그 오브 레전드 유저를 찾을 수 없습니다.',
+        GameType.tft => 'TFT 유저를 찾을 수 없습니다.',
+        GameType.eternalReturn => '이터널 리턴 유저를 찾을 수 없습니다.',
+        GameType.mapleStory => '메이플스토리 유저를 찾을 수 없습니다.',
+        GameType.dungeonFighter => '던전앤파이터 유저를 찾을 수 없습니다.',
+        GameType.battlegrounds => '배틀그라운드 유저를 찾을 수 없습니다.',
+        GameType.valorant => '발로란트 유저를 찾을 수 없습니다.',
+      };
 
   Future<GameProfile> refreshGame(int id) async {
     final json = await ApiClient.instance.post(

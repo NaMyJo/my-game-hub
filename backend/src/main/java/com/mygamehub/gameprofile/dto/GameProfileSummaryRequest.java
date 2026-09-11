@@ -4,6 +4,7 @@ public record GameProfileSummaryRequest(
         String identityNickname,
         Double gamePowerPercent,
         Integer reflectedGameCount,
-        String evaluationMessage
+        String evaluationMessage,
+        String profileImageBase64
 ) {
 }

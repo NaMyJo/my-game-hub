@@ -13,22 +13,29 @@ class BottomReachGlow extends StatefulWidget {
 }
 
 class _BottomReachGlowState extends State<BottomReachGlow>
-    with SingleTickerProviderStateMixin {
-  static const _bottomTolerance = 5.0;
+    with TickerProviderStateMixin {
+  static const _edgeTolerance = 5.0;
   static const _rearmDistance = 24.0;
 
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-  var _armed = true;
+  late final AnimationController _topController;
+  late final AnimationController _bottomController;
+  late final Animation<double> _topOpacity;
+  late final Animation<double> _bottomOpacity;
+  var _topArmed = false;
+  var _bottomArmed = true;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _topController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
     );
-    _opacity = TweenSequence<double>([
+    _bottomController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+    final opacityTween = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0, end: 1).chain(
           CurveTween(curve: Curves.easeOutCubic),
@@ -41,7 +48,9 @@ class _BottomReachGlowState extends State<BottomReachGlow>
         ),
         weight: 65,
       ),
-    ]).animate(_controller);
+    ]);
+    _topOpacity = opacityTween.animate(_topController);
+    _bottomOpacity = opacityTween.animate(_bottomController);
   }
 
   bool _onScroll(ScrollNotification notification) {
@@ -49,18 +58,25 @@ class _BottomReachGlowState extends State<BottomReachGlow>
 
     final metrics = notification.metrics;
     if (metrics.maxScrollExtent <= metrics.minScrollExtent) {
-      _armed = true;
+      _topArmed = false;
+      _bottomArmed = true;
       return false;
     }
 
+    if (metrics.extentBefore > _rearmDistance) {
+      _topArmed = true;
+    }
     if (metrics.extentAfter > _rearmDistance) {
-      _armed = true;
-      return false;
+      _bottomArmed = true;
     }
 
-    if (_armed && metrics.extentAfter <= _bottomTolerance) {
-      _armed = false;
-      _controller.forward(from: 0);
+    if (_topArmed && metrics.extentBefore <= _edgeTolerance) {
+      _topArmed = false;
+      _topController.forward(from: 0);
+    }
+    if (_bottomArmed && metrics.extentAfter <= _edgeTolerance) {
+      _bottomArmed = false;
+      _bottomController.forward(from: 0);
     }
 
     return false;
@@ -68,16 +84,16 @@ class _BottomReachGlowState extends State<BottomReachGlow>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _topController.dispose();
+    _bottomController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final glowColor = isDark
-        ? const Color(0x4D8D79FF)
-        : const Color(0x38654ED6);
+    final glowColor =
+        isDark ? const Color(0x4D8D79FF) : const Color(0x38654ED6);
 
     return NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
@@ -88,12 +104,36 @@ class _BottomReachGlowState extends State<BottomReachGlow>
           Positioned(
             left: 0,
             right: 0,
+            top: 0,
+            height: 36,
+            child: IgnorePointer(
+              child: FadeTransition(
+                key: const ValueKey('top-reach-glow'),
+                opacity: _topOpacity,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.topCenter,
+                      radius: 1.35,
+                      colors: [
+                        glowColor,
+                        glowColor.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
             bottom: 0,
             height: 36,
             child: IgnorePointer(
               child: FadeTransition(
                 key: const ValueKey('bottom-reach-glow'),
-                opacity: _opacity,
+                opacity: _bottomOpacity,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(

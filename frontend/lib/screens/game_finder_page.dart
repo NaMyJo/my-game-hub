@@ -182,6 +182,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
   List<GameFinderRecommendation> recommendations = [];
   bool initialLoading = true;
   bool loading = false;
+  bool requestingRecommendation = false;
   bool refreshingRecommendations = false;
   String? error;
   ScrollController? get _pageScrollController =>
@@ -460,6 +461,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
     }
     setState(() {
       loading = true;
+      requestingRecommendation = true;
       refreshingRecommendations = more;
       if (more) recommendations = [];
       error = null;
@@ -518,6 +520,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
       if (mounted) {
         setState(() {
           loading = false;
+          requestingRecommendation = false;
           refreshingRecommendations = false;
         });
       }
@@ -583,7 +586,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           const SizedBox(height: 16),
           _filters(),
         ],
-        if (loading && !refreshingRecommendations)
+        if (loading && !requestingRecommendation)
           const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator()))
@@ -627,7 +630,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
       if (step == 1) _taste(),
       if (step == 2) _filters(),
       if (step == 3) _results(),
-      if (loading && !refreshingRecommendations)
+      if (loading && !requestingRecommendation)
         const Padding(
             padding: EdgeInsets.all(24),
             child: Center(child: CircularProgressIndicator()))
@@ -831,26 +834,17 @@ class _GameFinderPageState extends State<GameFinderPage> {
             value: includeAdult,
             onChanged: (v) => setState(() => includeAdult = v)),
         const SizedBox(height: 18),
-        Row(
-            mainAxisAlignment: widget.webScrollController != null
-                ? MainAxisAlignment.spaceBetween
-                : MainAxisAlignment.center,
-            children: [
-              if (widget.webScrollController != null)
-                TextButton(
-                    onPressed: () => _setStep(1), child: const Text('취향 게임 수정'))
-              else
-                const SizedBox.shrink(),
-              FilledButton.icon(
-                  onPressed: !canRequestGameFinderRecommendation(
-                              selected.map((game) => game.appId),
-                              selectedTags) ||
-                          loading
-                      ? null
-                      : () => recommend(),
-                  icon: const Icon(Icons.auto_awesome),
-                  label: const Text('게임 추천받기'))
-            ]),
+        if (widget.webScrollController != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => _setStep(1),
+              child: const Text('취향 게임 수정'),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        _recommendButton(),
         if (widget.webScrollController == null && error != null) ...[
           const SizedBox(height: 12),
           Container(
@@ -865,6 +859,84 @@ class _GameFinderPageState extends State<GameFinderPage> {
           ),
         ],
       ]));
+
+  Widget _recommendButton() {
+    final canRecommend = canRequestGameFinderRecommendation(
+      selected.map((game) => game.appId),
+      selectedTags,
+    );
+    final enabled = canRecommend && !loading;
+    final opacity =
+        requestingRecommendation ? 0.78 : (canRecommend ? 1.0 : 0.6);
+    const radius = 15.0;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: requestingRecommendation ? '게임 추천을 불러오는 중' : '게임 추천받기',
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: opacity,
+        child: Container(
+          width: double.infinity,
+          height: 54,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+            ),
+            borderRadius: BorderRadius.circular(radius),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x387B5CEE),
+                blurRadius: 16,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(radius),
+              onTap: enabled ? () => recommend() : null,
+              overlayColor: WidgetStateProperty.all(
+                Colors.white.withValues(alpha: 0.10),
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 20,
+                      child: requestingRecommendation
+                          ? const CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Color(0xE6FFFFFF),
+                            )
+                          : const Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '게임 추천받기',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _taste() =>
       _panel(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
