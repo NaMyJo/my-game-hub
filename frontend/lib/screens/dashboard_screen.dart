@@ -311,7 +311,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _mobileDashboardScrollController = ScrollController();
   final ScrollController _mobileToolsScrollController = ScrollController();
   final ScrollController _mobileIdentityScrollController = ScrollController();
-  final ScrollController _mobileFinderScrollController = ScrollController();
+  final ScrollController _mobileFinderScrollController = ScrollController(
+    keepScrollOffset: false,
+  );
   final ScrollController _mobileMyPageScrollController = ScrollController();
   final List<GameProfile> _games = [];
   GameProfileSummary? _gameProfileSummary;
@@ -2135,7 +2137,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               SingleChildScrollView(
-                key: const PageStorageKey('mobile-game-finder'),
                 controller: _mobileFinderScrollController,
                 padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
                 child: GameFinderPage(
