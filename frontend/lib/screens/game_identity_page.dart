@@ -545,6 +545,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         profileImageBytes: _profileImageBytes,
       );
 
+      _resetIdentityBuilder();
       widget.onProfileApplied(savedProfile);
       if (!mounted) return;
 
@@ -571,6 +572,23 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
       _showSearchErrorBubble();
     }
+  }
+
+  void _resetIdentityBuilder() {
+    _displayNameController.clear();
+    _customGameNameController.clear();
+    _customGameInfoController.clear();
+
+    setState(() {
+      _currentStep = 0;
+      _selectedGameIds.clear();
+      _customGames.clear();
+      _profileImageBytes = null;
+      _previewResult = null;
+      _previewError = null;
+      _isLoadingPreview = false;
+      _showPreview = false;
+    });
   }
 
   String _extractEvaluationComment(

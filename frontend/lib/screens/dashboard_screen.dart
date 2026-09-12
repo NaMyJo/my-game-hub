@@ -346,6 +346,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _handleIdentityProfileApplied(GameProfileSummary profile) {
+    if (!mounted) return;
+
+    setState(() {
+      _gameProfileSummary = profile;
+      _isLoadingGameProfile = false;
+      _currentPage = DashboardPage.dashboard;
+      _dashboardMenuExpanded = true;
+      _deleteMode = false;
+      _selectedGameIds.clear();
+    });
+
+    _resetDesktopScroll();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_mobileDashboardScrollController.hasClients) {
+        _mobileDashboardScrollController.jumpTo(0);
+      }
+    });
+  }
+
   Future<void> _openLatestIdentityPreview() async {
     try {
       final json = await GameIdentityRepository.instance.getLatest();
@@ -2102,13 +2122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   games: _games,
                   onAddGame: _addGameForIdentity,
                   showHeader: false,
-                  onProfileApplied: (profile) {
-                    if (!mounted) return;
-                    setState(() {
-                      _gameProfileSummary = profile;
-                      _isLoadingGameProfile = false;
-                    });
-                  },
+                  onProfileApplied: _handleIdentityProfileApplied,
                 ),
               ),
               SingleChildScrollView(
@@ -2331,14 +2345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         DashboardPage.gameIdentity => GameIdentityPage(
                             games: _games,
                             onAddGame: _addGameForIdentity,
-                            onProfileApplied: (profile) {
-                              if (!mounted) return;
-
-                              setState(() {
-                                _gameProfileSummary = profile;
-                                _isLoadingGameProfile = false;
-                              });
-                            },
+                            onProfileApplied: _handleIdentityProfileApplied,
                           ),
                         DashboardPage.gameFinder => GameFinderPage(
                             isAdmin: _isGameFinderAdmin,
@@ -3181,6 +3188,29 @@ class _HeroProfile extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_rounded, size: 17),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: IconButton(
+                onPressed: isRefreshingAll ? null : onRefreshAll,
+                tooltip: '전체 새로고침',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF182740),
+                  foregroundColor: const Color(0xFF9B8CFF),
+                  minimumSize: const Size(32, 32),
+                  padding: EdgeInsets.zero,
+                ),
+                icon: isRefreshingAll
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 15),
               ),
             ),
             Positioned(
@@ -5223,26 +5253,6 @@ class _MobileHeroProfile extends StatelessWidget {
                       padding: EdgeInsets.zero,
                     ),
                     icon: const Icon(Icons.image_outlined, size: 15),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    onPressed: isRefreshingAll ? null : onRefreshAll,
-                    tooltip: '전체 새로고침',
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF182740),
-                      foregroundColor: const Color(0xFF9B8CFF),
-                      minimumSize: const Size(32, 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                    icon: isRefreshingAll
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.refresh_rounded, size: 15),
                   ),
                   const SizedBox(width: 6),
                   IconButton(
