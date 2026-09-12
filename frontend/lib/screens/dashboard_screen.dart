@@ -3655,7 +3655,7 @@ class _GameProfileSummaryView extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onOpenAnalysis,
               icon: const Icon(Icons.analytics_outlined, size: 16),
-              label: const Text('상세 분석'),
+              label: const Text('대시보드 분석'),
             ),
             TextButton.icon(
               onPressed: onPublicProfile,
