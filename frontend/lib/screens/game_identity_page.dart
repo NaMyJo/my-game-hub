@@ -1791,22 +1791,6 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       key: const ValueKey('nickname-step'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '신분증 닉네임',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '게임 신분증에 표시할 이름을 입력해주세요.',
-          style: TextStyle(
-            color: Color(0xFF8290A4),
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: 20),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -1856,6 +1840,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             const SizedBox(width: 16),
             Expanded(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
@@ -1874,75 +1859,33 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                       height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      Stack(
-                        children: [
-                          ExcludeSemantics(
-                            child: IgnorePointer(
-                              child: OutlinedButton.icon(
-                                onPressed: () {},
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 11,
-                                  ),
-                                ),
-                                icon: const Icon(
-                                  Icons.photo_library_outlined,
-                                  size: 16,
-                                ),
-                                label: Text(
-                                  _profileImageBytes == null
-                                      ? '사진 선택'
-                                      : '사진 변경',
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: ProfileImageInputOverlay(
-                                onImageSelected: _processSelectedProfileImage,
-                                onError: _handleProfileImagePickerError,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_profileImageBytes != null)
-                        OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _profileImageBytes = null;
-                            });
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFE78996),
-                            side: BorderSide(
-                              color: isDark
-                                  ? const Color(0xFF8A5260)
-                                  : const Color(0xFFD8959F),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 11,
-                            ),
-                          ),
-                          child: const Text('삭제'),
+                  if (_profileImageBytes != null) ...[
+                    const SizedBox(height: 7),
+                    InkWell(
+                      onTap: () => setState(() => _profileImageBytes = null),
+                      borderRadius: BorderRadius.circular(8),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 2,
+                          vertical: 3,
                         ),
-                    ],
-                  ),
+                        child: Text(
+                          '삭제',
+                          style: TextStyle(
+                            color: Color(0xFFE78996),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         TextField(
           controller: _displayNameController,
           maxLength: 12,
