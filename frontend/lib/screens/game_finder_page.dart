@@ -201,9 +201,13 @@ class _GameFinderPageState extends State<GameFinderPage> {
     if (oldWidget.active && !widget.active) {
       _removeFloatingActions();
     } else if (!oldWidget.active && widget.active) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _handlePageScroll();
-      });
+      if (widget.mobileScrollController != null) {
+        _scheduleMobileScrollReset();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _handlePageScroll();
+        });
+      }
     }
   }
 
@@ -325,6 +329,21 @@ class _GameFinderPageState extends State<GameFinderPage> {
       _floatingActions = null;
     }
     if (mounted) setState(() {});
+  }
+
+  void _resetMobileScrollToTop() {
+    final controller = widget.mobileScrollController;
+    if (controller?.hasClients != true) return;
+
+    controller!.jumpTo(controller.position.minScrollExtent);
+    _handlePageScroll();
+  }
+
+  void _scheduleMobileScrollReset() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _resetMobileScrollToTop();
+    });
   }
 
   void _removeFloatingActions() {
@@ -505,14 +524,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           step = 3;
           maxVisitedStep = 3;
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          final mobileController = widget.mobileScrollController;
-          if (!more && mobileController?.hasClients == true) {
-            mobileController!.jumpTo(0);
-          }
-          _handlePageScroll();
-        });
+        if (!more) _scheduleMobileScrollReset();
       }
     } catch (_) {
       if (mounted) setState(() => error = '추천 결과를 불러오지 못했습니다.');
@@ -523,6 +535,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           requestingRecommendation = false;
           refreshingRecommendations = false;
         });
+        _scheduleMobileScrollReset();
       }
     }
   }
