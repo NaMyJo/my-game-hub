@@ -1721,28 +1721,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     );
   }
 
-  Widget _buildProfileImageUtilityButton() {
-    return SizedBox.square(
-      dimension: 50,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ExcludeSemantics(
-            child: IgnorePointer(
-              child: _IdentityImageActionButton(
-                hasImage: _profileImageBytes != null,
-              ),
-            ),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(13),
-            child: ProfileImageInputOverlay(
-              onImageSelected: _processSelectedProfileImage,
-              onError: _handleProfileImagePickerError,
-            ),
-          ),
-        ],
-      ),
+  Widget _buildIdentityPreviewUtilityButton() {
+    return _IdentityImageActionButton(
+      previewVisible: _showPreview,
+      onPressed: () => setState(() => _showPreview = !_showPreview),
     );
   }
 
@@ -1755,6 +1737,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final showPreviewButton =
+            showImageAction && MediaQuery.sizeOf(context).width < 1100;
         final previousButton = _IdentitySecondaryActionButton(
           onPressed: onPrevious,
         );
@@ -1768,8 +1752,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           children: [
             previousButton,
             const Spacer(),
-            if (showImageAction) ...[
-              _buildProfileImageUtilityButton(),
+            if (showPreviewButton) ...[
+              _buildIdentityPreviewUtilityButton(),
               const SizedBox(width: 8),
             ],
             Flexible(
@@ -2848,22 +2832,40 @@ class _IdentityAccentActionButton extends StatelessWidget {
 }
 
 class _IdentityImageActionButton extends StatelessWidget {
-  const _IdentityImageActionButton({required this.hasImage});
+  const _IdentityImageActionButton({
+    required this.previewVisible,
+    required this.onPressed,
+  });
 
-  final bool hasImage;
+  final bool previewVisible;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
+    return Tooltip(
+      message: previewVisible ? '현재 게임 신분증 미리보기 닫기' : '현재 게임 신분증 미리보기',
+      child: Material(
         color: const Color(0xFF0E172A),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFF77758A)),
-      ),
-      child: Icon(
-        hasImage ? Icons.image_rounded : Icons.image_outlined,
-        color: const Color(0xFFB6A8FF),
-        size: 21,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(13),
+          side: BorderSide(
+            color: previewVisible
+                ? const Color(0xFF8068FF)
+                : const Color(0xFF77758A),
+          ),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(13),
+          child: SizedBox.square(
+            dimension: 50,
+            child: Icon(
+              previewVisible ? Icons.image_rounded : Icons.image_outlined,
+              color: const Color(0xFFB6A8FF),
+              size: 21,
+            ),
+          ),
+        ),
       ),
     );
   }
