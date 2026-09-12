@@ -2001,7 +2001,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         const SizedBox(height: 24),
         _buildStepActions(
           onPrevious: () => _moveToStep(0),
-          primaryLabel: _hasSelectedGames ? '다음' : '기타 게임 추가',
+          primaryLabel: _hasSelectedGames ? '다음' : '게임 추가',
           onPrimary: () => _moveToStep(2),
           primaryIcon: _hasSelectedGames
               ? Icons.arrow_forward_rounded
@@ -2253,7 +2253,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                 alignment: Alignment.centerRight,
                 child: _IdentityAccentActionButton(
                   onPressed: _addCustomGame,
-                  label: '기타 게임 추가',
+                  label: '게임 추가',
                 ),
               ),
             ],
