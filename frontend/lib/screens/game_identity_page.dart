@@ -765,35 +765,13 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }
 
   Future<void> _editDisplayNameFromFinalStep() async {
-    final controller = TextEditingController(text: _previewDisplayName);
     final editedName = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('신분증 닉네임 수정'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 12,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: '신분증 닉네임',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('취소'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('수정'),
-          ),
-        ],
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (dialogContext) => _IdentityNicknameEditDialog(
+        initialValue: _previewDisplayName,
       ),
     );
-    controller.dispose();
 
     if (!mounted || editedName == null) return;
 
@@ -1777,7 +1755,6 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 360;
         final previousButton = _IdentitySecondaryActionButton(
           onPressed: onPrevious,
         );
@@ -1787,35 +1764,21 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           icon: primaryIcon,
         );
 
-        if (narrow) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  previousButton,
-                  const Spacer(),
-                  if (showImageAction) _buildProfileImageUtilityButton(),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: primaryButton,
-              ),
-            ],
-          );
-        }
-
         return Row(
           children: [
             previousButton,
             const Spacer(),
             if (showImageAction) ...[
               _buildProfileImageUtilityButton(),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
             ],
-            primaryButton,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: primaryButton,
+              ),
+            ),
           ],
         );
       },
@@ -2406,8 +2369,16 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           trailing: IconButton(
             onPressed: _editDisplayNameFromFinalStep,
             tooltip: '신분증 닉네임 수정',
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.edit_outlined, size: 18),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0x261F64FF),
+              foregroundColor: const Color(0xFFB6A8FF),
+              side: const BorderSide(color: Color(0x554F46A4)),
+              minimumSize: const Size(40, 40),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(11),
+              ),
+            ),
+            icon: const Icon(Icons.edit_rounded, size: 18),
           ),
         ),
         _FinalInformationRow(
@@ -2505,6 +2476,273 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _IdentityNicknameEditDialog extends StatefulWidget {
+  const _IdentityNicknameEditDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_IdentityNicknameEditDialog> createState() =>
+      _IdentityNicknameEditDialogState();
+}
+
+class _IdentityNicknameEditDialogState
+    extends State<_IdentityNicknameEditDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(_controller.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+
+    return SafeArea(
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(bottom: viewInsets.bottom),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Dialog(
+              insetPadding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF151A35), Color(0xFF10172B)],
+                    ),
+                    borderRadius: BorderRadius.circular(23),
+                    border: Border.all(
+                      color: const Color(0xFF6251C7),
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 28,
+                        offset: Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: Color(0x2E6848D8),
+                        blurRadius: 24,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '신분증 닉네임 수정',
+                              style: TextStyle(
+                                color: Color(0xFFF5F3FF),
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            tooltip: '닫기',
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF1A2339),
+                              foregroundColor: const Color(0xFFD6D0EA),
+                              side: const BorderSide(
+                                color: Color(0xFF3B4660),
+                              ),
+                              minimumSize: const Size(42, 42),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.close_rounded, size: 21),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '게임 신분증에 표시될 닉네임을 입력해주세요.',
+                        style: TextStyle(
+                          color: Color(0xFFA1A9BD),
+                          fontSize: 14,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        '신분증 닉네임',
+                        style: TextStyle(
+                          color: Color(0xFFE6E2F3),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 9),
+                      TextField(
+                        controller: _controller,
+                        autofocus: true,
+                        maxLength: 12,
+                        textInputAction: TextInputAction.done,
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => _submit(),
+                        style: const TextStyle(
+                          color: Color(0xFFF5F3FF),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: const Color(0xFF10182B),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 17,
+                            vertical: 17,
+                          ),
+                          suffixIcon: Padding(
+                            padding: const EdgeInsets.only(right: 14),
+                            child: Center(
+                              widthFactor: 1,
+                              child: Text(
+                                '${_controller.text.characters.length}/12',
+                                style: const TextStyle(
+                                  color: Color(0xFF918CA7),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(13),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF38445F),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(13),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF8068FF),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '최대 12자까지 입력할 수 있습니다. 비워두면 The Gamer로 표시됩니다.',
+                        style: TextStyle(
+                          color: Color(0xFF8F99AD),
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFC9BFFF),
+                                  side: const BorderSide(
+                                    color: Color(0xFF77758A),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
+                                child: const Text(
+                                  '취소',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 52,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF6848D8),
+                                      Color(0xFF8A6BFF),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(15),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x337B61FF),
+                                      blurRadius: 13,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _submit,
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: const Center(
+                                      child: Text(
+                                        '수정',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
