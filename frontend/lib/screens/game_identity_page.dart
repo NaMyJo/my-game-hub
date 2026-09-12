@@ -1737,8 +1737,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showPreviewButton =
-            showImageAction && MediaQuery.sizeOf(context).width < 1100;
+        final viewportWidth = MediaQuery.sizeOf(context).width;
+        final isMobile = viewportWidth < 700;
+        final showPreviewButton = showImageAction && viewportWidth < 1100;
         final previousButton = _IdentitySecondaryActionButton(
           onPressed: onPrevious,
         );
@@ -1766,13 +1767,25 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               _buildIdentityPreviewUtilityButton(),
               const SizedBox(width: 8),
             ],
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: primaryButton,
+            if (isMobile)
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: primaryButton,
+                  ),
+                ),
+              )
+            else
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: primaryButton,
+                ),
               ),
-            ),
           ],
         );
       },
