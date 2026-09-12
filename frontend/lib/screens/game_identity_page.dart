@@ -1748,6 +1748,16 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           icon: primaryIcon,
         );
 
+        if (!showPreviewButton) {
+          return Row(
+            children: [
+              previousButton,
+              const Spacer(),
+              primaryButton,
+            ],
+          );
+        }
+
         return Row(
           children: [
             previousButton,
