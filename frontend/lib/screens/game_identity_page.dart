@@ -1759,15 +1759,20 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           );
         }
 
-        return Row(
-          children: [
-            previousButton,
-            const Spacer(),
-            if (showPreviewButton) ...[
+        if (isMobile) {
+          return Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: previousButton,
+                  ),
+                ),
+              ),
               _buildIdentityPreviewUtilityButton(),
-              const SizedBox(width: 8),
-            ],
-            if (isMobile)
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
@@ -1777,15 +1782,24 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                     child: primaryButton,
                   ),
                 ),
-              )
-            else
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: primaryButton,
-                ),
               ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            previousButton,
+            const Spacer(),
+            _buildIdentityPreviewUtilityButton(),
+            const SizedBox(width: 8),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: primaryButton,
+              ),
+            ),
           ],
         );
       },
