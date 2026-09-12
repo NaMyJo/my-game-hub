@@ -2066,6 +2066,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       profile: _userProfile,
                       profileImageBytes: _gameProfileSummary?.profileImageBytes,
                       onEdit: _editUserProfile,
+                      onOpenAnalysis: _openGamePowerAnalysis,
                       onOpenLatestIdentity: _openLatestIdentityPreview,
                       onRefreshAll: _refreshAllGames,
                       isRefreshingAll: _isRefreshingAll,
@@ -5161,6 +5162,7 @@ class _MobileHeroProfile extends StatelessWidget {
     required this.profile,
     required this.profileImageBytes,
     required this.onEdit,
+    required this.onOpenAnalysis,
     required this.onOpenLatestIdentity,
     required this.onRefreshAll,
     required this.isRefreshingAll,
@@ -5170,6 +5172,7 @@ class _MobileHeroProfile extends StatelessWidget {
   final UserProfile? profile;
   final Uint8List? profileImageBytes;
   final VoidCallback onEdit;
+  final VoidCallback onOpenAnalysis;
   final VoidCallback onOpenLatestIdentity;
   final VoidCallback onRefreshAll;
   final bool isRefreshingAll;
@@ -5182,128 +5185,136 @@ class _MobileHeroProfile extends StatelessWidget {
 
     final introduction = profile?.introduction ?? '게임을 사랑하는 게이머';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFF263348),
-        ),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF101B32),
-            Color(0xFF17233D),
-          ],
-        ),
-      ),
-      child: SizedBox(
-        height: 116,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 126),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: const Color(0xFF6E56E9),
-                        backgroundImage: profileImageBytes == null
-                            ? null
-                            : MemoryImage(profileImageBytes!),
-                        child: profileImageBytes == null
-                            ? const Icon(Icons.person_rounded)
-                            : null,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                              ),
+    return Semantics(
+      button: true,
+      label: '대시보드 분석 열기',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onOpenAnalysis,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF263348),
+            ),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF101B32),
+                Color(0xFF17233D),
+              ],
+            ),
+          ),
+          child: SizedBox(
+            height: 116,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 126),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: const Color(0xFF6E56E9),
+                            backgroundImage: profileImageBytes == null
+                                ? null
+                                : MemoryImage(profileImageBytes!),
+                            child: profileImageBytes == null
+                                ? const Icon(Icons.person_rounded)
+                                : null,
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  introduction,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF9AA7B9),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              introduction,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF9AA7B9),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              child: IconButton(
-                onPressed: isRefreshingAll ? null : onRefreshAll,
-                tooltip: '전체 새로고침',
-                style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF182740),
-                  foregroundColor: const Color(0xFF9B8CFF),
-                  minimumSize: const Size(32, 32),
-                  padding: EdgeInsets.zero,
-                ),
-                icon: isRefreshingAll
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_rounded, size: 15),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: onOpenLatestIdentity,
-                    tooltip: '최근 게임 신분증',
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: IconButton(
+                    onPressed: isRefreshingAll ? null : onRefreshAll,
+                    tooltip: '전체 새로고침',
                     style: IconButton.styleFrom(
                       backgroundColor: const Color(0xFF182740),
                       foregroundColor: const Color(0xFF9B8CFF),
                       minimumSize: const Size(32, 32),
                       padding: EdgeInsets.zero,
                     ),
-                    icon: const Icon(Icons.image_outlined, size: 15),
+                    icon: isRefreshingAll
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 15),
                   ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    onPressed: onEdit,
-                    tooltip: '프로필 수정',
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF24234C),
-                      foregroundColor: const Color(0xFFB8AEFF),
-                      minimumSize: const Size(32, 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                    icon: const Icon(Icons.edit_rounded, size: 14),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: onOpenLatestIdentity,
+                        tooltip: '최근 게임 신분증',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF182740),
+                          foregroundColor: const Color(0xFF9B8CFF),
+                          minimumSize: const Size(32, 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Icons.image_outlined, size: 15),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        onPressed: onEdit,
+                        tooltip: '프로필 수정',
+                        style: IconButton.styleFrom(
+                          backgroundColor: const Color(0xFF24234C),
+                          foregroundColor: const Color(0xFFB8AEFF),
+                          minimumSize: const Size(32, 32),
+                          padding: EdgeInsets.zero,
+                        ),
+                        icon: const Icon(Icons.edit_rounded, size: 14),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
