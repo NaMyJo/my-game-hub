@@ -263,6 +263,71 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     );
   }
 
+  Future<void> _showGeneratedIdentityPreview({
+    required Uint8List bytes,
+    required String fileName,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.86),
+      builder: (dialogContext) {
+        return Material(
+          color: Colors.transparent,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth - 40;
+                final previewWidth =
+                    availableWidth < 390.0 ? availableWidth : 390.0;
+
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 68, 20, 28),
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: Image.memory(
+                            bytes,
+                            width: previewWidth,
+                            fit: BoxFit.fitWidth,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      left: 16,
+                      child: _GeneratedPreviewActionButton(
+                        tooltip: '미리보기 닫기',
+                        icon: Icons.close_rounded,
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 16,
+                      child: _GeneratedPreviewActionButton(
+                        tooltip: '게임 신분증 저장',
+                        icon: Icons.download_rounded,
+                        onPressed: () async {
+                          await downloadPng(bytes: bytes, fileName: fileName);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _generateIdentityCardImage() async {
     if (_isGeneratingImage) return;
     final restorePreviewHidden = !_showPreview;
@@ -316,15 +381,11 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         '_',
       );
 
-      await downloadPng(
-        bytes: bytes,
-        fileName: '게임신분증_$safeDisplayName.png',
-      );
-
-      if (!mounted) return;
-
 // 현재 화면 즉시 반영
       setState(() {
+        if (restorePreviewHidden) {
+          _showPreview = false;
+        }
         _latestIdentity = GameIdentityHistory(
           displayName: displayName,
           profileImageBytes: _profileImageBytes,
@@ -345,6 +406,13 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
 // Neon 영구 저장
       await _saveLatestIdentity();
+
+      if (!mounted) return;
+
+      await _showGeneratedIdentityPreview(
+        bytes: bytes,
+        fileName: '게임신분증_$safeDisplayName.png',
+      );
 
       if (!mounted) return;
 
@@ -672,7 +740,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     final value = _displayNameController.text.trim();
 
     if (value.isEmpty) {
-      return '신분증 닉네임';
+      return 'The Gamer';
     }
 
     return value;
@@ -712,7 +780,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     if (!mounted || editedName == null) return;
 
     final normalizedName =
-        editedName.trim().isEmpty ? '신분증 닉네임' : editedName.trim();
+        editedName.trim().isEmpty ? 'The Gamer' : editedName.trim();
     setState(() {
       _displayNameController.text = normalizedName;
       _previewResult = null;
@@ -751,8 +819,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
       'averageTopPercent': _previewResult?.averageTopPercent,
       'profileImageBase64':
           _profileImageBytes == null ? null : base64Encode(_profileImageBytes!),
-      'displayName':
-          _previewResult?.displayName ?? _displayNameController.text.trim(),
+      'displayName': _previewResult?.displayName ?? _previewDisplayName,
       'evaluationType': _previewResult?.evaluationType,
       'includedGameCount': _previewResult?.includedGameCount,
       'evaluationMessage': _previewResult?.evaluationMessage,
@@ -1821,7 +1888,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           maxLength: 12,
           decoration: InputDecoration(
             labelText: '표시할 닉네임',
-            hintText: '예: Faker',
+            hintText: '입력하지 않으면 The Gamer로 표시됩니다.',
             filled: true,
             fillColor:
                 isDark ? const Color(0xFF0E1A2A) : const Color(0xFFF7F8FB),
@@ -1841,9 +1908,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton.icon(
-            onPressed: _displayNameController.text.trim().isEmpty
-                ? null
-                : () => _moveToStep(1),
+            onPressed: () => _moveToStep(1),
             icon: const Icon(
               Icons.arrow_forward_rounded,
               size: 18,
@@ -1948,6 +2013,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
 
   Widget _buildNewGameStep() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showInlineLoading =
+        _isAddingGame && MediaQuery.sizeOf(context).width >= 600;
     return Column(
       key: const ValueKey('new-game-step'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1985,7 +2052,7 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
                 color: const Color(0xFF5746A8),
               ),
             ),
-            child: _isAddingGame
+            child: showInlineLoading
                 ? const Column(
                     children: [
                       SizedBox(
@@ -2414,6 +2481,35 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GeneratedPreviewActionButton extends StatelessWidget {
+  const _GeneratedPreviewActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xF2111B2B),
+      shape: const CircleBorder(
+        side: BorderSide(color: Color(0xFF53637D)),
+      ),
+      elevation: 8,
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        color: const Color(0xFFF2EFFF),
+        icon: Icon(icon),
+      ),
     );
   }
 }
@@ -2863,18 +2959,11 @@ class _GameIdentityPreview extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildCardHeader(),
-          const SizedBox(height: 20),
-          _buildOwnerInformation(),
           const SizedBox(height: 18),
-          const Divider(
-            height: 1,
-            color: Color(0xFF33405A),
-          ),
-          const SizedBox(height: 16),
-          _buildGameInformation(),
-          const SizedBox(height: 14),
           _buildGamePowerArea(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
+          _buildGameInformation(),
+          const SizedBox(height: 18),
           _buildEvaluationArea(),
         ],
       ),
@@ -2956,6 +3045,8 @@ class _GameIdentityPreview extends StatelessWidget {
     return estimated ? '상위 약 $formatted%' : '상위 $formatted%';
   }
 
+  // TODO: Remove with the legacy preview helpers after visual QA.
+  // ignore: unused_element
   String get _includedGameCountText {
     final count = previewResult?.includedGameCount ?? 0;
 
@@ -2973,121 +3064,122 @@ class _GameIdentityPreview extends StatelessWidget {
   Widget _buildCardHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
+      constraints: const BoxConstraints(minHeight: 150),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            Color(0xAA211D4B),
-            Color(0x66131B34),
+            Color(0xFF182344),
+            Color(0xFF101B32),
           ],
         ),
         border: Border.all(
-          color: const Color(0xFF3D416A),
+          color: const Color(0xFF3B4770),
         ),
       ),
-      child: Row(
+      child: Stack(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF806BFF),
-                  Color(0xFF5140B9),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(13),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x553C2AA8),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.badge_rounded,
-              color: Colors.white,
-              size: 23,
+          const Positioned(
+            right: -18,
+            bottom: -28,
+            child: Icon(
+              Icons.sports_esports_rounded,
+              size: 142,
+              color: Color(0x121A0D68),
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'GAME ID CARD',
-                  style: TextStyle(
-                    color: Color(0xFFF0EDFF),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.7,
+          Row(
+            children: [
+              Container(
+                width: 82,
+                height: 82,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF4E459E), Color(0xFF252B64)],
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFF5D55A8),
+                    width: 1.5,
                   ),
                 ),
-                SizedBox(height: 3),
-                Text(
-                  'MY GAME HUB · 게임 신분증',
-                  style: TextStyle(
-                    color: Color(0xFF8C96AD),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 7,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0x6612192E),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFF373E61),
+                child: profileImageBytes == null
+                    ? const Icon(
+                        Icons.person_rounded,
+                        size: 43,
+                        color: Color(0xFFC5BCFF),
+                      )
+                    : Image.memory(
+                        profileImageBytes!,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  'ID NUMBER',
-                  style: TextStyle(
-                    color: Color(0xFF777F98),
-                    fontSize: 6,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.9,
-                  ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'MY GAME HUB',
+                      style: TextStyle(
+                        color: Color(0xFFA99EFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: const Color(0xFFF5F3FF),
+                        fontSize: _displayNameFontSize,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'PLAYER ID',
+                      style: TextStyle(
+                        color: Color(0xFF8795AA),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      identityNumber,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFAEB8CB),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  identityNumber,
-                  style: const TextStyle(
-                    color: Color(0xFFB7B2D4),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  // TODO: Remove after the redesigned shared preview has completed visual QA.
+  // ignore: unused_element
   Widget _buildOwnerInformation() {
     return Container(
       width: double.infinity,
@@ -3288,27 +3380,43 @@ class _GameIdentityPreview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(
+            const Icon(
               Icons.sports_esports_rounded,
-              size: 16,
-              color: Color(0xFF8D7DFF),
+              size: 19,
+              color: Color(0xFFA99EFF),
             ),
-            SizedBox(width: 7),
-            Text(
-              'GAME RECORD',
-              style: TextStyle(
-                color: Color(0xFF9B9FD0),
-                fontSize: 9,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.3,
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                '내 게임 목록',
+                style: TextStyle(
+                  color: Color(0xFFF0EDFF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF28205B),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '총 ${selectedGames.length + customGames.length}개',
+                style: const TextStyle(
+                  color: Color(0xFFA99EFF),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        ...selectedGames.take(4).map(
+        const SizedBox(height: 14),
+        ...selectedGames.map(
           (game) {
             GameIdentityPreviewEntry? calculatedEntry;
 
@@ -3329,20 +3437,6 @@ class _GameIdentityPreview extends StatelessWidget {
             );
           },
         ),
-        if (selectedGames.length > 4)
-          Padding(
-            padding: const EdgeInsets.only(
-              left: 4,
-              top: 1,
-            ),
-            child: Text(
-              '외 ${selectedGames.length - 4}개 게임',
-              style: const TextStyle(
-                color: Color(0xFF78859A),
-                fontSize: 9,
-              ),
-            ),
-          ),
         if (customGames.isNotEmpty) ...[
           const SizedBox(height: 10),
           Row(
@@ -3369,7 +3463,6 @@ class _GameIdentityPreview extends StatelessWidget {
             spacing: 7,
             runSpacing: 7,
             children: customGames
-                .take(3)
                 .map(
                   (game) => Container(
                     constraints: const BoxConstraints(
@@ -3425,17 +3518,6 @@ class _GameIdentityPreview extends StatelessWidget {
                 )
                 .toList(),
           ),
-          if (customGames.length > 3) ...[
-            const SizedBox(height: 6),
-            Text(
-              '+ ${customGames.length - 3} more',
-              style: const TextStyle(
-                color: Color(0xFF69758A),
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ],
       ],
     );
@@ -3443,116 +3525,42 @@ class _GameIdentityPreview extends StatelessWidget {
 
   Widget _buildGamePowerArea() {
     final percent = previewResult?.averageTopPercent;
-
-    // RPG 전용
-    if (percent == null && !hasCompetitiveGame && hasRpgGame) {
-      return _buildAdventurerProfile();
-    }
-
-    // 기타 게임만 있는 경우
-    if (percent == null) {
-      return const SizedBox.shrink();
-    }
-
-    final progress = (1.0 - (percent / 100.0)).clamp(0.0, 1.0);
+    final totalGameCount = selectedGames.length + customGames.length;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xCC17183D),
-            Color(0xCC111936),
-          ],
+          colors: [Color(0xFF111D34), Color(0xFF121B33)],
         ),
         border: Border.all(
-          color: const Color(0xFF4C4A83),
+          color: const Color(0xFF30405F),
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x332F2B78),
-            blurRadius: 18,
-            offset: Offset(0, 7),
-          ),
-        ],
       ),
       child: Row(
         children: [
-          _GamePowerRing(
-            percent: percent,
-          ),
-          const SizedBox(width: 18),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'GAME POWER',
-                  style: TextStyle(
-                    color: Color(0xFF9589E7),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  _gamePowerText,
-                  style: const TextStyle(
-                    color: Color(0xFFE9E5FF),
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    minHeight: 7,
-                    value: progress,
-                    backgroundColor: const Color(0xFF202847),
-                    valueColor: const AlwaysStoppedAnimation(
-                      Color(0xFF8B7CFF),
-                    ),
-                  ),
-                ),
-              ],
+            child: _IdentitySummaryItem(
+              icon: Icons.sports_esports_rounded,
+              label: '등록한 게임',
+              value: '$totalGameCount개',
             ),
           ),
-          const SizedBox(width: 18),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0x551D2850),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF38456A),
-              ),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.bar_chart_rounded,
-                  color: Color(0xFF9C91FF),
-                  size: 19,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _includedGameCountText,
-                  style: const TextStyle(
-                    color: Color(0xFFB4B0D7),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+            width: 1,
+            height: 58,
+            color: const Color(0xFF334360),
+          ),
+          Expanded(
+            child: _IdentitySummaryItem(
+              icon: percent == null
+                  ? Icons.auto_awesome_rounded
+                  : Icons.emoji_events_rounded,
+              label: '평균 게임력',
+              value: percent == null ? '-' : _gamePowerText,
+              highlight: percent != null,
             ),
           ),
         ],
@@ -3560,6 +3568,8 @@ class _GameIdentityPreview extends StatelessWidget {
     );
   }
 
+  // TODO: Remove after the redesigned shared preview has completed visual QA.
+  // ignore: unused_element
   Widget _buildAdventurerProfile() {
     final rpgCount = selectedGames
         .where(
@@ -3695,7 +3705,7 @@ class _GameIdentityPreview extends StatelessWidget {
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(
-        minHeight: 82,
+        minHeight: 96,
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: 18,
@@ -3707,8 +3717,8 @@ class _GameIdentityPreview extends StatelessWidget {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: [
-            Color(0xBB302468),
-            Color(0xAA1C294E),
+            Color(0xFF28205B),
+            Color(0xFF152442),
           ],
         ),
         border: Border.all(
@@ -3747,8 +3757,8 @@ class _GameIdentityPreview extends StatelessWidget {
           : Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: const Color(0xFF302B69),
                     borderRadius: BorderRadius.circular(13),
@@ -3763,13 +3773,11 @@ class _GameIdentityPreview extends StatelessWidget {
                 Expanded(
                   child: Text(
                     _previewMessage(),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFFE7E3FF),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.5,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.6,
                     ),
                   ),
                 ),
@@ -3779,6 +3787,76 @@ class _GameIdentityPreview extends StatelessWidget {
   }
 }
 
+class _IdentitySummaryItem extends StatelessWidget {
+  const _IdentitySummaryItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFF272553),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: const Color(0xFFB79CFF), size: 25),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: highlight
+                          ? const Color(0xFFB79CFF)
+                          : const Color(0xFFF5F3FF),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// TODO: Remove after the redesigned shared preview has completed visual QA.
+// ignore: unused_element
 class _GamePowerRing extends StatelessWidget {
   const _GamePowerRing({
     required this.percent,
@@ -3855,39 +3933,39 @@ class _PreviewGameRow extends StatelessWidget {
 
     final metricLabel = _identityMetricLabel(rawMetricLabel);
     final metricValue = _identityMetricValue(rawMetricValue);
-    final topPercent = calculatedEntry?.topPercent;
+    final detailUrl = showDetailAction ? _detailUrl(game) : null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
+          horizontal: 14,
+          vertical: 13,
         ),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color(0xCC152039),
-              Color(0xAA171635),
+              Color(0xFF101C32),
+              Color(0xFF101A30),
             ],
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(17),
           border: Border.all(
-            color: const Color(0xFF35405E),
+            color: const Color(0xFF2B3C5A),
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
-              padding: const EdgeInsets.all(7),
+              width: 54,
+              height: 54,
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
                 color: const Color(0xFF17253A),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(15),
                 border: Border.all(
                   color: const Color(0xFF394663),
                 ),
@@ -3902,7 +3980,7 @@ class _PreviewGameRow extends StatelessWidget {
                 ) {
                   return const Icon(
                     Icons.sports_esports_rounded,
-                    size: 19,
+                    size: 24,
                     color: Color(0xFFA495FF),
                   );
                 },
@@ -3924,106 +4002,69 @@ class _PreviewGameRow extends StatelessWidget {
                       letterSpacing: 0.3,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     game.accountName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFFE4E7F2),
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  if (topPercent != null) ...[
-                    const SizedBox(height: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0x332F64FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        calculatedEntry?.estimated == true
-                            ? '상위 약 ${_formatPercent(topPercent)}%'
-                            : '상위 ${_formatPercent(topPercent)}%',
-                        style: const TextStyle(
-                          color: Color(0xFFA99BFF),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF252458),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      metricLabel,
+                      style: const TextStyle(
+                        color: Color(0xFFB8AEFF),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  metricLabel,
-                  style: const TextStyle(
-                    color: Color(0xFF8491A6),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                  ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: Text(
+                metricValue,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFE6E1FF),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                 ),
-                const SizedBox(height: 3),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 125,
-                  ),
-                  child: Text(
-                    metricValue,
-                    textAlign: TextAlign.right,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFE3DEFF),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                if (showDetailAction && _detailUrl(game) != null) ...[
-                  const SizedBox(height: 5),
-                  InkWell(
-                    onTap: () => _openGameDetails(game),
-                    borderRadius: BorderRadius.circular(6),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 3,
-                        vertical: 2,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '상세보기',
-                            style: TextStyle(
-                              color: Color(0xFF7D8AA0),
-                              fontSize: 7,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          SizedBox(width: 1),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 11,
-                            color: Color(0xFF7D8AA0),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+              ),
             ),
+            if (detailUrl != null) ...[
+              const SizedBox(width: 5),
+              GestureDetector(
+                onTap: () => _openGameDetails(game),
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.all(3),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: Color(0xFFD8D0FF),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -4220,6 +4261,8 @@ class _PreviewGameRow extends StatelessWidget {
     return '-';
   }
 
+  // TODO: Remove with the legacy percentile badge after visual QA.
+  // ignore: unused_element
   String _formatPercent(double value) {
     if (value == value.roundToDouble()) {
       return value.toStringAsFixed(0);

@@ -374,7 +374,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         context: context,
         barrierColor: Colors.black.withValues(alpha: 0.76),
         builder: (dialogContext) => Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
           backgroundColor: Colors.transparent,
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -1459,9 +1460,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           title,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF202636),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF202636),
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
                           ),
@@ -1546,11 +1546,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             retryingIds.add(failure.game.id);
                                           });
                                           try {
-                                            final refreshed = await GameRepository
-                                                .instance
-                                                .refreshGame(failure.game.id);
+                                            final refreshed =
+                                                await GameRepository
+                                                    .instance
+                                                    .refreshGame(
+                                                        failure.game.id);
                                             if (mounted) {
-                                              final gameIndex = _games.indexWhere(
+                                              final gameIndex =
+                                                  _games.indexWhere(
                                                 (game) =>
                                                     game.id == failure.game.id,
                                               );
@@ -1579,7 +1582,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     failure.game.id,
                                               );
                                               if (failureIndex != -1) {
-                                                remainingFailures[failureIndex] =
+                                                remainingFailures[
+                                                        failureIndex] =
                                                     _GameRefreshFailure(
                                                   failure.game,
                                                   _friendlyRefreshFailureReason(
@@ -1598,7 +1602,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     failure.game.id,
                                               );
                                               if (failureIndex != -1) {
-                                                remainingFailures[failureIndex] =
+                                                remainingFailures[
+                                                        failureIndex] =
                                                     _GameRefreshFailure(
                                                   failure.game,
                                                   '서버 응답 오류',
@@ -4659,9 +4664,7 @@ class _MobileMyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final guest = user?.isAnonymous == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
@@ -4752,9 +4755,7 @@ class _MobileMyPage extends StatelessWidget {
               if (states.contains(WidgetState.hovered)) {
                 return const Color(0x1F7B61FF);
               }
-              return isDark
-                  ? const Color(0xFF0A1424)
-                  : const Color(0xFFF7F5FF);
+              return isDark ? const Color(0xFF0A1424) : const Color(0xFFF7F5FF);
             }),
             side: const WidgetStatePropertyAll(
               BorderSide(color: Color(0xFF54458A)),
@@ -5154,14 +5155,14 @@ class _MobileHeroProfile extends StatelessWidget {
         ),
       ),
       child: SizedBox(
-        height: 92,
+        height: 116,
         child: Stack(
           children: [
             Positioned.fill(
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 120),
+                  padding: const EdgeInsets.only(right: 126),
                   child: Row(
                     children: [
                       CircleAvatar(
