@@ -17,6 +17,7 @@ import '../services/my_game_picks_controller.dart';
 import '../services/public_profile_repository.dart';
 import '../services/user_profile_repository.dart';
 import '../theme/app_theme_controller.dart';
+import '../widgets/account_deletion_dialog.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/bottom_reach_glow.dart';
 import '../widgets/game_card.dart';
@@ -329,6 +330,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _deleteMode = false;
   bool _sidebarCollapsed = false;
   bool _isGameFinderAdmin = false;
+  bool _isDeletingAccount = false;
   bool? _wasMobileLayout;
   final Set<int> _selectedGameIds = {};
   String? _loadGamesError;
@@ -1840,6 +1842,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await AuthService.instance.signOut();
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    if (_isDeletingAccount) return;
+
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    final deleted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AccountDeletionDialog(
+        onConfirm: UserProfileRepository.instance.deleteAccount,
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (deleted == true) {
+      pendingDashboardPage = DashboardPage.dashboard;
+      MyGamePicksController.instance.clear();
+      await AuthService.instance.signOut();
+      return;
+    }
+
+    setState(() {
+      _isDeletingAccount = false;
+    });
+  }
+
   Future<void> _showApiError([String? message]) async {
     if (!mounted) return;
 
@@ -2153,6 +2184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   user: _user,
                   profile: _userProfile,
                   onSignOut: _confirmSignOut,
+                  onDeleteAccount: _confirmDeleteAccount,
                   onGoogleLogin: _signInFromMyPage,
                   onOpenGameFinder: _openGameFinder,
                 ),
@@ -2264,6 +2296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             isGameFinderAdmin: _isGameFinderAdmin,
             onGameFinderAdmin: _openGameFinderAdmin,
             onSignOut: _confirmSignOut,
+            onDeleteAccount: _confirmDeleteAccount,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
             isDarkMode: isDark,
@@ -2477,6 +2510,7 @@ class _Sidebar extends StatefulWidget {
     required this.dashboardMenuExpanded,
     required this.onTools,
     required this.onSignOut,
+    required this.onDeleteAccount,
     required this.deleteMode,
     required this.collapsed,
     required this.onToggleCollapsed,
@@ -2497,6 +2531,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onDeleteGames;
   final VoidCallback onTools;
   final VoidCallback onSignOut;
+  final VoidCallback onDeleteAccount;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onGameIdentity;
   final VoidCallback onGameFinder;
@@ -2747,17 +2782,48 @@ class _SidebarState extends State<_Sidebar> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            displayName,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: widget.isDarkMode
-                                  ? Colors.white
-                                  : const Color(0xFF202636),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  displayName,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: widget.isDarkMode
+                                        ? Colors.white
+                                        : const Color(0xFF202636),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                key: const ValueKey(
+                                  'web-account-deletion',
+                                ),
+                                onPressed: widget.onDeleteAccount,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFFF687B),
+                                  minimumSize: const Size(0, 30),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 9,
+                                  ),
+                                  side: const BorderSide(
+                                    color: Color(0xFFB94455),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: const Text('계정 삭제'),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -4694,6 +4760,7 @@ class _MobileMyPage extends StatelessWidget {
     required this.user,
     required this.profile,
     required this.onSignOut,
+    required this.onDeleteAccount,
     required this.onGoogleLogin,
     required this.onOpenGameFinder,
   });
@@ -4701,6 +4768,7 @@ class _MobileMyPage extends StatelessWidget {
   final User? user;
   final UserProfile? profile;
   final VoidCallback onSignOut;
+  final VoidCallback onDeleteAccount;
   final VoidCallback onGoogleLogin;
   final VoidCallback onOpenGameFinder;
 
@@ -4809,6 +4877,30 @@ class _MobileMyPage extends StatelessWidget {
             ),
             textStyle: const WidgetStatePropertyAll(
               TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: OutlinedButton.icon(
+          key: const ValueKey('mobile-account-deletion'),
+          onPressed: onDeleteAccount,
+          icon: const Icon(Icons.person_remove_outlined),
+          label: const Text('계정 삭제'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFFF687B),
+            backgroundColor:
+                isDark ? const Color(0xFF0A1424) : const Color(0xFFFFF7F8),
+            side: const BorderSide(color: Color(0xFFB94455)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),

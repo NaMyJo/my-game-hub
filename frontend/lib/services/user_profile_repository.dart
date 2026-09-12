@@ -25,4 +25,8 @@ class UserProfileRepository {
 
     return UserProfile.fromJson(json as Map<String, dynamic>);
   }
+
+  Future<void> deleteAccount() {
+    return ApiClient.instance.delete('/api/me/account');
+  }
 }

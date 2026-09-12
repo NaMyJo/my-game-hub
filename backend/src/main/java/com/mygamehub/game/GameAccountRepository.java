@@ -25,4 +25,6 @@ public interface GameAccountRepository extends JpaRepository<GameAccount, Long> 
             GameType gameType,
             String accountName
     );
+
+    void deleteAllByFirebaseUid(String firebaseUid);
 }

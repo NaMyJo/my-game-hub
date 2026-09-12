@@ -9,4 +9,5 @@ public interface MyGamePickRepository extends JpaRepository<MyGamePick, Long> {
     boolean existsByFirebaseUidAndSteamAppId(String firebaseUid, Long steamAppId);
     Optional<MyGamePick> findByFirebaseUidAndSteamAppId(String firebaseUid, Long steamAppId);
     void deleteByFirebaseUidAndSteamAppId(String firebaseUid, Long steamAppId);
+    void deleteAllByFirebaseUid(String firebaseUid);
 }

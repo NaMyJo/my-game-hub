@@ -39,7 +39,8 @@ public class FirebaseAuthInterceptor implements HandlerInterceptor {
                     token.getUid(),
                     token.getEmail(),
                     token.getName(),
-                    token.getPicture()
+                    token.getPicture(),
+                    authTimeEpochSeconds(token)
             );
 
             request.setAttribute(USER_ATTRIBUTE, user);
@@ -48,5 +49,10 @@ public class FirebaseAuthInterceptor implements HandlerInterceptor {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid Firebase ID token");
             return false;
         }
+    }
+
+    private Long authTimeEpochSeconds(FirebaseToken token) {
+        Object value = token.getClaims().get("auth_time");
+        return value instanceof Number number ? number.longValue() : null;
     }
 }

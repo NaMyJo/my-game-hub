@@ -9,4 +9,6 @@ public interface GameProfileSummaryRepository
 
     Optional<GameProfileSummary>
     findByUserUid(String userUid);
+
+    void deleteByUserUid(String userUid);
 }

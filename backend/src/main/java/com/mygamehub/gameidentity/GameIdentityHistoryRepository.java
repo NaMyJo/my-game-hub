@@ -14,4 +14,6 @@ public interface GameIdentityHistoryRepository
     Optional<GameIdentityHistory> findByShareIdAndShareEnabledTrue(
             String shareId
     );
+
+    void deleteByUserUid(String userUid);
 }

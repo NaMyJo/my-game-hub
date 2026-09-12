@@ -1,5 +1,7 @@
 package com.mygamehub.common;
 
+import com.mygamehub.user.AccountDeletionException;
+import com.mygamehub.user.RecentAuthenticationRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -26,5 +28,21 @@ public class ApiExceptionHandler {
     ResponseEntity<Map<String, String>> validation(MethodArgumentNotValidException e) {
         return ResponseEntity.badRequest()
                 .body(Map.of("message", "요청값이 올바르지 않습니다."));
+    }
+
+    @ExceptionHandler(RecentAuthenticationRequiredException.class)
+    ResponseEntity<Map<String, String>> recentAuthenticationRequired(
+            RecentAuthenticationRequiredException e
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("message", e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountDeletionException.class)
+    ResponseEntity<Map<String, String>> accountDeletionFailed(
+            AccountDeletionException e
+    ) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("message", e.getMessage()));
     }
 }
