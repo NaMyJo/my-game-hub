@@ -1743,6 +1743,85 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
     );
   }
 
+  Widget _buildProfileImageUtilityButton() {
+    return SizedBox.square(
+      dimension: 50,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ExcludeSemantics(
+            child: IgnorePointer(
+              child: _IdentityImageActionButton(
+                hasImage: _profileImageBytes != null,
+              ),
+            ),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: ProfileImageInputOverlay(
+              onImageSelected: _processSelectedProfileImage,
+              onError: _handleProfileImagePickerError,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepActions({
+    required VoidCallback? onPrevious,
+    required String primaryLabel,
+    required VoidCallback? onPrimary,
+    required IconData primaryIcon,
+    bool showImageAction = true,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 360;
+        final previousButton = _IdentitySecondaryActionButton(
+          onPressed: onPrevious,
+        );
+        final primaryButton = _IdentityPrimaryActionButton(
+          onPressed: onPrimary,
+          label: primaryLabel,
+          icon: primaryIcon,
+        );
+
+        if (narrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  previousButton,
+                  const Spacer(),
+                  if (showImageAction) _buildProfileImageUtilityButton(),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: primaryButton,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            previousButton,
+            const Spacer(),
+            if (showImageAction) ...[
+              _buildProfileImageUtilityButton(),
+              const SizedBox(width: 10),
+            ],
+            primaryButton,
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildNicknameStep() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -1925,13 +2004,10 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerRight,
-          child: FilledButton.icon(
+          child: _IdentityPrimaryActionButton(
             onPressed: () => _moveToStep(1),
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
-              size: 18,
-            ),
-            label: const Text('다음'),
+            label: '다음',
+            icon: Icons.arrow_forward_rounded,
           ),
         ),
       ],
@@ -1996,34 +2072,13 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             },
           ),
         const SizedBox(height: 24),
-        Row(
-          children: [
-            OutlinedButton(
-              onPressed: () => _moveToStep(0),
-              child: const Text('이전'),
-            ),
-            const Spacer(),
-            if (MediaQuery.sizeOf(context).width < 1100) ...[
-              IconButton.outlined(
-                onPressed: () => setState(() => _showPreview = !_showPreview),
-                tooltip: _showPreview ? '현재 게임 신분증 미리보기 닫기' : '현재 게임 신분증 미리보기',
-                icon: Icon(
-                  _showPreview ? Icons.image : Icons.image_outlined,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-            FilledButton.icon(
-              onPressed: () => _moveToStep(2),
-              icon: const Icon(
-                Icons.arrow_forward_rounded,
-                size: 18,
-              ),
-              label: Text(
-                _hasSelectedGames ? '다음' : '기타 게임 추가',
-              ),
-            ),
-          ],
+        _buildStepActions(
+          onPrevious: () => _moveToStep(0),
+          primaryLabel: _hasSelectedGames ? '다음' : '기타 게임 추가',
+          onPrimary: () => _moveToStep(2),
+          primaryIcon: _hasSelectedGames
+              ? Icons.arrow_forward_rounded
+              : Icons.add_rounded,
         ),
       ],
     );
@@ -2269,13 +2324,9 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
+                child: _IdentityAccentActionButton(
                   onPressed: _addCustomGame,
-                  icon: const Icon(
-                    Icons.add_rounded,
-                    size: 18,
-                  ),
-                  label: const Text('기타 게임 추가'),
+                  label: '기타 게임 추가',
                 ),
               ),
             ],
@@ -2318,55 +2369,11 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
             ),
           ),
         const SizedBox(height: 24),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
-            if (!compact) {
-              return Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(1),
-                    child: const Text('이전'),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
-                    child: const Text('건너뛰기'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
-                    child: const Text('최종 확인'),
-                  ),
-                ],
-              );
-            }
-
-            return Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(1),
-                    child: const FittedBox(child: Text('이전')),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: TextButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
-                    child: const FittedBox(child: Text('건너뛰기')),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _isAddingGame ? null : () => _moveToStep(3),
-                    child: const FittedBox(child: Text('최종 확인')),
-                  ),
-                ),
-              ],
-            );
-          },
+        _buildStepActions(
+          onPrevious: _isAddingGame ? null : () => _moveToStep(1),
+          primaryLabel: '최종 확인',
+          onPrimary: _isAddingGame ? null : () => _moveToStep(3),
+          primaryIcon: Icons.arrow_forward_rounded,
         ),
       ],
     );
@@ -2438,9 +2445,8 @@ class _GameIdentityPageState extends State<GameIdentityPage> {
         const SizedBox(height: 24),
         Row(
           children: [
-            OutlinedButton(
+            _IdentitySecondaryActionButton(
               onPressed: () => _moveToStep(2),
-              child: const Text('이전'),
             ),
             const Spacer(),
             _IdentityGenerateButton(
@@ -2527,6 +2533,156 @@ class _GeneratedPreviewActionButton extends StatelessWidget {
         tooltip: tooltip,
         color: const Color(0xFFF2EFFF),
         icon: Icon(icon),
+      ),
+    );
+  }
+}
+
+class _IdentitySecondaryActionButton extends StatelessWidget {
+  const _IdentitySecondaryActionButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFC9BFFF),
+          side: const BorderSide(color: Color(0xFF77758A)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+        label: const Text(
+          '이전',
+          maxLines: 1,
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+class _IdentityPrimaryActionButton extends StatelessWidget {
+  const _IdentityPrimaryActionButton({
+    required this.onPressed,
+    required this.label,
+    required this.icon,
+  });
+
+  final VoidCallback? onPressed;
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: enabled ? 1 : 0.55,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+          ),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x337B61FF),
+              blurRadius: 13,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(15),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 17),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(icon, color: Colors.white, size: 18),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IdentityAccentActionButton extends StatelessWidget {
+  const _IdentityAccentActionButton({
+    required this.onPressed,
+    required this.label,
+  });
+
+  final VoidCallback? onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF4E3F99),
+          foregroundColor: const Color(0xFFF3F0FF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(
+          label,
+          maxLines: 1,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+class _IdentityImageActionButton extends StatelessWidget {
+  const _IdentityImageActionButton({required this.hasImage});
+
+  final bool hasImage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E172A),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFF77758A)),
+      ),
+      child: Icon(
+        hasImage ? Icons.image_rounded : Icons.image_outlined,
+        color: const Color(0xFFB6A8FF),
+        size: 21,
       ),
     );
   }

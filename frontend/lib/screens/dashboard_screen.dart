@@ -1801,7 +1801,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final result = await showDialog<AddGameResult>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.68),
-      builder: (_) => const AddGameDialog(),
+      builder: (_) => const AddGameDialog(
+        autofocusAccountName: false,
+      ),
     );
 
     if (result == null || !mounted) {

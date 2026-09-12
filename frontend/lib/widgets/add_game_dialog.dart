@@ -15,7 +15,13 @@ class AddGameResult {
 }
 
 class AddGameDialog extends StatefulWidget {
-  const AddGameDialog({super.key});
+  const AddGameDialog({
+    super.key,
+    this.autofocusAccountName = false,
+  });
+
+  final bool autofocusAccountName;
+
   @override
   State<AddGameDialog> createState() => _AddGameDialogState();
 }
@@ -185,7 +191,7 @@ class _AddGameDialogState extends State<AddGameDialog> {
                             const SizedBox(height: 9),
                             TextFormField(
                               controller: _controller,
-                              autofocus: true,
+                              autofocus: widget.autofocusAccountName,
                               maxLength: _accountNameMaxLength,
                               scrollPadding:
                                   EdgeInsets.only(bottom: keyboardInset + 96),
