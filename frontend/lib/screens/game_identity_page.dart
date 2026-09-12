@@ -3395,6 +3395,15 @@ class _GameIdentityPreview extends StatelessWidget {
       );
     }
 
+    const visibleGameLimit = 4;
+    final visibleSelectedGames = selectedGames.take(visibleGameLimit).toList();
+    final remainingSlots = visibleGameLimit - visibleSelectedGames.length;
+    final visibleCustomGames = customGames.take(remainingSlots).toList();
+    final hiddenGameCount = selectedGames.length +
+        customGames.length -
+        visibleSelectedGames.length -
+        visibleCustomGames.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3434,7 +3443,7 @@ class _GameIdentityPreview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        ...selectedGames.map(
+        ...visibleSelectedGames.map(
           (game) {
             GameIdentityPreviewEntry? calculatedEntry;
 
@@ -3455,7 +3464,7 @@ class _GameIdentityPreview extends StatelessWidget {
             );
           },
         ),
-        if (customGames.isNotEmpty) ...[
+        if (visibleCustomGames.isNotEmpty) ...[
           const SizedBox(height: 10),
           Row(
             children: [
@@ -3480,7 +3489,7 @@ class _GameIdentityPreview extends StatelessWidget {
           Wrap(
             spacing: 7,
             runSpacing: 7,
-            children: customGames
+            children: visibleCustomGames
                 .map(
                   (game) => Container(
                     constraints: const BoxConstraints(
@@ -3537,6 +3546,18 @@ class _GameIdentityPreview extends StatelessWidget {
                 .toList(),
           ),
         ],
+        if (hiddenGameCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 8),
+            child: Text(
+              '외 $hiddenGameCount개 게임',
+              style: const TextStyle(
+                color: Color(0xFF8290A4),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
       ],
     );
   }

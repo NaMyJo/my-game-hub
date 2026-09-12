@@ -2284,6 +2284,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 isLoadingGameProfile: _isLoadingGameProfile,
                                 onOpenAnalysis: _openGamePowerAnalysis,
                                 onPublicProfile: _openPublicProfileSettings,
+                                onOpenLatestIdentity:
+                                    _openLatestIdentityPreview,
                                 onRefreshAll: _refreshAllGames,
                                 isRefreshingAll: _isRefreshingAll,
                               ),
@@ -3075,6 +3077,7 @@ class _HeroProfile extends StatelessWidget {
     required this.isLoadingGameProfile,
     required this.onOpenAnalysis,
     required this.onPublicProfile,
+    required this.onOpenLatestIdentity,
     required this.onRefreshAll,
     required this.isRefreshingAll,
   });
@@ -3086,6 +3089,7 @@ class _HeroProfile extends StatelessWidget {
   final bool isLoadingGameProfile;
   final VoidCallback onOpenAnalysis;
   final VoidCallback onPublicProfile;
+  final VoidCallback onOpenLatestIdentity;
   final VoidCallback onRefreshAll;
   final bool isRefreshingAll;
   @override
@@ -3105,7 +3109,7 @@ class _HeroProfile extends StatelessWidget {
         final userInfo = Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 88),
+              padding: const EdgeInsets.only(right: 130),
               child: Row(
                 children: [
                   Container(
@@ -3191,26 +3195,25 @@ class _HeroProfile extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 0,
-              top: 0,
+              right: 84,
+              bottom: 0,
               child: IconButton(
-                onPressed: isRefreshingAll ? null : onRefreshAll,
-                tooltip: '전체 새로고침',
+                onPressed: onOpenLatestIdentity,
+                tooltip: '최근 게임 신분증',
                 style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF182740),
-                  foregroundColor: const Color(0xFF9B8CFF),
-                  minimumSize: const Size(32, 32),
+                  backgroundColor: isDark
+                      ? const Color(0xFF101D30)
+                      : const Color(0xFFF0F3F8),
+                  foregroundColor: const Color(0xFF7D6CF0),
+                  side: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF2B3A50)
+                        : const Color(0xFFD8DEEA),
+                  ),
+                  minimumSize: const Size(34, 34),
                   padding: EdgeInsets.zero,
                 ),
-                icon: isRefreshingAll
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.refresh_rounded, size: 15),
+                icon: const Icon(Icons.image_outlined, size: 17),
               ),
             ),
             Positioned(
@@ -5235,6 +5238,27 @@ class _MobileHeroProfile extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: IconButton(
+                onPressed: isRefreshingAll ? null : onRefreshAll,
+                tooltip: '전체 새로고침',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF182740),
+                  foregroundColor: const Color(0xFF9B8CFF),
+                  minimumSize: const Size(32, 32),
+                  padding: EdgeInsets.zero,
+                ),
+                icon: isRefreshingAll
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded, size: 15),
               ),
             ),
             Positioned(
