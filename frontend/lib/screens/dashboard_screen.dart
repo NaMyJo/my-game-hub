@@ -439,6 +439,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _deleteMode = false;
       _selectedGameIds.clear();
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_mobileFinderScrollController.hasClients) {
+        _mobileFinderScrollController.jumpTo(
+          _mobileFinderScrollController.position.minScrollExtent,
+        );
+      }
+    });
   }
 
   void _openMyPage() {
