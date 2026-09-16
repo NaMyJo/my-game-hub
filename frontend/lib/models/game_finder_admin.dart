@@ -77,8 +77,7 @@ class GameFinderAdminStatus {
         storeUnavailableCount:
             (json['storeUnavailableCount'] as num?)?.toInt() ?? 0,
         igdbTargetCount: (json['igdbTargetCount'] as num?)?.toInt() ?? 0,
-        igdbTerminalCount:
-            (json['igdbTerminalCount'] as num?)?.toInt() ?? 0,
+        igdbTerminalCount: (json['igdbTerminalCount'] as num?)?.toInt() ?? 0,
         finderEligibleCount:
             (json['finderEligibleCount'] as num?)?.toInt() ?? 0,
         gameCount: (json['gameCount'] as num?)?.toInt() ?? 0,
@@ -94,19 +93,16 @@ class GameFinderAdminStatus {
             (json['igdbSuccessPlayerDataMissingCount'] as num?)?.toInt() ?? 0,
         playerMissingClassification:
             GameFinderPlayerMissingClassification.fromJson(
-                json['playerMissingClassification']
-                        as Map<String, dynamic>? ??
+                json['playerMissingClassification'] as Map<String, dynamic>? ??
                     const {}),
-        metadataConcurrency:
-            ((json['metadataRuntimeConfig']
-                        as Map<String, dynamic>?)?['concurrency'] as num?)
-                    ?.toInt() ??
-                1,
-        metadataRequestDelayMs:
-            ((json['metadataRuntimeConfig']
-                        as Map<String, dynamic>?)?['requestDelayMs'] as num?)
-                    ?.toInt() ??
-                500,
+        metadataConcurrency: ((json['metadataRuntimeConfig']
+                    as Map<String, dynamic>?)?['concurrency'] as num?)
+                ?.toInt() ??
+            1,
+        metadataRequestDelayMs: ((json['metadataRuntimeConfig']
+                    as Map<String, dynamic>?)?['requestDelayMs'] as num?)
+                ?.toInt() ??
+            500,
       );
 }
 
@@ -200,8 +196,8 @@ class GameFinderFullCatalogSyncStatus {
         status: json['status'] as String? ?? 'NEW',
         lastAppId: (json['lastAppId'] as num?)?.toInt() ?? 0,
         discoveredCount: (json['discoveredCount'] as num?)?.toInt() ?? 0,
-        lastSuccessfulRunAt: DateTime.tryParse(
-            json['lastSuccessfulRunAt'] as String? ?? ''),
+        lastSuccessfulRunAt:
+            DateTime.tryParse(json['lastSuccessfulRunAt'] as String? ?? ''),
         completed: json['completed'] as bool? ?? false,
         hasFailure: json['hasFailure'] as bool? ?? false,
       );
@@ -252,8 +248,8 @@ class GameFinderCatalogCheckpoint {
   factory GameFinderCatalogCheckpoint.fromJson(Map<String, dynamic> json) =>
       GameFinderCatalogCheckpoint(
         lastAppId: (json['lastAppId'] as num?)?.toInt() ?? 0,
-        lastSuccessfulSyncAt: DateTime.tryParse(
-            json['lastSuccessfulSyncAt'] as String? ?? ''),
+        lastSuccessfulSyncAt:
+            DateTime.tryParse(json['lastSuccessfulSyncAt'] as String? ?? ''),
         status: json['status'] as String? ?? 'NEW',
         hasFailure: json['hasFailure'] as bool? ?? false,
       );
@@ -270,7 +266,12 @@ class GameFinderAdminCatalogExpandResult {
     required this.durationMs,
   });
 
-  final int fetched, upserted, newlySaved, currentTotal, targetTotal, durationMs;
+  final int fetched,
+      upserted,
+      newlySaved,
+      currentTotal,
+      targetTotal,
+      durationMs;
   final bool targetReached;
 
   factory GameFinderAdminCatalogExpandResult.fromJson(
@@ -304,10 +305,8 @@ class GameFinderEnrichmentCounts {
         pending: (json['pending'] as num?)?.toInt() ?? 0,
         success: (json['success'] as num?)?.toInt() ?? 0,
         notFound: (json['notFound'] as num?)?.toInt() ?? 0,
-        retryableFailure:
-            (json['retryableFailure'] as num?)?.toInt() ?? 0,
-        permanentFailure:
-            (json['permanentFailure'] as num?)?.toInt() ?? 0,
+        retryableFailure: (json['retryableFailure'] as num?)?.toInt() ?? 0,
+        permanentFailure: (json['permanentFailure'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -334,15 +333,15 @@ class GameFinderAdminEnrichResult {
   final int igdbRetryableFailure, igdbPermanentFailure;
   final bool hasMoreCandidates;
 
-  int get failures => metadataRetryableFailure +
+  int get failures =>
+      metadataRetryableFailure +
       metadataPermanentFailure +
       igdbRetryableFailure +
       igdbPermanentFailure;
 
   factory GameFinderAdminEnrichResult.fromJson(Map<String, dynamic> json) =>
       GameFinderAdminEnrichResult(
-        requestedBatchSize:
-            (json['requestedBatchSize'] as num?)?.toInt() ?? 0,
+        requestedBatchSize: (json['requestedBatchSize'] as num?)?.toInt() ?? 0,
         processed: (json['processed'] as num?)?.toInt() ?? 0,
         metadataSuccess: (json['metadataSuccess'] as num?)?.toInt() ?? 0,
         metadataNotFound: (json['metadataNotFound'] as num?)?.toInt() ?? 0,
@@ -384,18 +383,16 @@ class GameFinderAdminStageEnrichResult {
   double get itemsPerSecond =>
       durationMs <= 0 ? 0 : processed * 1000 / durationMs;
 
-  factory GameFinderAdminStageEnrichResult.fromJson(Map<String, dynamic> json) =>
+  factory GameFinderAdminStageEnrichResult.fromJson(
+          Map<String, dynamic> json) =>
       GameFinderAdminStageEnrichResult(
         stage: json['stage'] as String? ?? '',
-        requestedBatchSize:
-            (json['requestedBatchSize'] as num?)?.toInt() ?? 0,
+        requestedBatchSize: (json['requestedBatchSize'] as num?)?.toInt() ?? 0,
         processed: (json['processed'] as num?)?.toInt() ?? 0,
         success: (json['success'] as num?)?.toInt() ?? 0,
         notFound: (json['notFound'] as num?)?.toInt() ?? 0,
-        retryableFailure:
-            (json['retryableFailure'] as num?)?.toInt() ?? 0,
-        permanentFailure:
-            (json['permanentFailure'] as num?)?.toInt() ?? 0,
+        retryableFailure: (json['retryableFailure'] as num?)?.toInt() ?? 0,
+        permanentFailure: (json['permanentFailure'] as num?)?.toInt() ?? 0,
         hasMoreCandidates: json['hasMoreCandidates'] as bool? ?? false,
         rateLimited: json['rateLimited'] as bool? ?? false,
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
@@ -424,10 +421,8 @@ class GameFinderAdminIgdbVerifyResult {
         valid: (json['valid'] as num?)?.toInt() ?? 0,
         successMissingGameId:
             (json['successMissingGameId'] as num?)?.toInt() ?? 0,
-        notFoundWithGameId:
-            (json['notFoundWithGameId'] as num?)?.toInt() ?? 0,
-        invalidPlayerRange:
-            (json['invalidPlayerRange'] as num?)?.toInt() ?? 0,
+        notFoundWithGameId: (json['notFoundWithGameId'] as num?)?.toInt() ?? 0,
+        invalidPlayerRange: (json['invalidPlayerRange'] as num?)?.toInt() ?? 0,
         duplicateIgdbMapping:
             (json['duplicateIgdbMapping'] as num?)?.toInt() ?? 0,
         duplicateTaxonomyRelation:
@@ -458,12 +453,9 @@ class GameFinderAdminMetadataVerifyResult {
         sampled: (json['sampled'] as num?)?.toInt() ?? 0,
         matched: (json['matched'] as num?)?.toInt() ?? 0,
         changed: (json['changed'] as num?)?.toInt() ?? 0,
-        criticalMismatch:
-            (json['criticalMismatch'] as num?)?.toInt() ?? 0,
-        storeUnavailable:
-            (json['storeUnavailable'] as num?)?.toInt() ?? 0,
-        verificationError:
-            (json['verificationError'] as num?)?.toInt() ?? 0,
+        criticalMismatch: (json['criticalMismatch'] as num?)?.toInt() ?? 0,
+        storeUnavailable: (json['storeUnavailable'] as num?)?.toInt() ?? 0,
+        verificationError: (json['verificationError'] as num?)?.toInt() ?? 0,
         durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
         criticalDetails: (json['criticalDetails'] as List<dynamic>? ?? const [])
             .whereType<Map<String, dynamic>>()
@@ -502,7 +494,10 @@ class GameFinderMetadataRunnerStatus {
   final String? lastError;
 
   bool get active => const {
-        'RUNNING', 'WAITING_RATE_LIMIT', 'WAITING_RETRY', 'STOP_REQUESTED'
+        'RUNNING',
+        'WAITING_RATE_LIMIT',
+        'WAITING_RETRY',
+        'STOP_REQUESTED'
       }.contains(status);
 
   factory GameFinderMetadataRunnerStatus.fromJson(Map<String, dynamic> json) =>
@@ -553,8 +548,9 @@ class GameFinderMetadataCriticalDetail {
         dbName: json['dbName'] as String? ?? '',
         responseAppId: (json['responseAppId'] as num?)?.toInt(),
         responseName: json['responseName'] as String?,
-        mismatchedFields: (json['mismatchedFields'] as List<dynamic>? ?? const [])
-            .whereType<String>()
-            .toList(growable: false),
+        mismatchedFields:
+            (json['mismatchedFields'] as List<dynamic>? ?? const [])
+                .whereType<String>()
+                .toList(growable: false),
       );
 }

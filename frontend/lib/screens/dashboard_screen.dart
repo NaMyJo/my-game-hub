@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,6 +19,7 @@ import '../services/my_game_picks_controller.dart';
 import '../services/public_profile_repository.dart';
 import '../services/user_profile_repository.dart';
 import '../theme/app_theme_controller.dart';
+import '../utils/network_connection.dart';
 import '../widgets/account_deletion_dialog.dart';
 import '../widgets/add_game_dialog.dart';
 import '../widgets/bottom_reach_glow.dart';
@@ -40,6 +43,21 @@ enum DashboardPage {
 }
 
 DashboardPage pendingDashboardPage = DashboardPage.dashboard;
+
+bool usesMobileDashboardLayout(double width) => width < 700;
+
+@visibleForTesting
+BorderSide dashboardProfileEditBorder(bool isDark) => BorderSide(
+      color: isDark ? const Color(0xFF393568) : Colors.transparent,
+    );
+
+@visibleForTesting
+Color dashboardProfileFieldHintColor(bool isDark) =>
+    isDark ? const Color(0xFF66758B) : const Color(0xFF8997AD);
+
+@visibleForTesting
+Color dashboardProfileFieldCounterColor(bool isDark) =>
+    isDark ? const Color(0xFF69778B) : const Color(0xFF8997AD);
 
 class _GameRefreshFailure {
   const _GameRefreshFailure(this.game, this.reason);
@@ -270,7 +288,7 @@ class _GradientDialogButton extends StatelessWidget {
         height: 54,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+            colors: [Color(0xFF6848D8), Color(0xFF7A5FE8)],
           ),
           borderRadius: BorderRadius.circular(15),
           boxShadow: const [
@@ -307,7 +325,10 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
+  static const _networkRecoveryInterval = Duration(seconds: 5);
+
   final ScrollController _desktopScrollController = ScrollController();
   final ScrollController _mobileDashboardScrollController = ScrollController();
   final ScrollController _mobileToolsScrollController = ScrollController();
@@ -323,6 +344,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingGameProfile = true;
   int? _refreshingGameId;
   bool _isLoadingGames = true;
+  bool _gamesLoaded = false;
+  bool _gamesRequestInFlight = false;
+  bool _networkProbeInFlight = false;
+  Timer? _networkRecoveryTimer;
+  int _networkRecoveryGeneration = 0;
   bool _isRefreshingAll = false;
   bool _loadGamesTakingLong = false;
   bool _dashboardMenuExpanded = true;
@@ -537,6 +563,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _currentPage = pendingDashboardPage;
     pendingDashboardPage = DashboardPage.dashboard;
@@ -551,7 +578,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final isMobile = MediaQuery.sizeOf(context).width < 700;
+    final isMobile =
+        usesMobileDashboardLayout(MediaQuery.sizeOf(context).width);
     if (_wasMobileLayout == true &&
         !isMobile &&
         _currentPage == DashboardPage.myPage) {
@@ -563,6 +591,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _networkRecoveryTimer?.cancel();
     _desktopScrollController.dispose();
     _mobileDashboardScrollController.dispose();
     _mobileToolsScrollController.dispose();
@@ -570,6 +600,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _mobileFinderScrollController.dispose();
     _mobileMyPageScrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        (_networkRecoveryTimer?.isActive ?? false)) {
+      unawaited(_attemptNetworkRecovery());
+    }
+  }
+
+  void _scheduleNetworkRecovery() {
+    if (!mounted || (_networkRecoveryTimer?.isActive ?? false)) return;
+
+    _networkRecoveryTimer = Timer.periodic(
+      _networkRecoveryInterval,
+      (_) => unawaited(_attemptNetworkRecovery()),
+    );
+  }
+
+  void _stopNetworkRecovery() {
+    _networkRecoveryTimer?.cancel();
+    _networkRecoveryTimer = null;
+  }
+
+  Future<void> _attemptNetworkRecovery() async {
+    if (!mounted || _networkProbeInFlight || _gamesRequestInFlight) return;
+
+    _networkProbeInFlight = true;
+    final canReachBackend = await canReachNetworkHost(
+      Uri.parse(ApiClient.baseUrl),
+    );
+    _networkProbeInFlight = false;
+
+    if (!mounted || !canReachBackend) return;
+
+    _stopNetworkRecovery();
+    setState(() {
+      _networkRecoveryGeneration += 1;
+    });
+
+    if (_loadGamesError != null) {
+      await _loadGames();
+    }
   }
 
   Future<void> _loadGameFinderAdminAccess() async {
@@ -628,63 +701,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   User? get _user => FirebaseAuth.instance.currentUser;
   Future<void> _loadGames() async {
-    if (!mounted) return;
+    if (!mounted || _gamesRequestInFlight) return;
 
-    setState(() {
-      _isLoadingGames = true;
-      _loadGamesTakingLong = false;
-      _loadGamesError = null;
-    });
+    _gamesRequestInFlight = true;
+    _stopNetworkRecovery();
+    var loadedSuccessfully = false;
+    var hadNetworkFailure = false;
 
-    // 평소보다 오래 걸릴 때만 안내
-    Future.delayed(const Duration(seconds: 5), () {
-      if (!mounted || !_isLoadingGames) return;
-
+    try {
       setState(() {
-        _loadGamesTakingLong = true;
+        _isLoadingGames = true;
+        _gamesLoaded = false;
+        _loadGamesTakingLong = false;
+        _loadGamesError = null;
       });
-    });
 
-    const maxRetries = 2;
-
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        debugPrint('게임 목록 불러오기 시도: $attempt/$maxRetries');
-
-        final games = await GameRepository.instance
-            .getMyGames()
-            .timeout(const Duration(seconds: 15));
-
-        if (!mounted) return;
+      // 평소보다 오래 걸릴 때만 안내
+      Future.delayed(const Duration(seconds: 5), () {
+        if (!mounted || !_isLoadingGames) return;
 
         setState(() {
-          _games
-            ..clear()
-            ..addAll(games);
-
-          _isLoadingGames = false;
-          _loadGamesTakingLong = false;
-          _loadGamesError = null;
+          _loadGamesTakingLong = true;
         });
+      });
 
-        debugPrint('게임 목록 로딩 성공: ${games.length}개');
-        return;
-      } catch (e) {
-        debugPrint('게임 목록 로딩 실패 ($attempt/$maxRetries): $e');
+      const maxRetries = 2;
 
-        if (attempt < maxRetries) {
-          await Future.delayed(const Duration(seconds: 2));
+      for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          debugPrint('게임 목록 불러오기 시도: $attempt/$maxRetries');
+
+          final games = await GameRepository.instance
+              .getMyGames()
+              .timeout(const Duration(seconds: 15));
+
+          if (!mounted) return;
+
+          setState(() {
+            _games
+              ..clear()
+              ..addAll(games);
+
+            _isLoadingGames = false;
+            _gamesLoaded = true;
+            _loadGamesTakingLong = false;
+            _loadGamesError = null;
+          });
+
+          loadedSuccessfully = true;
+          debugPrint('게임 목록 로딩 성공: ${games.length}개');
+          return;
+        } catch (e) {
+          final networkFailure = isNetworkException(e);
+          hadNetworkFailure = hadNetworkFailure || networkFailure;
+          debugPrint(
+            networkFailure
+                ? '게임 목록 네트워크 오류 ($attempt/$maxRetries)'
+                : '게임 목록 로딩 실패 ($attempt/$maxRetries): '
+                    '${e.runtimeType}',
+          );
+
+          if (attempt < maxRetries) {
+            await Future.delayed(const Duration(seconds: 2));
+          }
         }
       }
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingGames = false;
+        _loadGamesTakingLong = false;
+        _loadGamesError = '게임 정보를 불러오지 못했습니다.';
+      });
+    } finally {
+      _gamesRequestInFlight = false;
+      if (!loadedSuccessfully &&
+          hadNetworkFailure &&
+          mounted &&
+          !_gamesLoaded) {
+        _scheduleNetworkRecovery();
+      }
     }
-
-    if (!mounted) return;
-
-    setState(() {
-      _isLoadingGames = false;
-      _loadGamesTakingLong = false;
-      _loadGamesError = '게임 정보를 불러오지 못했습니다.';
-    });
   }
 
   Future<void> _deleteSelectedGames() async {
@@ -769,7 +867,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final profile = await GameProfileSummaryRepository.instance.getProfile();
 
       debugPrint('GAME PROFILE LOAD SUCCESS');
-      debugPrint('profile = $profile');
 
       if (!mounted) return;
 
@@ -777,31 +874,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _gameProfileSummary = profile;
         _isLoadingGameProfile = false;
       });
-    } on ApiException catch (error, stackTrace) {
+    } on ApiException catch (error) {
       debugPrint('===== GAME PROFILE API ERROR =====');
       debugPrint('statusCode = ${error.statusCode}');
-      debugPrint('message = ${error.message}');
-      debugPrint('stackTrace = $stackTrace');
 
       if (!mounted) return;
 
       setState(() {
         _isLoadingGameProfile = false;
       });
-
-      rethrow;
-    } catch (error, stackTrace) {
+    } catch (error) {
       debugPrint('===== GAME PROFILE LOAD ERROR =====');
-      debugPrint('error = $error');
-      debugPrint('stackTrace = $stackTrace');
+      debugPrint('errorType = ${error.runtimeType}');
 
       if (!mounted) return;
 
       setState(() {
         _isLoadingGameProfile = false;
       });
-
-      rethrow;
     }
   }
 
@@ -814,9 +904,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _userProfile = profile;
       });
-    } catch (error, stackTrace) {
-      debugPrint('USER PROFILE LOAD ERROR: $error');
-      debugPrint('$stackTrace');
+    } catch (error) {
+      debugPrint('USER PROFILE LOAD ERROR: ${error.runtimeType}');
     }
   }
 
@@ -959,159 +1048,162 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF282657),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.edit_rounded,
-                        size: 18,
-                        color: Color(0xFFB8AEFF),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '프로필 수정',
-                            style: TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            '대시보드에서 보여줄 나만의 프로필이에요.',
-                            style: TextStyle(
-                              color: Color(0xFF8291A6),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close_rounded),
-                      color: const Color(0xFF7F8CA0),
-                      tooltip: '닫기',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                _ProfileEditField(
-                  controller: nicknameController,
-                  label: '닉네임',
-                  hintText: '대시보드에 표시할 닉네임',
-                  icon: Icons.person_outline_rounded,
-                  maxLength: 50,
-                ),
-                const SizedBox(height: 14),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: introductionController,
-                  builder: (context, value, child) {
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final painter = TextPainter(
-                          text: TextSpan(
-                            text: value.text,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          maxLines: 2,
-                          textDirection: TextDirection.ltr,
-                        )..layout(
-                            maxWidth:
-                                (constraints.maxWidth - 64).clamp(1, 1000),
-                          );
-                        final exceedsVisibleLines = painter.didExceedMaxLines;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _ProfileEditField(
-                              controller: introductionController,
-                              label: '소개 문구',
-                              hintText: '나를 표현하는 한마디',
-                              icon: Icons.notes_rounded,
-                              maxLength: 120,
-                              maxLines: 3,
-                            ),
-                            if (exceedsVisibleLines) ...[
-                              const SizedBox(height: 6),
-                              const Text(
-                                '프로필 문구는 두 줄까지만 표시됩니다.',
-                                style: TextStyle(
-                                  color: Color(0xFFE0A15A),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 22),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF9AA7B9),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: const Text('취소'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: () {
-                        final enteredNickname = nicknameController.text.trim();
-                        final nickname = enteredNickname.isEmpty
-                            ? 'The Gamer'
-                            : enteredNickname;
-
-                        Navigator.pop(
-                          dialogContext,
-                          (nickname, introductionController.text.trim()),
-                        );
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF7565E8),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
+            child: DashboardProfileDialogForeground(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF282657),
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        child: const Icon(
+                          Icons.edit_rounded,
+                          size: 18,
+                          color: Color(0xFFB8AEFF),
+                        ),
                       ),
-                      icon: const Icon(Icons.check_rounded, size: 17),
-                      label: const Text('저장'),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '프로필 수정',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '대시보드에서 보여줄 나만의 프로필이에요.',
+                              style: TextStyle(
+                                color: Color(0xFF8291A6),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
+                        color: const Color(0xFF7F8CA0),
+                        tooltip: '닫기',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 22),
+                  _ProfileEditField(
+                    controller: nicknameController,
+                    label: '닉네임',
+                    hintText: '대시보드에 표시할 닉네임',
+                    icon: Icons.person_outline_rounded,
+                    maxLength: 50,
+                  ),
+                  const SizedBox(height: 14),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: introductionController,
+                    builder: (context, value, child) {
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final painter = TextPainter(
+                            text: TextSpan(
+                              text: value.text,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            maxLines: 2,
+                            textDirection: TextDirection.ltr,
+                          )..layout(
+                              maxWidth:
+                                  (constraints.maxWidth - 64).clamp(1, 1000),
+                            );
+                          final exceedsVisibleLines = painter.didExceedMaxLines;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _ProfileEditField(
+                                controller: introductionController,
+                                label: '소개 문구',
+                                hintText: '나를 표현하는 한마디',
+                                icon: Icons.notes_rounded,
+                                maxLength: 120,
+                                maxLines: 3,
+                              ),
+                              if (exceedsVisibleLines) ...[
+                                const SizedBox(height: 6),
+                                const Text(
+                                  '프로필 문구는 두 줄까지만 표시됩니다.',
+                                  style: TextStyle(
+                                    color: Color(0xFFE0A15A),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF9AA7B9),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text('취소'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () {
+                          final enteredNickname =
+                              nicknameController.text.trim();
+                          final nickname = enteredNickname.isEmpty
+                              ? 'The Gamer'
+                              : enteredNickname;
+
+                          Navigator.pop(
+                            dialogContext,
+                            (nickname, introductionController.text.trim()),
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF7565E8),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.check_rounded, size: 17),
+                        label: const Text('저장'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -1729,17 +1821,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      debugPrint(
-        'REORDER IDs: ${_games.map((game) => game.id).toList()}',
-      );
-
       await GameRepository.instance.reorderGames(_games);
 
       debugPrint('REORDER 저장 성공');
-    } catch (error, stackTrace) {
+    } catch (error) {
       debugPrint('===== REORDER ERROR =====');
-      debugPrint('error: $error');
-      debugPrint('stackTrace: $stackTrace');
+      debugPrint('errorType: ${error.runtimeType}');
       debugPrint('=========================');
 
       if (!mounted) return;
@@ -2042,8 +2129,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       DashboardPage.myGamePicks => 4,
       DashboardPage.gameFinderAdmin => 0,
     };
+    final themeMode = appThemeMode.value;
     return Scaffold(
-      backgroundColor: const Color(0xFF050C16),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _MobilePageHeader(
         page: mobilePage,
       ),
@@ -2155,7 +2243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 key: const PageStorageKey('mobile-tools'),
                 controller: _mobileToolsScrollController,
                 padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
-                child: const _ToolsPage(),
+                child: const ToolsPage(),
               ),
               SingleChildScrollView(
                 key: const PageStorageKey('mobile-game-identity'),
@@ -2163,6 +2251,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 20, 14, 50),
                 child: GameIdentityPage(
                   games: _games,
+                  gamesLoaded: _gamesLoaded,
+                  latestReloadSignal: _networkRecoveryGeneration,
+                  onLatestLoadFailed: _scheduleNetworkRecovery,
                   onAddGame: _addGameForIdentity,
                   showHeader: false,
                   onProfileApplied: _handleIdentityProfileApplied,
@@ -2183,6 +2274,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _MobileMyPage(
                   user: _user,
                   profile: _userProfile,
+                  themeMode: themeMode,
+                  onToggleTheme: appThemeMode.cycleThemeMode,
                   onSignOut: _confirmSignOut,
                   onDeleteAccount: _confirmDeleteAccount,
                   onGoogleLogin: _signInFromMyPage,
@@ -2198,9 +2291,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.sizeOf(context).width;
-    final isMobile = width < 700;
+    final isMobile = usesMobileDashboardLayout(width);
     // ============================
     // 대시보드 요약 데이터 계산
     // ============================
@@ -2277,11 +2369,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF050C16) : const Color(0xFFF4F6FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Row(
         children: [
-          _Sidebar(
+          DashboardSidebar(
             user: _user,
             currentPage: _currentPage,
             dashboardMenuExpanded: _dashboardMenuExpanded,
@@ -2299,10 +2390,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onDeleteAccount: _confirmDeleteAccount,
             collapsed: _sidebarCollapsed,
             onToggleCollapsed: _toggleSidebar,
-            isDarkMode: isDark,
-            onToggleTheme: () {
-              appThemeMode.value = isDark ? ThemeMode.light : ThemeMode.dark;
-            },
+            themeMode: appThemeMode.value,
+            onToggleTheme: appThemeMode.cycleThemeMode,
           ),
           Expanded(
             child: BottomReachGlow(
@@ -2387,9 +2476,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ],
                           ),
-                        DashboardPage.tools => const _ToolsPage(webStyle: true),
+                        DashboardPage.tools => const ToolsPage(webStyle: true),
                         DashboardPage.gameIdentity => GameIdentityPage(
                             games: _games,
+                            gamesLoaded: _gamesLoaded,
+                            latestReloadSignal: _networkRecoveryGeneration,
+                            onLatestLoadFailed: _scheduleNetworkRecovery,
                             onAddGame: _addGameForIdentity,
                             onProfileApplied: _handleIdentityProfileApplied,
                           ),
@@ -2417,6 +2509,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+class DashboardProfileDialogForeground extends StatelessWidget {
+  const DashboardProfileDialogForeground({
+    super.key,
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DefaultTextStyle.merge(
+        style: const TextStyle(color: Color(0xFFF4F1FF)),
+        child: SingleChildScrollView(
+          primary: false,
+          child: child,
+        ),
+      );
+}
+
 class _ProfileEditField extends StatelessWidget {
   const _ProfileEditField({
     required this.controller,
@@ -2436,6 +2546,7 @@ class _ProfileEditField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2462,7 +2573,9 @@ class _ProfileEditField extends StatelessWidget {
           ),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: const TextStyle(color: Color(0xFF66758B)),
+            hintStyle: TextStyle(
+              color: dashboardProfileFieldHintColor(isDark),
+            ),
             prefixIcon: Icon(
               icon,
               size: 18,
@@ -2470,8 +2583,8 @@ class _ProfileEditField extends StatelessWidget {
             ),
             filled: true,
             fillColor: const Color(0xFF0E1C2E),
-            counterStyle: const TextStyle(
-              color: Color(0xFF69778B),
+            counterStyle: TextStyle(
+              color: dashboardProfileFieldCounterColor(isDark),
               fontSize: 10,
             ),
             contentPadding: const EdgeInsets.symmetric(
@@ -2500,8 +2613,9 @@ class _ProfileEditField extends StatelessWidget {
   }
 }
 
-class _Sidebar extends StatefulWidget {
-  const _Sidebar({
+class DashboardSidebar extends StatefulWidget {
+  const DashboardSidebar({
+    super.key,
     required this.user,
     required this.currentPage,
     required this.onDashboard,
@@ -2519,7 +2633,7 @@ class _Sidebar extends StatefulWidget {
     required this.onMyGamePicks,
     required this.isGameFinderAdmin,
     required this.onGameFinderAdmin,
-    required this.isDarkMode,
+    required this.themeMode,
     required this.onToggleTheme,
   });
 
@@ -2538,7 +2652,7 @@ class _Sidebar extends StatefulWidget {
   final VoidCallback onMyGamePicks;
   final bool isGameFinderAdmin;
   final VoidCallback onGameFinderAdmin;
-  final bool isDarkMode;
+  final AppThemeMode themeMode;
   final VoidCallback onToggleTheme;
 
   final bool deleteMode;
@@ -2546,10 +2660,11 @@ class _Sidebar extends StatefulWidget {
   final bool collapsed;
 
   @override
-  State<_Sidebar> createState() => _SidebarState();
+  State<DashboardSidebar> createState() => _DashboardSidebarState();
 }
 
-class _SidebarState extends State<_Sidebar> {
+class _DashboardSidebarState extends State<DashboardSidebar> {
+  final ScrollController _menuScrollController = ScrollController();
   bool _showContent = true;
 
   @override
@@ -2559,7 +2674,7 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   @override
-  void didUpdateWidget(covariant _Sidebar oldWidget) {
+  void didUpdateWidget(covariant DashboardSidebar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.collapsed == widget.collapsed) return;
@@ -2584,8 +2699,17 @@ class _SidebarState extends State<_Sidebar> {
   }
 
   @override
+  void dispose() {
+    _menuScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isGuest = widget.user?.isAnonymous == true;
+    final isDarkMode = widget.themeMode == AppThemeMode.dark;
+    final isPinkMode = widget.themeMode == AppThemeMode.pink;
+    final scheme = Theme.of(context).colorScheme;
 
     final displayName = isGuest ? '게스트' : (widget.user?.displayName ?? '게이머');
 
@@ -2598,14 +2722,16 @@ class _SidebarState extends State<_Sidebar> {
         width: widget.collapsed ? 76 : 230,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: widget.isDarkMode
+            color: isDarkMode
                 ? const Color(0xFF07101C)
-                : const Color(0xFFFFFFFF),
+                : (isPinkMode ? scheme.surface : const Color(0xFFFFFFFF)),
             border: Border(
               right: BorderSide(
-                color: widget.isDarkMode
+                color: isDarkMode
                     ? const Color(0xFF182334)
-                    : const Color(0xFFE0E5EC),
+                    : (isPinkMode
+                        ? scheme.outlineVariant
+                        : const Color(0xFFE0E5EC)),
               ),
             ),
           ),
@@ -2678,185 +2804,234 @@ class _SidebarState extends State<_Sidebar> {
                     ],
                   ),
                   const SizedBox(height: 38),
-                  _SideItem(
-                    icon: Icons.dashboard_rounded,
-                    label: '대시보드',
-                    selected: widget.currentPage == DashboardPage.dashboard,
-                    onTap: widget.onDashboard,
-                    collapsed: !_showContent,
-                  ),
-                  if (_showContent &&
-                      widget.dashboardMenuExpanded &&
-                      widget.currentPage == DashboardPage.dashboard) ...[
-                    _DashboardSubItem(
-                      icon: Icons.add_circle_outline_rounded,
-                      label: '게임 카드 추가',
-                      onTap: widget.onAddGame,
-                    ),
-                    _DashboardSubItem(
-                      icon: Icons.delete_outline_rounded,
-                      label: '게임 카드 삭제',
-                      selected: widget.deleteMode,
-                      onTap: widget.onDeleteGames,
-                    ),
-                  ],
-                  _SideItem(
-                    icon: Icons.build_circle_outlined,
-                    label: '도구 모음',
-                    selected: widget.currentPage == DashboardPage.tools,
-                    onTap: widget.onTools,
-                    collapsed: !_showContent,
-                  ),
-                  _SideItem(
-                    icon: Icons.badge_outlined,
-                    label: '게임 신분증',
-                    selected: widget.currentPage == DashboardPage.gameIdentity,
-                    onTap: widget.onGameIdentity,
-                    collapsed: !_showContent,
-                  ),
-                  _SideItem(
-                    icon: Icons.travel_explore_rounded,
-                    label: 'GAME FINDER',
-                    selected: widget.currentPage == DashboardPage.gameFinder,
-                    onTap: widget.onGameFinder,
-                    collapsed: !_showContent,
-                  ),
-                  _SideItem(
-                    icon: Icons.collections_bookmark_rounded,
-                    label: 'My Game Picks',
-                    selected: widget.currentPage == DashboardPage.myGamePicks,
-                    onTap: widget.onMyGamePicks,
-                    collapsed: !_showContent,
-                  ),
-                  if (widget.isGameFinderAdmin)
-                    _SideItem(
-                      icon: Icons.admin_panel_settings_outlined,
-                      label: 'FINDER ADMIN',
-                      selected:
-                          widget.currentPage == DashboardPage.gameFinderAdmin,
-                      onTap: widget.onGameFinderAdmin,
-                      collapsed: !_showContent,
-                    ),
-                  const Spacer(),
-                  _ThemeModeButton(
-                    collapsed: !_showContent,
-                    isDarkMode: widget.isDarkMode,
-                    onTap: widget.onToggleTheme,
-                  ),
-                  const SizedBox(height: 10),
-                  if (!_showContent)
-                    Material(
-                      color: widget.isDarkMode
-                          ? const Color(0xFF0B1524)
-                          : const Color(0xFFF1F3F8),
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        onTap: widget.onSignOut,
-                        borderRadius: BorderRadius.circular(14),
-                        child: SizedBox(
-                          height: 52,
-                          child: Icon(
-                            isGuest
-                                ? Icons.exit_to_app_rounded
-                                : Icons.logout_rounded,
-                            color: const Color(0xFFCFC6FF),
-                            size: 21,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode
-                            ? const Color(0xFF0B1524)
-                            : const Color(0xFFF7F8FB),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: widget.isDarkMode
-                              ? const Color(0xFF1C293B)
-                              : const Color(0xFFDDE2EA),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  displayName,
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: widget.isDarkMode
-                                        ? Colors.white
-                                        : const Color(0xFF202636),
-                                  ),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _menuScrollController,
+                      child: CustomScrollView(
+                        key: const ValueKey('desktop-sidebar-menu-scroll'),
+                        controller: _menuScrollController,
+                        primary: false,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _SideItem(
+                                  icon: Icons.dashboard_rounded,
+                                  label: '대시보드',
+                                  selected: widget.currentPage ==
+                                      DashboardPage.dashboard,
+                                  onTap: widget.onDashboard,
+                                  collapsed: !_showContent,
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                key: const ValueKey(
-                                  'web-account-deletion',
+                                if (_showContent &&
+                                    widget.dashboardMenuExpanded &&
+                                    widget.currentPage ==
+                                        DashboardPage.dashboard) ...[
+                                  _DashboardSubItem(
+                                    icon: Icons.add_circle_outline_rounded,
+                                    label: '게임 카드 추가',
+                                    onTap: widget.onAddGame,
+                                  ),
+                                  _DashboardSubItem(
+                                    icon: Icons.delete_outline_rounded,
+                                    label: '게임 카드 삭제',
+                                    selected: widget.deleteMode,
+                                    onTap: widget.onDeleteGames,
+                                  ),
+                                ],
+                                _SideItem(
+                                  icon: Icons.build_circle_outlined,
+                                  label: '도구 모음',
+                                  selected:
+                                      widget.currentPage == DashboardPage.tools,
+                                  onTap: widget.onTools,
+                                  collapsed: !_showContent,
                                 ),
-                                onPressed: widget.onDeleteAccount,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFF687B),
-                                  minimumSize: const Size(0, 30),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                  ),
-                                  side: const BorderSide(
-                                    color: Color(0xFFB94455),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                _SideItem(
+                                  icon: Icons.badge_outlined,
+                                  label: '게임 신분증',
+                                  selected: widget.currentPage ==
+                                      DashboardPage.gameIdentity,
+                                  onTap: widget.onGameIdentity,
+                                  collapsed: !_showContent,
                                 ),
-                                child: const Text('계정 삭제'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            accountText,
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: widget.isDarkMode
-                                  ? const Color(0xFF77869A)
-                                  : const Color(0xFF687386),
-                              fontSize: 11,
+                                _SideItem(
+                                  icon: Icons.travel_explore_rounded,
+                                  label: 'GAME FINDER',
+                                  selected: widget.currentPage ==
+                                      DashboardPage.gameFinder,
+                                  onTap: widget.onGameFinder,
+                                  collapsed: !_showContent,
+                                ),
+                                _SideItem(
+                                  icon: Icons.collections_bookmark_rounded,
+                                  label: 'My Game Picks',
+                                  selected: widget.currentPage ==
+                                      DashboardPage.myGamePicks,
+                                  onTap: widget.onMyGamePicks,
+                                  collapsed: !_showContent,
+                                ),
+                                if (widget.isGameFinderAdmin)
+                                  _SideItem(
+                                    icon: Icons.admin_panel_settings_outlined,
+                                    label: 'FINDER ADMIN',
+                                    selected: widget.currentPage ==
+                                        DashboardPage.gameFinderAdmin,
+                                    onTap: widget.onGameFinderAdmin,
+                                    collapsed: !_showContent,
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: widget.onSignOut,
-                              icon: Icon(
-                                isGuest
-                                    ? Icons.exit_to_app_rounded
-                                    : Icons.logout_rounded,
-                                size: 16,
-                              ),
-                              label: Text(
-                                isGuest ? '게스트 종료' : '로그아웃',
-                              ),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 12),
+                                _ThemeModeButton(
+                                  collapsed: !_showContent,
+                                  themeMode: widget.themeMode,
+                                  onTap: widget.onToggleTheme,
+                                ),
+                                const SizedBox(height: 10),
+                                if (!_showContent)
+                                  Material(
+                                    color: isDarkMode
+                                        ? const Color(0xFF0B1524)
+                                        : (isPinkMode
+                                            ? scheme.surfaceContainer
+                                            : const Color(0xFFF1F3F8)),
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: InkWell(
+                                      onTap: widget.onSignOut,
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: SizedBox(
+                                        height: 52,
+                                        child: Icon(
+                                          isGuest
+                                              ? Icons.exit_to_app_rounded
+                                              : Icons.logout_rounded,
+                                          color: const Color(0xFFCFC6FF),
+                                          size: 21,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: isDarkMode
+                                          ? const Color(0xFF0B1524)
+                                          : (isPinkMode
+                                              ? scheme.surfaceContainerLow
+                                              : const Color(0xFFF7F8FB)),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isDarkMode
+                                            ? const Color(0xFF1C293B)
+                                            : (isPinkMode
+                                                ? scheme.outlineVariant
+                                                : const Color(0xFFDDE2EA)),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                displayName,
+                                                maxLines: 1,
+                                                softWrap: false,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: isDarkMode
+                                                      ? Colors.white
+                                                      : (isPinkMode
+                                                          ? scheme.onSurface
+                                                          : const Color(
+                                                              0xFF202636)),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            OutlinedButton(
+                                              key: const ValueKey(
+                                                'web-account-deletion',
+                                              ),
+                                              onPressed: widget.onDeleteAccount,
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    const Color(0xFFFF687B),
+                                                minimumSize: const Size(0, 30),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 9,
+                                                ),
+                                                side: const BorderSide(
+                                                  color: Color(0xFFB94455),
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                textStyle: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              child: const Text('계정 삭제'),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          accountText,
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: isDarkMode
+                                                ? const Color(0xFF77869A)
+                                                : (isPinkMode
+                                                    ? scheme.onSurfaceVariant
+                                                    : const Color(0xFF687386)),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: widget.onSignOut,
+                                            icon: Icon(
+                                              isGuest
+                                                  ? Icons.exit_to_app_rounded
+                                                  : Icons.logout_rounded,
+                                              size: 16,
+                                            ),
+                                            label: Text(
+                                              isGuest ? '게스트 종료' : '로그아웃',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -2870,25 +3045,30 @@ class _SidebarState extends State<_Sidebar> {
 class _ThemeModeButton extends StatelessWidget {
   const _ThemeModeButton({
     required this.collapsed,
-    required this.isDarkMode,
+    required this.themeMode,
     required this.onTap,
   });
 
   final bool collapsed;
-  final bool isDarkMode;
+  final AppThemeMode themeMode;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        isDarkMode ? const Color(0xFFCFC6FF) : const Color(0xFF5547B8);
+    final isDarkMode = themeMode == AppThemeMode.dark;
+    final isPinkMode = themeMode == AppThemeMode.pink;
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = isDarkMode ? const Color(0xFFCFC6FF) : scheme.primary;
     final background =
-        isDarkMode ? const Color(0xFF0B1524) : const Color(0xFFF5F3FF);
+        isDarkMode ? const Color(0xFF0B1524) : scheme.surfaceContainer;
     final borderColor =
-        isDarkMode ? const Color(0xFF27284A) : const Color(0xFFDDD7FF);
-    final targetLabel = isDarkMode ? '라이트 모드' : '다크 모드';
-    final targetIcon =
-        isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded;
+        isDarkMode ? const Color(0xFF27284A) : scheme.outlineVariant;
+    final currentLabel = '${themeMode.displayName} 모드';
+    final currentIcon = switch (themeMode) {
+      AppThemeMode.dark => Icons.dark_mode_rounded,
+      AppThemeMode.light => Icons.light_mode_rounded,
+      AppThemeMode.pink => Icons.auto_awesome_rounded,
+    };
 
     final button = AnimatedContainer(
       duration: const Duration(milliseconds: 140),
@@ -2918,10 +3098,12 @@ class _ThemeModeButton extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isDarkMode
                         ? const Color(0xFF262449)
-                        : const Color(0xFFE8E3FF),
+                        : (isPinkMode
+                            ? scheme.primaryContainer
+                            : const Color(0xFFE8E3FF)),
                     borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Icon(targetIcon, size: 18, color: foreground),
+                  child: Icon(currentIcon, size: 18, color: foreground),
                 ),
                 if (!collapsed) ...[
                   const SizedBox(width: 10),
@@ -2931,7 +3113,8 @@ class _ThemeModeButton extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          targetLabel,
+                          themeMode.displayName,
+                          key: const ValueKey('web-theme-current-mode'),
                           style: TextStyle(
                             color: foreground,
                             fontWeight: FontWeight.w800,
@@ -2939,50 +3122,11 @@ class _ThemeModeButton extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          '화면 테마 변경',
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFF737F93)
-                                : const Color(0xFF7B7791),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _ThemeModeLabels(
+                          themeMode: themeMode,
+                          fontSize: 8,
                         ),
                       ],
-                    ),
-                  ),
-                  Container(
-                    width: 38,
-                    height: 22,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF353159)
-                          : const Color(0xFF7062C8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: AnimatedAlign(
-                      duration: const Duration(milliseconds: 140),
-                      curve: Curves.easeOutCubic,
-                      alignment: isDarkMode
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.16),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -2993,7 +3137,44 @@ class _ThemeModeButton extends StatelessWidget {
       ),
     );
 
-    return collapsed ? Tooltip(message: targetLabel, child: button) : button;
+    return collapsed ? Tooltip(message: currentLabel, child: button) : button;
+  }
+}
+
+class _ThemeModeLabels extends StatelessWidget {
+  const _ThemeModeLabels({
+    required this.themeMode,
+    required this.fontSize,
+  });
+
+  final AppThemeMode themeMode;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    TextSpan label(AppThemeMode mode) => TextSpan(
+          text: mode.displayName,
+          style: TextStyle(
+            color: mode == themeMode ? scheme.primary : scheme.onSurfaceVariant,
+            fontWeight: mode == themeMode ? FontWeight.w800 : FontWeight.w600,
+          ),
+        );
+
+    return Text.rich(
+      TextSpan(
+        style: TextStyle(fontSize: fontSize, height: 1.1),
+        children: [
+          label(AppThemeMode.dark),
+          TextSpan(text: ' · ', style: TextStyle(color: scheme.outline)),
+          label(AppThemeMode.light),
+          TextSpan(text: ' · ', style: TextStyle(color: scheme.outline)),
+          label(AppThemeMode.pink),
+        ],
+      ),
+      maxLines: 1,
+      softWrap: false,
+    );
   }
 }
 
@@ -3304,7 +3485,7 @@ class _HeroProfile extends StatelessWidget {
                       ? const Color(0xFF171F3B)
                       : const Color(0xFFECE9FF),
                   foregroundColor: const Color(0xFFA99DFF),
-                  side: const BorderSide(color: Color(0xFF393568)),
+                  side: dashboardProfileEditBorder(isDark),
                   minimumSize: const Size(34, 34),
                   padding: EdgeInsets.zero,
                 ),
@@ -4128,8 +4309,8 @@ class _AddGameCard extends StatelessWidget {
   }
 }
 
-class _ToolsPage extends StatelessWidget {
-  const _ToolsPage({this.webStyle = false});
+class ToolsPage extends StatelessWidget {
+  const ToolsPage({super.key, this.webStyle = false});
 
   final bool webStyle;
 
@@ -4423,15 +4604,20 @@ class _ToolSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
     final isMobile = MediaQuery.sizeOf(context).width < 700;
     if (isMobile) {
       return Container(
+        key: ValueKey<String>('mobile-tool-card-$title'),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: const Color(0xFF101A2A),
+          color: isDark ? const Color(0xFF101A2A) : scheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF263348)),
+          border: Border.all(
+            color: isDark ? const Color(0xFF263348) : scheme.outlineVariant,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
@@ -4440,16 +4626,25 @@ class _ToolSection extends StatelessWidget {
           collapsedShape: const Border(),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          iconColor: const Color(0xFF9B8CFF),
-          collapsedIconColor: const Color(0xFF8C9AAF),
-          title: Text(title,
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          iconColor: isDark ? const Color(0xFF9B8CFF) : scheme.primary,
+          collapsedIconColor:
+              isDark ? const Color(0xFF8C9AAF) : scheme.onSurfaceVariant,
+          title: Text(
+            title,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           children: [
             for (final tool in tools)
               ListTile(
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                textColor: scheme.onSurface,
+                iconColor:
+                    isDark ? const Color(0xFF8C9AAF) : scheme.onSurfaceVariant,
                 title: Text(tool.name),
                 trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: () => onOpen(tool.url),
@@ -4462,10 +4657,10 @@ class _ToolSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF091322) : Colors.white,
+        color: isDark ? const Color(0xFF091322) : scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? const Color(0xFF1A293C) : const Color(0xFFDDE3EC),
+          color: isDark ? const Color(0xFF1A293C) : scheme.outlineVariant,
         ),
       ),
       child: Column(
@@ -4476,7 +4671,7 @@ class _ToolSection extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : const Color(0xFF202636),
+              color: isDark ? Colors.white : scheme.onSurface,
             ),
           ),
           const SizedBox(height: 18),
@@ -4528,7 +4723,9 @@ class _ToolCardState extends State<_ToolCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
     return MouseRegion(
       onEnter: (_) {
         setState(() {
@@ -4545,12 +4742,14 @@ class _ToolCardState extends State<_ToolCard> {
         decoration: BoxDecoration(
           color: isDark
               ? (_hovering ? const Color(0xFF152238) : const Color(0xFF0E1929))
-              : (_hovering ? const Color(0xFFF0EDFF) : const Color(0xFFF8F9FC)),
+              : (_hovering
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerLowest),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: _hovering
-                ? const Color(0xFF6959C8)
-                : (isDark ? const Color(0xFF293A51) : const Color(0xFFD9DFE9)),
+                ? (isDark ? const Color(0xFF6959C8) : scheme.primary)
+                : (isDark ? const Color(0xFF293A51) : scheme.outlineVariant),
           ),
         ),
         child: Material(
@@ -4571,19 +4770,20 @@ class _ToolCardState extends State<_ToolCard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: isDark
-                            ? const Color(0xFFD7DEE9)
-                            : const Color(0xFF283142),
+                        color:
+                            isDark ? const Color(0xFFD7DEE9) : scheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(
+                  Icon(
                     Icons.open_in_new_rounded,
                     size: 16,
-                    color: Color(0xFF7D8A9E),
+                    color: isDark
+                        ? const Color(0xFF7D8A9E)
+                        : scheme.onSurfaceVariant,
                   ),
                 ],
               ),
@@ -4618,9 +4818,17 @@ class MobileBottomBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Color(0xFF07101C),
-          border: Border(top: BorderSide(color: Color(0xFF202C3E))),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF07101C)
+              : Theme.of(context).colorScheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF202C3E)
+                  : Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
         ),
         child: SizedBox(
           height: 68,
@@ -4700,16 +4908,22 @@ class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, title) = _content;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
     return AppBar(
       automaticallyImplyLeading: false,
       centerTitle: true,
-      backgroundColor: const Color(0xFF07101C),
+      backgroundColor: isDark ? const Color(0xFF07101C) : scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       toolbarHeight: page == DashboardPage.gameFinder ? 74 : 58,
       title: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 20, color: const Color(0xFF9B8CFF)),
+          Icon(
+            icon,
+            size: 20,
+            color: isDark ? const Color(0xFF9B8CFF) : scheme.primary,
+          ),
           const SizedBox(width: 9),
           Text(title,
               style:
@@ -4717,10 +4931,10 @@ class _MobilePageHeader extends StatelessWidget implements PreferredSizeWidget {
         ]),
         if (page == DashboardPage.gameFinder) ...[
           const SizedBox(height: 4),
-          const Text(
+          Text(
             '취향 반영 스팀 내 게임 검색 서비스',
             style: TextStyle(
-              color: Color(0xFF8C9AAF),
+              color: scheme.onSurfaceVariant,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -4736,29 +4950,38 @@ class MobileAddGameAction extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: double.infinity,
-        height: 54,
-        child: OutlinedButton.icon(
-          key: const ValueKey('mobile-dashboard-add-game'),
-          onPressed: onTap,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('새 게임 / 계정 추가'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFB9AFFF),
-            backgroundColor: const Color(0xFF101A2A),
-            side: const BorderSide(color: Color(0xFF51467F)),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: OutlinedButton.icon(
+        key: const ValueKey('mobile-dashboard-add-game'),
+        onPressed: onTap,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('새 게임 / 계정 추가'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: isDark ? const Color(0xFFB9AFFF) : scheme.primary,
+          backgroundColor:
+              isDark ? const Color(0xFF101A2A) : scheme.surfaceContainer,
+          side: BorderSide(
+            color: isDark ? const Color(0xFF51467F) : scheme.outlineVariant,
           ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _MobileMyPage extends StatelessWidget {
   const _MobileMyPage({
     required this.user,
     required this.profile,
+    required this.themeMode,
+    required this.onToggleTheme,
     required this.onSignOut,
     required this.onDeleteAccount,
     required this.onGoogleLogin,
@@ -4767,6 +4990,8 @@ class _MobileMyPage extends StatelessWidget {
 
   final User? user;
   final UserProfile? profile;
+  final AppThemeMode themeMode;
+  final VoidCallback onToggleTheme;
   final VoidCallback onSignOut;
   final VoidCallback onDeleteAccount;
   final VoidCallback onGoogleLogin;
@@ -4776,15 +5001,23 @@ class _MobileMyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final guest = user?.isAnonymous == true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final displayName =
+        profile?.nickname ?? (guest ? '게스트' : user?.displayName ?? '게이머');
+    final googlePhotoUrl = _googleProfilePhotoUrl(user);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
+        key: const ValueKey('mobile-profile-card'),
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0E172A) : Colors.white,
+          color: isDark
+              ? const Color(0xFF0E172A)
+              : Theme.of(context).colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: isDark ? const Color(0xFF293750) : const Color(0xFFD8DEE8),
+            color: isDark
+                ? const Color(0xFF293750)
+                : Theme.of(context).colorScheme.outlineVariant,
           ),
           boxShadow: const [
             BoxShadow(
@@ -4796,14 +5029,10 @@ class _MobileMyPage extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
+            GoogleProfileAvatar(
               radius: 38,
-              backgroundColor: const Color(0xFF6E56E9),
-              backgroundImage:
-                  user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
-              child: user?.photoURL == null
-                  ? const Icon(Icons.person_rounded)
-                  : null,
+              displayName: displayName,
+              photoUrl: googlePhotoUrl,
             ),
             const SizedBox(width: 18),
             Expanded(
@@ -4811,14 +5040,13 @@ class _MobileMyPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    profile?.nickname ??
-                        (guest ? '게스트' : user?.displayName ?? '게이머'),
+                    displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: isDark
                           ? const Color(0xFFF5F2FF)
-                          : const Color(0xFF202636),
+                          : Theme.of(context).colorScheme.onSurface,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
@@ -4828,8 +5056,8 @@ class _MobileMyPage extends StatelessWidget {
                     guest ? '로그인 없이 이용 중' : user?.email ?? '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF8C9AAF),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 15,
                     ),
                   ),
@@ -4840,6 +5068,11 @@ class _MobileMyPage extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 16),
+      MobileThemeModeButton(
+        themeMode: themeMode,
+        onTap: onToggleTheme,
+      ),
+      const SizedBox(height: 12),
       if (guest)
         SizedBox(
           width: double.infinity,
@@ -4915,6 +5148,178 @@ class _MobileMyPage extends StatelessWidget {
   }
 }
 
+String? _googleProfilePhotoUrl(User? user) {
+  if (user == null || user.isAnonymous) return null;
+
+  for (final provider in user.providerData) {
+    if (provider.providerId != GoogleAuthProvider.PROVIDER_ID) continue;
+    final photoUrl = provider.photoURL?.trim();
+    if (photoUrl != null && photoUrl.isNotEmpty) return photoUrl;
+  }
+
+  final photoUrl = user.photoURL?.trim();
+  return photoUrl == null || photoUrl.isEmpty ? null : photoUrl;
+}
+
+class GoogleProfileAvatar extends StatelessWidget {
+  const GoogleProfileAvatar({
+    super.key,
+    required this.radius,
+    required this.displayName,
+    required this.photoUrl,
+  });
+
+  final double radius;
+  final String displayName;
+  final String? photoUrl;
+
+  String get _fallbackLabel {
+    final characters = displayName.trim().runes.toList(growable: false);
+    if (characters.isEmpty) return '?';
+    final start = characters.length > 2 ? characters.length - 2 : 0;
+    return String.fromCharCodes(characters.skip(start));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fallback = ColoredBox(
+      color: scheme.primaryContainer,
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Text(
+              _fallbackLabel,
+              maxLines: 1,
+              style: TextStyle(
+                color: scheme.onPrimaryContainer,
+                fontSize: radius * 0.72,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Semantics(
+      image: photoUrl != null,
+      label:
+          photoUrl == null ? '$displayName 프로필' : '$displayName Google 프로필 사진',
+      child: ClipOval(
+        child: SizedBox.square(
+          dimension: radius * 2,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              fallback,
+              if (photoUrl != null)
+                Image.network(
+                  photoUrl!,
+                  key: const ValueKey('google-profile-image'),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.medium,
+                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MobileThemeModeButton extends StatelessWidget {
+  const MobileThemeModeButton({
+    super.key,
+    required this.themeMode,
+    required this.onTap,
+  });
+
+  final AppThemeMode themeMode;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = themeMode == AppThemeMode.dark;
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = isDarkMode ? const Color(0xFFCFC6FF) : scheme.primary;
+    final background =
+        isDarkMode ? const Color(0xFF0B1524) : scheme.surfaceContainer;
+    final borderColor =
+        isDarkMode ? const Color(0xFF27284A) : scheme.outlineVariant;
+    final iconBackground =
+        isDarkMode ? const Color(0xFF262449) : scheme.primaryContainer;
+    final currentIcon = switch (themeMode) {
+      AppThemeMode.dark => Icons.dark_mode_rounded,
+      AppThemeMode.light => Icons.light_mode_rounded,
+      AppThemeMode.pink => Icons.auto_awesome_rounded,
+    };
+
+    return SizedBox(
+      width: double.infinity,
+      height: 64,
+      child: Material(
+        color: background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: borderColor),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: const ValueKey('mobile-theme-mode-button'),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: iconBackground,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(currentIcon, size: 19, color: foreground),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        themeMode.displayName,
+                        key: const ValueKey('mobile-theme-current-mode'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _ThemeModeLabels(
+                        themeMode: themeMode,
+                        fontSize: 11,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MobileNavItem extends StatelessWidget {
   const _MobileNavItem({
     required this.icon,
@@ -4930,7 +5335,11 @@ class _MobileNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF9B8CFF) : const Color(0xFF718096);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected
+        ? (isDark ? const Color(0xFF9B8CFF) : scheme.primary)
+        : (isDark ? const Color(0xFF718096) : scheme.onSurfaceVariant);
 
     return InkWell(
       onTap: onTap,
@@ -5271,6 +5680,9 @@ class _MobileHeroProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isGuest = user?.isAnonymous == true;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
 
     final displayName =
         profile?.nickname ?? (isGuest ? '게스트' : (user?.displayName ?? '게이머'));
@@ -5289,13 +5701,12 @@ class _MobileHeroProfile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: const Color(0xFF263348),
+              color: isDark ? const Color(0xFF263348) : scheme.outlineVariant,
             ),
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF101B32),
-                Color(0xFF17233D),
-              ],
+            gradient: LinearGradient(
+              colors: isDark
+                  ? const [Color(0xFF101B32), Color(0xFF17233D)]
+                  : [scheme.surfaceContainerLow, scheme.surfaceContainer],
             ),
           ),
           child: SizedBox(
@@ -5311,7 +5722,9 @@ class _MobileHeroProfile extends StatelessWidget {
                         children: [
                           CircleAvatar(
                             radius: 30,
-                            backgroundColor: const Color(0xFF6E56E9),
+                            backgroundColor: isDark
+                                ? const Color(0xFF6E56E9)
+                                : scheme.primaryContainer,
                             backgroundImage: profileImageBytes == null
                                 ? null
                                 : MemoryImage(profileImageBytes!),
@@ -5328,7 +5741,8 @@ class _MobileHeroProfile extends StatelessWidget {
                                 Text(
                                   displayName,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
                                     fontSize: 17,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -5338,8 +5752,10 @@ class _MobileHeroProfile extends StatelessWidget {
                                   introduction,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF9AA7B9),
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? const Color(0xFF9AA7B9)
+                                        : scheme.onSurfaceVariant,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -5358,8 +5774,11 @@ class _MobileHeroProfile extends StatelessWidget {
                     onPressed: isRefreshingAll ? null : onRefreshAll,
                     tooltip: '전체 새로고침',
                     style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF182740),
-                      foregroundColor: const Color(0xFF9B8CFF),
+                      backgroundColor: isDark
+                          ? const Color(0xFF182740)
+                          : scheme.surfaceContainerHigh,
+                      foregroundColor:
+                          isDark ? const Color(0xFF9B8CFF) : scheme.primary,
                       minimumSize: const Size(32, 32),
                       padding: EdgeInsets.zero,
                     ),
@@ -5382,8 +5801,11 @@ class _MobileHeroProfile extends StatelessWidget {
                         onPressed: onOpenLatestIdentity,
                         tooltip: '최근 게임 신분증',
                         style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF182740),
-                          foregroundColor: const Color(0xFF9B8CFF),
+                          backgroundColor: isDark
+                              ? const Color(0xFF182740)
+                              : scheme.surfaceContainerHigh,
+                          foregroundColor:
+                              isDark ? const Color(0xFF9B8CFF) : scheme.primary,
                           minimumSize: const Size(32, 32),
                           padding: EdgeInsets.zero,
                         ),
@@ -5394,8 +5816,12 @@ class _MobileHeroProfile extends StatelessWidget {
                         onPressed: onEdit,
                         tooltip: '프로필 수정',
                         style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF24234C),
-                          foregroundColor: const Color(0xFFB8AEFF),
+                          backgroundColor: isDark
+                              ? const Color(0xFF24234C)
+                              : scheme.primaryContainer,
+                          foregroundColor: isDark
+                              ? const Color(0xFFB8AEFF)
+                              : scheme.onPrimaryContainer,
                           minimumSize: const Size(32, 32),
                           padding: EdgeInsets.zero,
                         ),

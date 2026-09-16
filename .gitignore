@@ -18,8 +18,26 @@ secrets/
 **/secrets/
 firebase-service-account.json
 **/firebase-service-account.json
+**/*service-account*.json
+**/*firebase-adminsdk*.json
+**/serviceAccountKey.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/key.properties
+**/local.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+**/*.pem
+**/*.key
+**/*.p8
 .env
 .env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # Logs
 *.log

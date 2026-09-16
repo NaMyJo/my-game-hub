@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for ios - '
@@ -60,5 +57,13 @@ class DefaultFirebaseOptions {
     authDomain: 'auth.mygamehub.kr',
     storageBucket: 'gamehub-namyjo1113.firebasestorage.app',
     measurementId: 'G-N034D3C2FY',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyCfGrk0fY_Re0YtiwEvdY7s7IjT63UpxW8',
+    appId: '1:162181395692:android:a79b5e37da3f8a8b9d61c9',
+    messagingSenderId: '162181395692',
+    projectId: 'gamehub-namyjo1113',
+    storageBucket: 'gamehub-namyjo1113.firebasestorage.app',
   );
 }

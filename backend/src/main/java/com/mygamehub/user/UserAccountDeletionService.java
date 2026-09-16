@@ -23,16 +23,14 @@ public class UserAccountDeletionService {
     }
 
     public void deleteAccount(String firebaseUid) {
-        String safeUid = safeUid(firebaseUid);
-        log.info("Account deletion started: uid={}", safeUid);
+        log.info("Account deletion started");
 
         try {
             userDataDeletionService.deleteByFirebaseUid(firebaseUid);
-            log.info("Account data deletion completed: uid={}", safeUid);
+            log.info("Account data deletion completed");
         } catch (RuntimeException e) {
             log.error(
-                    "Account data deletion failed: uid={}, stage=database",
-                    safeUid
+                    "Account data deletion failed: stage=database"
             );
             throw new AccountDeletionException(
                     "계정 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
@@ -42,9 +40,9 @@ public class UserAccountDeletionService {
 
         try {
             firebaseUserDeletionService.deleteUser(firebaseUid);
-            log.info("Firebase account deletion completed: uid={}", safeUid);
+            log.info("Firebase account deletion completed");
         } catch (FirebaseAuthException | IllegalStateException e) {
-            log.error("Firebase account deletion failed: uid={}, stage=firebase", safeUid);
+            log.error("Firebase account deletion failed: stage=firebase");
             throw new AccountDeletionException(
                     "계정 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.",
                     e
@@ -52,10 +50,4 @@ public class UserAccountDeletionService {
         }
     }
 
-    private String safeUid(String firebaseUid) {
-        if (firebaseUid == null || firebaseUid.isBlank()) {
-            return "unknown";
-        }
-        return firebaseUid.substring(0, Math.min(8, firebaseUid.length()));
-    }
 }

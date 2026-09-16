@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
-
 import '../models/game_profile_summary.dart';
 import 'api_client.dart';
 
@@ -53,13 +51,6 @@ class GameProfileSummaryRepository {
       'profileImageBase64':
           profileImageBytes == null ? null : base64Encode(profileImageBytes),
     };
-
-    debugPrint('===== SAVE GAME PROFILE =====');
-    debugPrint('identityNickname = $identityNickname');
-    debugPrint('gamePowerPercent = $gamePowerPercent');
-    debugPrint('reflectedGameCount = $reflectedGameCount');
-    debugPrint('evaluationMessage = $evaluationMessage');
-    debugPrint('body = $body');
 
     final json = await ApiClient.instance.put(
       '/api/me/game-profile',

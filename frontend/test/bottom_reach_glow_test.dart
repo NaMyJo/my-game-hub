@@ -3,11 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_game_hub/widgets/bottom_reach_glow.dart';
 
 void main() {
-  Widget testApp({required double contentHeight}) {
+  void enableAnimations(WidgetTester tester) {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: false);
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+  }
+
+  Widget testApp({
+    required double contentHeight,
+    ScrollController? controller,
+  }) {
     return MaterialApp(
       home: Scaffold(
         body: BottomReachGlow(
           child: SingleChildScrollView(
+            controller: controller,
             child: SizedBox(height: contentHeight),
           ),
         ),
@@ -40,12 +52,17 @@ void main() {
 
   testWidgets('glows at top after scrolling away and returning',
       (tester) async {
-    await tester.pumpWidget(testApp(contentHeight: 1400));
+    enableAnimations(tester);
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      testApp(contentHeight: 1400, controller: controller),
+    );
 
-    await tester.drag(
-        find.byType(SingleChildScrollView), const Offset(0, -200));
+    controller.jumpTo(200);
     await tester.pump();
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, 200));
+    controller.jumpTo(0);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
 
     expect(topGlowOpacity(tester).value, greaterThan(0));
@@ -53,20 +70,25 @@ void main() {
 
   testWidgets('glows once at bottom and rearms after scrolling up',
       (tester) async {
-    await tester.pumpWidget(testApp(contentHeight: 1400));
+    enableAnimations(tester);
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      testApp(contentHeight: 1400, controller: controller),
+    );
 
-    await tester.drag(
-        find.byType(SingleChildScrollView), const Offset(0, -900));
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
     expect(glowOpacity(tester).value, greaterThan(0));
 
     await tester.pump(const Duration(milliseconds: 650));
     expect(glowOpacity(tester).value, 0);
 
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, 100));
+    controller.jumpTo(controller.position.maxScrollExtent - 100);
     await tester.pump();
-    await tester.drag(
-        find.byType(SingleChildScrollView), const Offset(0, -100));
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
     expect(glowOpacity(tester).value, greaterThan(0));
   });

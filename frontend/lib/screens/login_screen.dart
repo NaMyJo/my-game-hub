@@ -24,16 +24,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await AuthService.instance.signInWithGoogle();
+    } on GoogleSignInFailure catch (error) {
+      if (!mounted) return;
+      if (error.category == GoogleSignInFailureCategory.canceled) {
+        setState(() => _error = null);
+        return;
+      }
+      setState(() => _error = error.userMessage);
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       if (_isGoogleSignInCancellation(error.code)) {
         setState(() => _error = null);
         return;
       }
-      setState(() => _error = 'Google 로그인에 실패했습니다.\n$error');
-    } catch (error) {
+      final isNetworkError =
+          error.code.split('/').last == 'network-request-failed';
+      setState(
+        () => _error = isNetworkError
+            ? '네트워크 연결을 확인한 뒤 다시 시도해주세요.'
+            : 'Google 로그인에 실패했습니다. 다시 시도해주세요.',
+      );
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Google 로그인에 실패했습니다.\n$error');
+      setState(() => _error = 'Google 로그인에 실패했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -118,135 +131,164 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          Center(
-            child: Container(
-              width: 560,
-              margin: const EdgeInsets.fromLTRB(24, 92, 24, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF765EFF).withValues(alpha: .16),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(
-                        color: const Color(0xFF826DFF).withValues(alpha: .45),
-                      ),
-                    ),
-                    child: const Text(
-                      'YOUR GAMES, ONE PLACE',
-                      style: TextStyle(
-                        color: Color(0xFFB7AAFF),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.35,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  const Text(
-                    '내 게임 관리 및\n취향 게임 찾기',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 38,
-                      height: 1.2,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  const Text(
-                    '흩어진 게임 계정을 한곳에서 관리하고,\n내 취향에 맞는 새로운 게임을 발견해보세요.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFA9B4C6),
-                      fontSize: 15,
-                      height: 1.7,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : () => _signInAnonymously(),
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                      label: const Text(
-                        '로그인 없이 시작하기',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFD7DEE9),
-                        side: const BorderSide(color: Color(0xFF59677C)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: FilledButton.icon(
-                      onPressed: _loading ? null : _signIn,
-                      icon: _loading
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF241B48),
+          Positioned.fill(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 64),
+                child: LayoutBuilder(
+                  builder: (context, viewport) => SingleChildScrollView(
+                    key: const ValueKey('mobile-login-scroll'),
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: viewport.maxHeight),
+                      child: Center(
+                        child: Container(
+                          width: 560,
+                          margin: const EdgeInsets.fromLTRB(24, 92, 24, 32),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 28,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF765EFF)
+                                      .withValues(alpha: .16),
+                                  borderRadius: BorderRadius.circular(30),
+                                  border: Border.all(
+                                    color: const Color(0xFF826DFF)
+                                        .withValues(alpha: .45),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'YOUR GAMES, ONE PLACE',
+                                  style: TextStyle(
+                                    color: Color(0xFFB7AAFF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.35,
+                                  ),
+                                ),
                               ),
-                            )
-                          : const Icon(Icons.login_rounded, size: 20),
-                      label: const Text(
-                        'Google 로그인으로 시작하기',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                      style: FilledButton.styleFrom(
-                        foregroundColor: const Color(0xFF241B48),
-                        backgroundColor: const Color(0xFFC4B5FF),
-                        disabledForegroundColor: const Color(0xFF544A75),
-                        disabledBackgroundColor: const Color(0xFF9185BD),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                              const SizedBox(height: 30),
+                              const Text(
+                                '내 게임 관리 및\n취향 게임 찾기',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 38,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 26),
+                              const Text(
+                                '흩어진 게임 계정을 한곳에서 관리하고,\n내 취향에 맞는 새로운 게임을 발견해보세요.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFFA9B4C6),
+                                  fontSize: 15,
+                                  height: 1.7,
+                                ),
+                              ),
+                              const SizedBox(height: 36),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: OutlinedButton.icon(
+                                  onPressed: _loading
+                                      ? null
+                                      : () => _signInAnonymously(),
+                                  icon: const Icon(Icons.arrow_forward_rounded,
+                                      size: 20),
+                                  label: const Text(
+                                    '로그인 없이 시작하기',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFD7DEE9),
+                                    side: const BorderSide(
+                                        color: Color(0xFF59677C)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: FilledButton.icon(
+                                  onPressed: _loading ? null : _signIn,
+                                  icon: _loading
+                                      ? const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Color(0xFF241B48),
+                                          ),
+                                        )
+                                      : const Icon(Icons.login_rounded,
+                                          size: 20),
+                                  label: const Text(
+                                    'Google 로그인으로 시작하기',
+                                    style: TextStyle(fontSize: 15),
+                                  ),
+                                  style: FilledButton.styleFrom(
+                                    foregroundColor: const Color(0xFF241B48),
+                                    backgroundColor: const Color(0xFFC4B5FF),
+                                    disabledForegroundColor:
+                                        const Color(0xFF544A75),
+                                    disabledBackgroundColor:
+                                        const Color(0xFF9185BD),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_error != null) ...[
+                                const SizedBox(height: 18),
+                                Text(
+                                  _error!,
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      const TextStyle(color: Colors.redAccent),
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                              const Text(
+                                '로그인 후 게임 계정을 등록해 대시보드를 구성할 수 있습니다.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF667386),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pushNamed('/privacy'),
+                                child: const Text(
+                                  '개인정보처리방침',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 18),
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  const Text(
-                    '로그인 후 게임 계정을 등록해 대시보드를 구성할 수 있습니다.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFF667386),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pushNamed('/privacy'),
-                    child: const Text(
-                      '개인정보처리방침',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

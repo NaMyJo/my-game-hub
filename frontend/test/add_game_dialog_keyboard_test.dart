@@ -4,16 +4,15 @@ import 'package:my_game_hub/widgets/add_game_dialog.dart';
 
 void main() {
   testWidgets('키보드가 열린 모바일 화면에서 입력창과 버튼이 겹치지 않는다', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 700);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
-      MaterialApp(
-        home: MediaQuery(
-          data: const MediaQueryData(
-            size: Size(390, 700),
-            viewInsets: EdgeInsets.only(bottom: 300),
-          ),
-          child: const Scaffold(
-            body: AddGameDialog(),
-          ),
+      const MaterialApp(
+        home: Scaffold(
+          body: AddGameDialog(),
         ),
       ),
     );

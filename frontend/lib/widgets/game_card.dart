@@ -305,19 +305,23 @@ class GameCard extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(width: mobile ? 8 : 10),
-              Expanded(
-                child: Text(
-                  profile.type.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: isDark ? Colors.white : const Color(0xFF202636),
+              if (mobile)
+                const Spacer()
+              else ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    profile.type.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : const Color(0xFF202636),
+                    ),
                   ),
                 ),
-              ),
+              ],
               IconButton(
                 tooltip: '최신 정보 불러오기',
                 onPressed: isRefreshing ? null : onRefresh,
@@ -789,7 +793,7 @@ class GameCard extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.sync_rounded,
-                  color: Color(0xFF5F6E82),
+                  color: Color(0xFF7B899D),
                   size: 14,
                 ),
                 const SizedBox(width: 5),
@@ -808,7 +812,7 @@ class GameCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF5F6E82),
+                      color: Color(0xFF7B899D),
                       fontSize: 10,
                     ),
                   ),

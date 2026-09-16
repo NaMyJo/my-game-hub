@@ -147,6 +147,19 @@ class _PickCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
         clipBehavior: Clip.antiAlias,
+        elevation: 0,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF091322)
+            : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF24344B)
+                : const Color(0xFFDDE3EC),
+          ),
+        ),
         child: InkWell(
           onTap: game.storeUrl.isEmpty
               ? null
@@ -165,45 +178,50 @@ class _PickCard extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(game.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w900)),
-                          ),
-                          GamePickButton(steamAppId: game.appId),
-                        ]),
-                    Text(_price(game),
-                        style: const TextStyle(
-                            color: Color(0xFF65D6B4),
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 3),
-                    Text(_release(game),
-                        style: const TextStyle(color: Color(0xFF8DBDFF))),
-                    if (game.playerSummary.isNotEmpty) ...[
-                      const SizedBox(height: 7),
-                      Text(game.playerSummary, maxLines: 2),
-                    ],
-                    const Spacer(),
-                    Text(game.canonicalTags.take(3).join(' · '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Color(0xFFC1B7F4), fontSize: 11)),
-                    const SizedBox(height: 7),
-                    const Align(
-                      alignment: Alignment.centerRight,
-                      child:
-                          Text('Steam Store ↗', style: TextStyle(fontSize: 11)),
+                child: Scrollbar(
+                  child: SingleChildScrollView(
+                    primary: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(game.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w900)),
+                              ),
+                              GamePickButton(steamAppId: game.appId),
+                            ]),
+                        Text(_price(game),
+                            style: const TextStyle(
+                                color: Color(0xFF65D6B4),
+                                fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 3),
+                        Text(_release(game),
+                            style: const TextStyle(color: Color(0xFF8DBDFF))),
+                        if (game.playerSummary.isNotEmpty) ...[
+                          const SizedBox(height: 7),
+                          Text(game.playerSummary, maxLines: 2),
+                        ],
+                        const SizedBox(height: 12),
+                        Text(game.canonicalTags.take(3).join(' · '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Color(0xFFC1B7F4), fontSize: 11)),
+                        const SizedBox(height: 7),
+                        const Align(
+                          alignment: Alignment.centerRight,
+                          child: Text('Steam Store ↗',
+                              style: TextStyle(fontSize: 11)),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

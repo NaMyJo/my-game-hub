@@ -37,8 +37,7 @@ void main() {
     expect(selected, 1);
   });
 
-  testWidgets('웹 step UI는 연결선 없이 3개의 독립 항목을 표시한다',
-      (tester) async {
+  testWidgets('웹 step UI는 연결선 없이 3개의 독립 항목을 표시한다', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: GameFinderStepNavigation(
@@ -51,7 +50,8 @@ void main() {
 
     expect(find.byType(Divider), findsNothing);
     for (var step = 1; step <= 3; step++) {
-      expect(find.byKey(ValueKey('game-finder-web-step-$step')), findsOneWidget);
+      expect(
+          find.byKey(ValueKey('game-finder-web-step-$step')), findsOneWidget);
     }
   });
 

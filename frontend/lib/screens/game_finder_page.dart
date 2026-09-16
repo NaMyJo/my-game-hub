@@ -895,7 +895,7 @@ class _GameFinderPageState extends State<GameFinderPage> {
           height: 54,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)],
+              colors: [Color(0xFF6848D8), Color(0xFF7A5FE8)],
             ),
             borderRadius: BorderRadius.circular(radius),
             boxShadow: const [
@@ -1274,6 +1274,19 @@ class _GameFinderPageState extends State<GameFinderPage> {
 
   Widget _card(GameFinderRecommendation g) => Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF091322)
+          : Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF24344B)
+              : const Color(0xFFDDE3EC),
+        ),
+      ),
       child: InkWell(
           onTap: () => launchSteamStore(g.storeUrl),
           child:

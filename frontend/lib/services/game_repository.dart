@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../models/game_profile.dart';
 import 'api_client.dart';
 
@@ -108,8 +106,6 @@ class GameRepository {
     List<GameProfile> games,
   ) async {
     final ids = games.map((game) => game.id).toList();
-
-    debugPrint('Repository reorderGames 호출: $ids');
 
     await ApiClient.instance.put(
       '/api/me/games/reorder',

@@ -53,9 +53,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
+  <script>
+    (() => {
+      let mode = 'dark';
+      try {
+        mode = localStorage.getItem('my_game_hub.theme_mode') || 'dark';
+      } catch (_) {
+        // Storage may be unavailable in restricted browser contexts.
+      }
+      const background = mode === 'pink'
+        ? '#FDEFF6'
+        : (mode === 'light' || mode === 'ThemeMode.light')
+          ? '#F4F6FA'
+          : '#050A13';
+      document.documentElement.style.backgroundColor = background;
+    })();
+  </script>
   <style>
     html, body, flutter-view, flt-glass-pane {
       -webkit-tap-highlight-color: transparent;
+      background-color: inherit;
     }
   </style>
 </head>

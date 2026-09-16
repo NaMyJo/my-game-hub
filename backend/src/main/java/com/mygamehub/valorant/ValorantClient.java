@@ -130,8 +130,6 @@ public class ValorantClient {
 
             String body = e.getResponseBodyAsString();
 
-            System.out.println(body);
-
             // Henrik code 24
             if (body.contains("\"code\":24")) {
                 return null;

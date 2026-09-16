@@ -57,9 +57,6 @@ public class GameAccountController {
             HttpServletRequest request,
             @RequestBody GameAccountReorderRequest body
     ) {
-        System.out.println("===== REORDER CONTROLLER HIT =====");
-        System.out.println("gameIds = " + body.gameIds());
-
         service.reorderGames(
                 currentUser(request).uid(),
                 body.gameIds()

@@ -100,7 +100,7 @@ class StatCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isDark
-                        ? const Color(0xFF5F6E82)
+                        ? const Color(0xFF7B899D)
                         : const Color(0xFF7A8494),
                     fontSize: 11,
                   ),

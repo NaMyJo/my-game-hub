@@ -413,7 +413,7 @@ class _GradientSubmitButton extends StatelessWidget {
         height: 54,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-              colors: [Color(0xFF6848D8), Color(0xFF8A6BFF)]),
+              colors: [Color(0xFF6848D8), Color(0xFF7A5FE8)]),
           borderRadius: BorderRadius.circular(15),
           boxShadow: const [
             BoxShadow(

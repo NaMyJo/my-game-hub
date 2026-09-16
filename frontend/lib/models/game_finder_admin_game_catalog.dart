@@ -8,7 +8,11 @@ class GameFinderAdminGameCatalogSyncResult {
     required this.durationMs,
   });
 
-  final int fetched, eligibleCatalogTotal, lastAppId, discoveredCount, durationMs;
+  final int fetched,
+      eligibleCatalogTotal,
+      lastAppId,
+      discoveredCount,
+      durationMs;
   final bool completed;
 
   factory GameFinderAdminGameCatalogSyncResult.fromJson(

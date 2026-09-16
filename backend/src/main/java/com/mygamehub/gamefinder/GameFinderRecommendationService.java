@@ -228,51 +228,22 @@ public class GameFinderRecommendationService {
 
     private void logRequestDiagnostics(GameFinderRecommendRequest request, Set<String> preferred,
             Map<Long, Set<String>> seedTags, Set<String> retrievalTags) {
-        log.info("game_finder_recommendation_request releasePreference={} likedSteamAppIds={} "
-                        + "preferredTags={} priceMin={} priceMax={} playerMin={} playerMax={} "
-                        + "includeAdult={} excludeAppIds={}",
-                ReleasePreference.defaultIfNull(request.releasePreference()),
-                summarizeIds(request.likedSteamAppIds()), preferred, request.priceMin(),
-                request.priceMax(), request.playerMin(), request.playerMax(), request.includeAdult(),
-                summarizeIds(request.excludeAppIds()));
-        seedTags.forEach((appId, tags) -> log.info(
-                "game_finder_recommendation_seed appId={} canonicalTags={}", appId, tags));
-        log.info("game_finder_recommendation_retrieval_tags tags={}", retrievalTags);
+        log.info("game_finder_recommendation_request likedCount={} excludedCount={} "
+                        + "seedCount={} preferredTagCount={} retrievalTagCount={}",
+                request.likedSteamAppIds().size(), request.excludeAppIds().size(),
+                seedTags.size(), preferred.size(), retrievalTags.size());
     }
 
     private void logCandidateDiagnostics(List<GameFinderRecommendationCandidate> candidates,
             Map<Long, Set<String>> candidateTags, Set<String> retrievalTags) {
         log.info("game_finder_recommendation_candidate_distribution total={} years={}",
                 candidates.size(), candidateYearDistribution(candidates));
-        for (int i = 0; i < Math.min(30, candidates.size()); i++) {
-            var candidate = candidates.get(i);
-            Set<String> tags = candidateTags.getOrDefault(candidate.steamAppId(), Set.of());
-            log.info("game_finder_recommendation_candidate rank={} appId={} name={} "
-                            + "tagMatchCount={} releaseDate={}",
-                    i + 1, candidate.steamAppId(), safeName(candidate.name()),
-                    retrievalTags.stream().filter(tags::contains).count(), candidate.releaseDate());
-        }
     }
 
     private void logFinalDiagnostics(List<Scored> scored, List<Scored> diversified,
             Set<String> taste, Set<String> preferred, ReleasePreference preference) {
-        Map<Long, String> buckets = diversityBuckets(scored);
-        for (int i = 0; i < Math.min(30, diversified.size()); i++) {
-            Scored value = diversified.get(i);
-            double seedSimilarity = similarity(taste, value.tags());
-            double preferredScore = preferred.isEmpty() ? 0
-                    : preferred.stream().filter(value.tags()::contains).count()
-                            / (double) preferred.size();
-            double boost = releaseBoost(value.game().releaseDate(), preference);
-            log.info("game_finder_recommendation_final rank={} appId={} name={} releaseDate={} "
-                            + "tagMatchCount={} seedSimilarity={} preferredTagScore={} "
-                            + "releaseBoost={} finalScore={} diversityBucket={}",
-                    i + 1, value.game().steamAppId(), safeName(value.game().name()),
-                    value.game().releaseDate(),
-                    union(taste, preferred).stream().filter(value.tags()::contains).count(),
-                    round(seedSimilarity), round(preferredScore), round(boost), round(value.score()),
-                    buckets.getOrDefault(value.game().steamAppId(), "UNKNOWN"));
-        }
+        log.info("game_finder_recommendation_final candidateCount={} resultCount={}",
+                scored.size(), diversified.size());
     }
 
     Map<String, Long> candidateYearDistribution(List<GameFinderRecommendationCandidate> candidates) {
@@ -310,19 +281,6 @@ public class GameFinderRecommendationService {
         Set<String> result = new LinkedHashSet<>(left);
         result.addAll(right);
         return result;
-    }
-
-    private String summarizeIds(List<Long> ids) {
-        if (ids == null) return "[]";
-        return ids.size() <= 50 ? ids.toString() : ids.subList(0, 50) + "...(count=" + ids.size() + ")";
-    }
-
-    private double round(double value) {
-        return Math.round(value * 10_000.0) / 10_000.0;
-    }
-
-    private String safeName(String value) {
-        return value == null ? "" : value.replace('\r', ' ').replace('\n', ' ');
     }
 
     Set<String> normalizePreferredTags(List<String> values) {

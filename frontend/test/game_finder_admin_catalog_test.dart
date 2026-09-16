@@ -8,16 +8,40 @@ import 'package:my_game_hub/screens/game_finder_admin_page.dart';
 import 'package:my_game_hub/services/game_finder_admin_repository.dart';
 
 void main() {
-  testWidgets('catalog target is bounded, blocks duplicate click, and refreshes status',
+  Future<void> pumpAdminPage(
+    WidgetTester tester,
+    GameFinderAdminRepository repository,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(26),
+            child: GameFinderAdminPage(repository: repository),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
+  }
+
+  testWidgets(
+      'catalog target is bounded, blocks duplicate click, and refreshes status',
       (tester) async {
     final repository = _FakeRepository();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
-    ));
-    await tester.pumpAndSettle();
+    await pumpAdminPage(tester, repository);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, '1000'));
-    await tester.tap(find.text('Catalog 확장 실행'));
+    await tapVisible(tester, find.widgetWithText(ChoiceChip, '1000'));
+    await tapVisible(tester, find.text('Catalog 확장 실행'));
     await tester.pump();
 
     expect(repository.requestedTargets, [1000]);
@@ -32,14 +56,12 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('full catalog next page uses one sequential request', (tester) async {
+  testWidgets('full catalog next page uses one sequential request',
+      (tester) async {
     final repository = _FakeRepository();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
-    ));
-    await tester.pumpAndSettle();
+    await pumpAdminPage(tester, repository);
 
-    await tester.tap(find.text('다음 500개 수집'));
+    await tapVisible(tester, find.text('다음 500개 수집'));
     await tester.pumpAndSettle();
 
     expect(repository.fullSyncCalls, 1);
@@ -47,32 +69,26 @@ void main() {
     expect(find.text('다음 최대 500개를 이어서 수집할 수 있습니다.'), findsOneWidget);
   });
 
-  testWidgets('continuous enrichment stops when processed is zero', (tester) async {
-    final repository = _FakeRepository();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('연속 Enrichment'));
-    await tester.pumpAndSettle(const Duration(seconds: 1));
-
-    expect(repository.enrichCalls, 2);
-    expect(find.text('현재 처리 가능한 후보가 없습니다.'), findsOneWidget);
-  });
-
-  testWidgets('continuous IGDB uses selected batch size and accumulates results',
+  testWidgets('metadata enrichment runs one batch with the selected size',
       (tester) async {
     final repository = _FakeRepository();
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: GameFinderAdminPage(repository: repository)),
-    ));
+    await pumpAdminPage(tester, repository);
+
+    await tapVisible(tester, find.text('Enrichment 실행'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, '40개'));
-    await tester.tap(find.widgetWithText(ChoiceChip, '40개'));
-    await tester.ensureVisible(find.text('연속 IGDB'));
-    await tester.tap(find.text('연속 IGDB'));
+    expect(repository.requestedMetadataBatches, [1]);
+    expect(find.text('METADATA 최근 실행'), findsOneWidget);
+  });
+
+  testWidgets(
+      'continuous IGDB uses selected batch size and accumulates results',
+      (tester) async {
+    final repository = _FakeRepository();
+    await pumpAdminPage(tester, repository);
+
+    await tapVisible(tester, find.widgetWithText(ChoiceChip, '40개'));
+    await tapVisible(tester, find.text('연속 IGDB'));
     await tester.pumpAndSettle(const Duration(seconds: 1));
 
     expect(repository.requestedIgdbBatches, [40, 40]);
@@ -86,9 +102,26 @@ class _FakeRepository extends GameFinderAdminRepository {
   int fullSyncCalls = 0;
   int enrichCalls = 0;
   int igdbCalls = 0;
+  final requestedMetadataBatches = <int>[];
   final requestedIgdbBatches = <int>[];
   final requestedTargets = <int>[];
   final _catalog = Completer<GameFinderAdminCatalogExpandResult>();
+
+  @override
+  Future<GameFinderMetadataRunnerStatus> metadataRunnerStatus() async {
+    return const GameFinderMetadataRunnerStatus(
+      status: 'STOPPED',
+      processedCount: 0,
+      successCount: 0,
+      notFoundCount: 0,
+      retryableFailureCount: 0,
+      permanentFailureCount: 0,
+      consecutiveRateLimitCount: 0,
+      remainingMetadataCandidates: 23,
+      cooldownRetryableCount: 0,
+      initialPopulationComplete: false,
+    );
+  }
 
   @override
   Future<GameFinderAdminStatus> status() async {
@@ -207,6 +240,7 @@ class _FakeRepository extends GameFinderAdminRepository {
 
   @override
   Future<GameFinderAdminStageEnrichResult> enrichMetadata(int batchSize) async {
+    requestedMetadataBatches.add(batchSize);
     enrichCalls++;
     return GameFinderAdminStageEnrichResult(
       stage: 'metadata',

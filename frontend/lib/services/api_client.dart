@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -50,10 +49,6 @@ class ApiClient {
       headers: await _headers(),
     );
 
-    debugPrint('GET $path');
-    debugPrint('status = ${response.statusCode}');
-    debugPrint('body = ${response.body}');
-
     return _decode(response);
   }
 
@@ -87,9 +82,6 @@ class ApiClient {
       headers: await _headers(),
       body: body == null ? null : jsonEncode(body),
     );
-    debugPrint('PUT $path');
-    debugPrint('status = ${response.statusCode}');
-    debugPrint('body = ${response.body}');
     return _decode(response);
   }
 

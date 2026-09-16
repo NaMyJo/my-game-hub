@@ -35,7 +35,6 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   String _metadataVerifyMode = 'RANDOM';
   bool _loadingStatus = true;
   bool _running = false;
-  bool _continuousEnrichment = false;
   bool _stopEnrichmentRequested = false;
   bool _igdbRunning = false;
   bool _metadataVerifyRunning = false;
@@ -87,8 +86,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   Future<void> _loadMetadataRunnerStatus({bool silent = false}) async {
     try {
-      final value = await
-          (widget.repository ?? GameFinderAdminRepository.instance)
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
               .metadataRunnerStatus();
       if (mounted) setState(() => _metadataRunner = value);
     } on ApiException catch (error) {
@@ -98,8 +97,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   Future<void> _startMetadataRunner() async {
     try {
-      final value = await
-          (widget.repository ?? GameFinderAdminRepository.instance)
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
               .startMetadataRunner();
       if (mounted) {
         setState(() {
@@ -114,8 +113,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   Future<void> _stopMetadataRunner() async {
     try {
-      final value = await
-          (widget.repository ?? GameFinderAdminRepository.instance)
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
               .stopMetadataRunner();
       if (mounted) setState(() => _metadataRunner = value);
     } on ApiException catch (error) {
@@ -126,7 +125,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   Future<void> _loadStatus() async {
     if (mounted) setState(() => _loadingStatus = true);
     try {
-      final value = await (widget.repository ?? GameFinderAdminRepository.instance).status();
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
+              .status();
       if (mounted) setState(() => _status = value);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = _message(error));
@@ -139,24 +140,28 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     if (_maintenanceRunning) return;
     setState(() {
       _running = true;
-      _continuousEnrichment = continuous;
       _stopEnrichmentRequested = false;
       _error = null;
     });
     try {
       do {
-        final value = await (widget.repository ??
-                GameFinderAdminRepository.instance)
-            .enrichMetadata(_batchSize);
+        final value =
+            await (widget.repository ?? GameFinderAdminRepository.instance)
+                .enrichMetadata(_batchSize);
         if (!mounted) return;
         setState(() => _metadataResult = value);
         await _loadStatus();
         if (value.rateLimited) {
-          setState(() => _error =
-              'Steam 요청 제한이 감지되어 연속 실행을 중단했습니다. 잠시 후 다시 시도해 주세요.');
+          setState(() =>
+              _error = 'Steam 요청 제한이 감지되어 연속 실행을 중단했습니다. 잠시 후 다시 시도해 주세요.');
         }
-        if (!continuous || value.rateLimited || !value.hasMoreCandidates || value.processed == 0 ||
-            _stopEnrichmentRequested) break;
+        if (!continuous ||
+            value.rateLimited ||
+            !value.hasMoreCandidates ||
+            value.processed == 0 ||
+            _stopEnrichmentRequested) {
+          break;
+        }
         await Future<void>.delayed(const Duration(milliseconds: 300));
       } while (mounted && !_stopEnrichmentRequested);
     } on ApiException catch (error) {
@@ -167,7 +172,6 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       if (mounted) {
         setState(() {
           _running = false;
-          _continuousEnrichment = false;
         });
       }
     }
@@ -189,9 +193,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     });
     try {
       do {
-        final value = await (widget.repository ??
-                GameFinderAdminRepository.instance)
-            .enrichIgdb(_igdbBatchSize);
+        final value =
+            await (widget.repository ?? GameFinderAdminRepository.instance)
+                .enrichIgdb(_igdbBatchSize);
         if (!mounted) return;
         setState(() {
           _igdbResult = value;
@@ -203,8 +207,13 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _igdbSessionDurationMs += value.durationMs;
         });
         await _loadStatus();
-        if (!continuous || value.rateLimited || !value.hasMoreCandidates || value.processed == 0 ||
-            _stopIgdbRequested) break;
+        if (!continuous ||
+            value.rateLimited ||
+            !value.hasMoreCandidates ||
+            value.processed == 0 ||
+            _stopIgdbRequested) {
+          break;
+        }
         await Future<void>.delayed(const Duration(milliseconds: 300));
       } while (mounted && !_stopIgdbRequested);
     } on ApiException catch (error) {
@@ -226,9 +235,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       _error = null;
     });
     try {
-      final value = await (widget.repository ??
-              GameFinderAdminRepository.instance)
-          .verifyMetadata(_metadataVerifySampleSize, _metadataVerifyMode);
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
+              .verifyMetadata(_metadataVerifySampleSize, _metadataVerifyMode);
       if (mounted) setState(() => _metadataVerifyResult = value);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = _message(error));
@@ -246,9 +255,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       _error = null;
     });
     try {
-      final value = await (widget.repository ??
-              GameFinderAdminRepository.instance)
-          .verifyIgdb();
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
+              .verifyIgdb();
       if (mounted) setState(() => _igdbVerifyResult = value);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = _message(error));
@@ -264,8 +273,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       _error = null;
     });
     try {
-      final value = await (widget.repository ?? GameFinderAdminRepository.instance)
-          .expandCatalog(_targetTotal);
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
+              .expandCatalog(_targetTotal);
       if (!mounted) return;
       setState(() => _catalogResult = value);
       await _loadStatus();
@@ -288,9 +298,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     });
     try {
       do {
-        final value = await (widget.repository ??
-                GameFinderAdminRepository.instance)
-            .syncNextFullCatalogPage();
+        final value =
+            await (widget.repository ?? GameFinderAdminRepository.instance)
+                .syncNextFullCatalogPage();
         if (!mounted) return;
         setState(() => _fullCatalogResult = value);
         await _loadStatus();
@@ -321,9 +331,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     });
     try {
       do {
-        final value = await (widget.repository ??
-                GameFinderAdminRepository.instance)
-            .syncNextGameCatalogPage();
+        final value =
+            await (widget.repository ?? GameFinderAdminRepository.instance)
+                .syncNextGameCatalogPage();
         if (!mounted) return;
         setState(() => _gameCatalogResult = value);
         await _loadStatus();
@@ -387,9 +397,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
             ),
             IconButton(
               tooltip: '상태 새로고침',
-              onPressed: _loadingStatus || _maintenanceRunning
-                  ? null
-                  : _loadStatus,
+              onPressed:
+                  _loadingStatus || _maintenanceRunning ? null : _loadStatus,
               icon: const Icon(Icons.refresh_rounded),
             ),
           ],
@@ -490,7 +499,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                     '${_status!.metadataTerminalCount} '
                     '· 남은 후보 ${_status!.remainingMetadataCandidates}'),
                 const SizedBox(height: 4),
-                Text('게임 ${_status!.gameCount} · Non-game ${_status!.nonGameCount} '
+                Text(
+                    '게임 ${_status!.gameCount} · Non-game ${_status!.nonGameCount} '
                     '· 미분류 ${_status!.unclassifiedCount}'),
                 const SizedBox(height: 4),
                 Text('운영 설정: concurrency ${_status!.metadataConcurrency} '
@@ -527,9 +537,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               SizedBox(
                 width: 210,
                 child: DropdownButtonFormField<int>(
-                  initialValue: const [20, 40].contains(_batchSize)
-                      ? _batchSize
-                      : null,
+                  initialValue:
+                      const [20, 40].contains(_batchSize) ? _batchSize : null,
                   decoration: const InputDecoration(
                     labelText: '고급 batch 선택',
                     border: OutlineInputBorder(),
@@ -549,18 +558,17 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               ),
               const SizedBox(height: 18),
               Wrap(spacing: 10, runSpacing: 10, children: [
-              FilledButton.icon(
-                onPressed: _maintenanceRunning
-                    ? null
-                    : () => _runEnrichment(),
-                icon: _running
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.auto_awesome_rounded),
-                label: Text(_running ? '게임 데이터를 불러오고 있습니다' : 'Enrichment 실행'),
-              ),
+                FilledButton.icon(
+                  onPressed:
+                      _maintenanceRunning ? null : () => _runEnrichment(),
+                  icon: _running
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome_rounded),
+                  label: Text(_running ? '게임 데이터를 불러오고 있습니다' : 'Enrichment 실행'),
+                ),
               ]),
             ],
           ),
@@ -590,18 +598,32 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         decoration: BoxDecoration(
           color: const Color(0xFF6F5AE8).withValues(alpha: .10),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-              color: const Color(0xFF8D79FF).withValues(alpha: .24)),
+          border:
+              Border.all(color: const Color(0xFF8D79FF).withValues(alpha: .24)),
         ),
         child: Row(children: [
           Icon(icon, color: const Color(0xFF8D79FF)),
           const SizedBox(width: 12),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(color: Color(0xFF8794A8))),
-            Text('$value',
-                style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-          ]),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xFF8794A8)),
+                ),
+                Text(
+                  '$value',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ]),
       );
 
@@ -637,13 +659,15 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           ],
           if (runner.lastError?.isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
-            Text(runner.lastError!, style: const TextStyle(color: Colors.redAccent)),
+            Text(runner.lastError!,
+                style: const TextStyle(color: Colors.redAccent)),
           ],
         ],
         const SizedBox(height: 16),
         Wrap(spacing: 10, runSpacing: 10, children: [
           FilledButton.icon(
-            onPressed: active || _maintenanceRunning ? null : _startMetadataRunner,
+            onPressed:
+                active || _maintenanceRunning ? null : _startMetadataRunner,
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('START'),
           ),
@@ -664,14 +688,22 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   String _metadataRunnerDescription(GameFinderMetadataRunnerStatus? runner) {
     switch (runner?.status) {
-      case 'RUNNING': return 'Steam Metadata 연속 수집 중';
-      case 'WAITING_RATE_LIMIT': return 'Steam 요청 제한 감지 · 서버에서 자동 재개 대기 중';
-      case 'WAITING_RETRY': return '일시 실패 게임의 retry cooldown 대기 중';
-      case 'STOP_REQUESTED': return '현재 batch 완료 후 중지 예정';
-      case 'STOPPED': return 'Steam Metadata 연속 수집 중지됨';
-      case 'COMPLETED': return '초기 Steam Metadata 수집 완료';
-      case 'FAILED': return 'Metadata runner 실행 실패';
-      default: return '브라우저를 닫아도 서버가 작은 batch 단위로 수집을 이어갑니다.';
+      case 'RUNNING':
+        return 'Steam Metadata 연속 수집 중';
+      case 'WAITING_RATE_LIMIT':
+        return 'Steam 요청 제한 감지 · 서버에서 자동 재개 대기 중';
+      case 'WAITING_RETRY':
+        return '일시 실패 게임의 retry cooldown 대기 중';
+      case 'STOP_REQUESTED':
+        return '현재 batch 완료 후 중지 예정';
+      case 'STOPPED':
+        return 'Steam Metadata 연속 수집 중지됨';
+      case 'COMPLETED':
+        return '초기 Steam Metadata 수집 완료';
+      case 'FAILED':
+        return 'Metadata runner 실행 실패';
+      default:
+        return '브라우저를 닫아도 서버가 작은 batch 단위로 수집을 이어갑니다.';
     }
   }
 
@@ -684,9 +716,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
 
   Widget _catalogPanel(Color panel, Color border) {
     final current = _status?.total ?? 0;
-    final progress = (_targetTotal == 0
-        ? 0.0
-        : (current / _targetTotal).clamp(0.0, 1.0)).toDouble();
+    final progress =
+        (_targetTotal == 0 ? 0.0 : (current / _targetTotal).clamp(0.0, 1.0))
+            .toDouble();
     final remaining = (_targetTotal - current).clamp(0, _targetTotal);
     return Container(
       width: double.infinity,
@@ -734,7 +766,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         ),
         if (_status != null) ...[
           const SizedBox(height: 12),
-          Text('Checkpoint: ${_status!.checkpoint.status} · App ID ${_status!.checkpoint.lastAppId}'
+          Text(
+              'Checkpoint: ${_status!.checkpoint.status} · App ID ${_status!.checkpoint.lastAppId}'
               '${_status!.checkpoint.hasFailure ? ' · 최근 오류 있음' : ''}'),
         ],
       ]),
@@ -869,8 +902,10 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const SizedBox(height: 12),
         Text('전체 Steam Apps: ${_status?.total ?? 0}'),
         Text('Steam Games: ${_status?.gameCatalogCount ?? 0}'),
-        Text('누적 발견: ${status?.discoveredCount ?? 0} · 마지막 App ID: ${status?.lastAppId ?? 0}'),
-        Text('상태: ${status?.status ?? 'NEW'} · ${status?.completed == true ? '완료' : '진행 가능'}'),
+        Text(
+            '누적 발견: ${status?.discoveredCount ?? 0} · 마지막 App ID: ${status?.lastAppId ?? 0}'),
+        Text(
+            '상태: ${status?.status ?? 'NEW'} · ${status?.completed == true ? '완료' : '진행 가능'}'),
         const SizedBox(height: 14),
         Wrap(spacing: 10, runSpacing: 10, children: [
           FilledButton.icon(
@@ -922,40 +957,44 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       );
 
   Widget _statusCard(String title, GameFinderEnrichmentCounts counts,
-          Color panel, Color border) {
-    final total = counts.pending + counts.success + counts.notFound +
-        counts.retryableFailure + counts.permanentFailure;
-    final completed = counts.success + counts.notFound + counts.permanentFailure;
+      Color panel, Color border) {
+    final total = counts.pending +
+        counts.success +
+        counts.notFound +
+        counts.retryableFailure +
+        counts.permanentFailure;
+    final completed =
+        counts.success + counts.notFound + counts.permanentFailure;
     final progress = total == 0 ? 0.0 : completed / total;
     return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: panel,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: border),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 14),
-          LinearProgressIndicator(value: progress),
-          const SizedBox(height: 6),
-          Text('$completed / $total · ${(progress * 100).toStringAsFixed(1)}%'),
-          const SizedBox(height: 10),
-          _line('성공', counts.success),
-          _line('대기', counts.pending),
-          _line('정보 없음', counts.notFound),
-          _line('재시도 가능 실패', counts.retryableFailure),
-          _line('영구 실패', counts.permanentFailure),
-        ]),
-      );
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 14),
+        LinearProgressIndicator(value: progress),
+        const SizedBox(height: 6),
+        Text('$completed / $total · ${(progress * 100).toStringAsFixed(1)}%'),
+        const SizedBox(height: 10),
+        _line('성공', counts.success),
+        _line('대기', counts.pending),
+        _line('정보 없음', counts.notFound),
+        _line('재시도 가능 실패', counts.retryableFailure),
+        _line('영구 실패', counts.permanentFailure),
+      ]),
+    );
   }
 
   Widget _line(String label, int value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        child:
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label),
           Text('$value', style: const TextStyle(fontWeight: FontWeight.w800)),
         ]),
@@ -975,7 +1014,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const Text('Steam Metadata 정합성 검증',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
         const SizedBox(height: 7),
-        const Text('저장된 Metadata를 Steam Store의 현재 응답과 표본 비교합니다. DB 데이터는 수정하지 않습니다.'),
+        const Text(
+            '저장된 Metadata를 Steam Store의 현재 응답과 표본 비교합니다. DB 데이터는 수정하지 않습니다.'),
         const SizedBox(height: 16),
         const Text('표본 크기', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
@@ -988,8 +1028,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                     selected: _metadataVerifySampleSize == value,
                     onSelected: _maintenanceRunning
                         ? null
-                        : (_) => setState(
-                            () => _metadataVerifySampleSize = value),
+                        : (_) =>
+                            setState(() => _metadataVerifySampleSize = value),
                   ))
               .toList(),
         ),
@@ -1004,8 +1044,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           selected: {_metadataVerifyMode},
           onSelectionChanged: _maintenanceRunning
               ? null
-              : (value) =>
-                  setState(() => _metadataVerifyMode = value.first),
+              : (value) => setState(() => _metadataVerifyMode = value.first),
         ),
         const SizedBox(height: 18),
         FilledButton.icon(
@@ -1034,8 +1073,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           if (result.criticalMismatch > 0) ...[
             const SizedBox(height: 14),
             const Text('심각한 불일치 상세',
-                style: TextStyle(fontWeight: FontWeight.w900,
-                    color: Colors.redAccent)),
+                style: TextStyle(
+                    fontWeight: FontWeight.w900, color: Colors.redAccent)),
             const SizedBox(height: 8),
             ...result.criticalDetails.map((value) => Container(
                   width: double.infinity,
@@ -1044,8 +1083,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.red.withValues(alpha: .22)),
+                    border:
+                        Border.all(color: Colors.red.withValues(alpha: .22)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1053,7 +1092,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
                       Text('Steam App ID ${value.steamAppId}',
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                       Text('DB: ${value.dbName}'),
-                      Text('Steam 응답: ${value.responseAppId ?? '-'} · ${value.responseName ?? '-'}'),
+                      Text(
+                          'Steam 응답: ${value.responseAppId ?? '-'} · ${value.responseName ?? '-'}'),
                       Text('불일치 필드: ${value.mismatchedFields.join(', ')}'),
                     ],
                   ),
@@ -1069,9 +1109,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     final completed = _status?.igdbTerminalCount ?? 0;
     final igdbSuccess = _status?.igdbSuccessCount ?? 0;
     final successPlayerData = _status?.igdbSuccessPlayerDataCount ?? 0;
-    final successCoverage = igdbSuccess == 0
-        ? 0.0
-        : successPlayerData * 100 / igdbSuccess;
+    final successCoverage =
+        igdbSuccess == 0 ? 0.0 : successPlayerData * 100 / igdbSuccess;
     final playerMissing = _status?.playerMissingClassification ??
         const GameFinderPlayerMissingClassification.empty();
     final progress = target == 0 ? 0.0 : (completed / target).clamp(0.0, 1.0);
@@ -1087,7 +1126,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         const Text('IGDB ENRICHMENT',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
-        Text('대상 $target · terminal 완료 $completed · 남은 후보 ${_status?.remainingIgdbCandidates ?? 0}'),
+        Text(
+            '대상 $target · terminal 완료 $completed · 남은 후보 ${_status?.remainingIgdbCandidates ?? 0}'),
         const SizedBox(height: 4),
         const SizedBox(height: 8),
         const Text('전체 Catalog 기준',
@@ -1110,7 +1150,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         Text('정확 복원 가능 ${playerMissing.recoverablePlayerCount} · '
             '멀티 여부만 확인 ${playerMissing.multiplayerKnownButCapacityUnknown} · '
             '근거 부족 ${playerMissing.insufficientSourceCount}'),
-        Text('IGDB SUCCESS ${playerMissing.igdbSuccessPlayerDataMissingTotal} · '
+        Text(
+            'IGDB SUCCESS ${playerMissing.igdbSuccessPlayerDataMissingTotal} · '
             '멀티플레이 후보 ${playerMissing.igdbSuccessMultiplayerCandidateCount} · '
             '싱글 전용 후보 ${playerMissing.igdbSuccessSingleplayerOnlyCandidateCount} · '
             '판단 불가 ${playerMissing.igdbSuccessUnknownCount}'),
@@ -1187,23 +1228,20 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
               style: TextStyle(fontWeight: FontWeight.w900)),
           _line('검사', _igdbVerifyResult!.totalChecked),
           _line('정상', _igdbVerifyResult!.valid),
-          _line('SUCCESS인데 Game ID 없음',
-              _igdbVerifyResult!.successMissingGameId),
-          _line('NOT_FOUND인데 Game ID 존재',
-              _igdbVerifyResult!.notFoundWithGameId),
-          _line('비정상 플레이 인원 범위',
-              _igdbVerifyResult!.invalidPlayerRange),
-          _line('중복 IGDB 매핑 검토',
-              _igdbVerifyResult!.duplicateIgdbMapping),
-          _line('중복 taxonomy 관계',
-              _igdbVerifyResult!.duplicateTaxonomyRelation),
+          _line(
+              'SUCCESS인데 Game ID 없음', _igdbVerifyResult!.successMissingGameId),
+          _line(
+              'NOT_FOUND인데 Game ID 존재', _igdbVerifyResult!.notFoundWithGameId),
+          _line('비정상 플레이 인원 범위', _igdbVerifyResult!.invalidPlayerRange),
+          _line('중복 IGDB 매핑 검토', _igdbVerifyResult!.duplicateIgdbMapping),
+          _line('중복 taxonomy 관계', _igdbVerifyResult!.duplicateTaxonomyRelation),
         ],
       ]),
     );
   }
 
-  Widget _stageResultPanel(GameFinderAdminStageEnrichResult value,
-          Color panel, Color border) =>
+  Widget _stageResultPanel(
+          GameFinderAdminStageEnrichResult value, Color panel, Color border) =>
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -1214,7 +1252,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${value.stage.toUpperCase()} 최근 실행',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
           _line('처리', value.processed),
           _line('SUCCESS', value.success),
@@ -1225,24 +1264,31 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text('Steam 요청 제한 감지 · 연속 실행 중단',
-                  style: TextStyle(color: Color(0xFFE2A93B), fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      color: Color(0xFFE2A93B), fontWeight: FontWeight.w700)),
             ),
-          Text('처리 속도 ${value.itemsPerSecond.toStringAsFixed(2)} apps/s · ${value.durationMs}ms'),
+          Text(
+              '처리 속도 ${value.itemsPerSecond.toStringAsFixed(2)} apps/s · ${value.durationMs}ms'),
         ]),
       );
 
   String? _metadataEta() {
     final result = _metadataResult;
     final remaining = _status?.remainingMetadataCandidates ?? 0;
-    if (result == null || result.processed < 2 || result.itemsPerSecond <= 0 ||
-        remaining <= 0) return null;
+    if (result == null ||
+        result.processed < 2 ||
+        result.itemsPerSecond <= 0 ||
+        remaining <= 0) {
+      return null;
+    }
     final seconds = (remaining / result.itemsPerSecond).ceil();
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
-    return hours > 0 ? '${hours}시간 ${minutes}분' : '${minutes}분';
+    return hours > 0 ? '$hours시간 $minutes분' : '$minutes분';
   }
 
-  Widget _resultPanel(GameFinderAdminEnrichResult value, Color panel, Color border) =>
+  Widget _resultPanel(
+          GameFinderAdminEnrichResult value, Color panel, Color border) =>
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -1261,7 +1307,9 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _line('실패', value.failures),
           _line('처리 시간(ms)', value.durationMs),
           const SizedBox(height: 4),
-          Text(value.hasMoreCandidates ? '처리 가능한 후보가 남아 있습니다.' : '현재 처리 가능한 후보가 없습니다.'),
+          Text(value.hasMoreCandidates
+              ? '처리 가능한 후보가 남아 있습니다.'
+              : '현재 처리 가능한 후보가 없습니다.'),
           Text('처리 시간 ${(value.durationMs / 1000).toStringAsFixed(2)}초',
               style: const TextStyle(color: Color(0xFF8794A8))),
         ]),

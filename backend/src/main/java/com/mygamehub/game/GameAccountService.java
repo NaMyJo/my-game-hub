@@ -799,9 +799,7 @@ EternalReturnCharacterStat third =
                 } catch (Exception e) {
                 System.err.println(
                         "메이플스토리 자동 갱신 실패: "
-                                + account.getAccountName()
-                                + " / "
-                                + e.getMessage()
+                                + e.getClass().getSimpleName()
                 );
                 }
         }
@@ -927,8 +925,6 @@ EternalReturnCharacterStat third =
                 notPlayed || profile.rr() == null
                         ? " - "
                         : profile.rr() + " RR";
-        System.out.println("Tier : " + tier);
-        System.out.println("RR   : " + rr);
         account.updateStats(
                 "경쟁전 티어",
                 tier,

@@ -38,14 +38,23 @@ class _GamePowerAnalysisPageState extends State<GamePowerAnalysisPage> {
   }
 
   @override
-  Widget build(BuildContext context) => _PublicShell(
-        title: '대시보드 분석',
-        child: error != null
-            ? const _EmptyMessage('게임력 분석을 불러오지 못했습니다.')
-            : data == null
-                ? const Center(child: CircularProgressIndicator())
-                : GamePowerAnalysisView(data: data!),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _PublicShell(
+      title: '게임 취향 리포트',
+      titleStyle: TextStyle(
+        color: scheme.onSurface,
+        fontSize: 21,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.35,
+      ),
+      child: error != null
+          ? const _EmptyMessage('게임력 분석을 불러오지 못했습니다.')
+          : data == null
+              ? const Center(child: CircularProgressIndicator())
+              : GamePowerAnalysisView(data: data!),
+    );
+  }
 }
 
 class GamePowerAnalysisView extends StatelessWidget {
@@ -72,13 +81,22 @@ class GamePowerAnalysisView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${data.displayName}님의 게임 데이터를 분석했어요.',
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+          '${data.displayName}님의 게임 기록을 한눈에 정리했어요.',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 27,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.45,
+          ),
         ),
         const SizedBox(height: 7),
-        const Text(
+        Text(
           '등록된 경쟁 게임을 기준으로 계산한 결과입니다.',
-          style: TextStyle(color: Color(0xFF8997AD), fontSize: 14),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 24),
         LayoutBuilder(
@@ -455,6 +473,7 @@ class _OverallPowerCard extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
+            key: const ValueKey('overall-power-text-region'),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -487,8 +506,9 @@ class _OverallPowerCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          SizedBox.square(
-            dimension: 94,
+          ConstrainedBox(
+            key: const ValueKey('overall-power-indicator-region'),
+            constraints: const BoxConstraints.tightFor(width: 94, height: 94),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -683,6 +703,7 @@ class _GameInsightCard extends StatelessWidget {
                   Text(
                     message,
                     style: const TextStyle(
+                      color: Color(0xFFF4F1FF),
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       height: 1.5,
@@ -735,7 +756,10 @@ class _AnalysisSurface extends StatelessWidget {
             ),
           ],
         ),
-        child: child,
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(color: Color(0xFFF4F1FF)),
+          child: child,
+        ),
       );
 }
 
@@ -990,13 +1014,18 @@ class _IdentityGameRow extends StatelessWidget {
 }
 
 class _PublicShell extends StatelessWidget {
-  const _PublicShell({required this.title, required this.child});
+  const _PublicShell({
+    required this.title,
+    required this.child,
+    this.titleStyle,
+  });
   final String title;
   final Widget child;
+  final TextStyle? titleStyle;
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-            title: Text(title),
+            title: Text(title, style: titleStyle),
             leading: Navigator.canPop(context) ? const BackButton() : null),
         body: Center(
             child: ConstrainedBox(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'account_deletion_page.dart';
+
 class PrivacyPolicyPage extends StatelessWidget {
   const PrivacyPolicyPage({super.key});
 
@@ -99,17 +101,21 @@ class PrivacyPolicyPage extends StatelessWidget {
                     const _PolicySection(
                       title: '4. 개인정보 보관 및 삭제',
                       body:
-                          '사용자 정보는 서비스 제공에 필요한 기간 동안 보관할 수 있습니다. 사용자는 아래 문의처를 통해 개인정보 확인, 수정 또는 삭제를 요청할 수 있으며, 요청 내용과 관련 법령 및 기술적으로 적용 가능한 범위를 확인하여 처리합니다. 현재 서비스에는 사용자 계정 전체를 자동 삭제하는 별도 화면이나 API가 제공되지 않습니다.',
+                          '''사용자는 앱 내 계정 삭제 기능을 이용해 계정을 삭제할 수 있습니다. 자세한 방법은 https://www.mygamehub.kr/account-deletion 에서 확인할 수 있습니다.
+
+계정 삭제 처리가 성공하면 MY GAME HUB 사용자 계정과 프로필, 등록한 게임 계정, 게임 신분증 및 관련 기록, Game Finder 사용자 설정과 최근 기록, My Game Picks 저장 정보가 활성 서비스 데이터베이스에서 삭제되고 Firebase Authentication 계정도 삭제됩니다. 이 처리는 되돌릴 수 없습니다.
+
+Steam/IGDB 기반 공용 game catalog는 특정 사용자의 계정 데이터가 아니므로 삭제 대상이 아닙니다. 서비스 및 인프라 운영 과정에서 생성되는 서버·호스팅 로그의 구체적인 보유 기간은 코드에서 확인되지 않으며, 관련 제공자의 운영 설정과 정책에 따를 수 있습니다.''',
                     ),
                     const _PolicySection(
                       title: '5. 제3자 제공 및 외부 처리 서비스',
                       body:
-                          'MY GAME HUB는 개인정보를 판매하거나 이용 목적과 무관하게 임의로 제3자에게 제공하지 않습니다. 다만 서비스 제공 과정에서 Google/Firebase Authentication은 인증을, Vercel과 Render는 서비스 호스팅을, Neon은 데이터베이스 인프라를 제공합니다. 사용자가 등록한 게임 계정의 정보를 조회할 때는 해당 게임의 공식 또는 외부 게임 API가 계정 식별 정보를 처리할 수 있습니다. 각 업체는 해당 서비스 제공에 필요한 범위에서 정보를 처리할 수 있습니다.',
+                          'MY GAME HUB는 개인정보를 판매하거나 이용 목적과 무관하게 임의로 제3자에게 제공하지 않습니다. 다만 서비스 제공 과정에서 Google/Firebase Authentication은 인증을, Vercel과 Render는 서비스 호스팅을, Neon은 데이터베이스 인프라를 제공합니다. 사용자가 등록한 게임 계정의 정보를 조회할 때는 해당 게임의 공식 또는 외부 게임 API가 계정 식별 정보를 처리할 수 있습니다. Game Finder는 Steam 및 IGDB에서 제공되는 공용 게임 catalog 정보를 사용하며, 사용자의 개인 Steam 라이브러리를 수집하는 기능은 제공하지 않습니다. 각 업체는 해당 서비스 제공에 필요한 범위에서 정보를 처리할 수 있습니다.',
                     ),
                     const _PolicySection(
-                      title: '6. 쿠키 및 브라우저 저장소',
+                      title: '6. 쿠키, 브라우저 저장소 및 분석',
                       body:
-                          'MY GAME HUB가 자체 광고·추적 목적의 쿠키를 별도로 운영하지는 않습니다. Flutter Web에서 로그인 상태를 유지하기 위해 Firebase Authentication이 브라우저 저장소 또는 쿠키 등 브라우저가 제공하는 저장 수단을 사용할 수 있습니다. 브라우저 설정이나 저장 데이터 삭제 시 로그인 상태가 해제될 수 있습니다.',
+                          'Flutter Web에서 로그인 상태를 유지하기 위해 Firebase Authentication이 브라우저 저장소 또는 쿠키 등 브라우저가 제공하는 저장 수단을 사용할 수 있습니다. 브라우저 설정이나 저장 데이터 삭제 시 로그인 상태가 해제될 수 있습니다. 웹 서비스 품질과 성능 확인을 위해 Vercel Analytics 및 Speed Insights 스크립트를 사용합니다. 해당 서비스가 처리하는 구체적인 항목과 보유 기간은 Vercel의 운영 설정 및 정책에 따를 수 있습니다. MY GAME HUB는 현재 자체 맞춤형 광고 SDK를 사용하지 않습니다.',
                     ),
                     const _PolicySection(
                       title: '7. 사용자의 권리',
@@ -125,6 +131,20 @@ class PrivacyPolicyPage extends StatelessWidget {
                       title: '8. 문의처',
                       body: '개인정보처리방침 및 개인정보 관련 문의: audwhd1113@gmail.com',
                     ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(AccountDeletionPage.path),
+                      icon: const Icon(Icons.person_remove_outlined),
+                      label: const Text('계정 삭제 안내'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFC5BAFF),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
                       margin: const EdgeInsets.only(top: 6),
@@ -135,7 +155,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                         border: Border.all(color: const Color(0xFF27354A)),
                       ),
                       child: const Text(
-                        '시행일: 2026년 9월 9일',
+                        '시행일: 2026년 9월 13일',
                         style: TextStyle(
                           color: Color(0xFFB8C2D1),
                           fontSize: 14,

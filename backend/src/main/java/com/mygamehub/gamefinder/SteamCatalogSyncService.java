@@ -228,7 +228,8 @@ public class SteamCatalogSyncService {
         } catch (RuntimeException exception) {
             cp.failed(exception.getMessage());
             checkpoints.save(cp);
-            log.error("game_finder_catalog_sync_failed key={}", key, exception);
+            log.error("game_finder_catalog_sync_failed key={} errorType={}",
+                    key, exception.getClass().getSimpleName());
             throw exception;
         }
     }
