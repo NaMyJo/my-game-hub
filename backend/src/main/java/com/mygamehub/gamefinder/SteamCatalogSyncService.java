@@ -12,6 +12,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -24,6 +26,7 @@ public class SteamCatalogSyncService {
     static final String ADMIN_EXPAND_CHECKPOINT_KEY = "steam-catalog-admin-expand";
     static final String ADMIN_FULL_SYNC_CHECKPOINT_KEY = "steam-catalog-admin-full-sync";
     static final String ADMIN_GAME_ONLY_CHECKPOINT_KEY = "steam-catalog-admin-game-only";
+    static final String ADMIN_NEW_GAMES_CHECKPOINT_KEY = "steam-catalog-admin-new-games";
     static final int ADMIN_EXPAND_MAX_APPS_PER_REQUEST = 500;
     private final SteamCatalogClient catalog;
     private final SteamStoreDetailClient store;
@@ -496,6 +499,65 @@ public class SteamCatalogSyncService {
         }
     }
 
+    public NewGamesCatalogSyncResult syncNewGamesPage() {
+        CatalogSyncCheckpoint cp = checkpoints.findById(ADMIN_NEW_GAMES_CHECKPOINT_KEY)
+                .orElseGet(() -> {
+                    CatalogSyncCheckpoint gameOnly = checkpoints
+                            .findById(ADMIN_GAME_ONLY_CHECKPOINT_KEY)
+                            .filter(value -> value.getLastAppId() != null
+                                    && value.getLastAppId() > 0)
+                            .orElseThrow(() -> new NewGamesCheckpointUnavailableException(
+                                    "A valid game-only catalog cursor is required before checking new games"));
+                    CatalogSyncCheckpoint created = new CatalogSyncCheckpoint(
+                            ADMIN_NEW_GAMES_CHECKPOINT_KEY);
+                    created.initializeCursor(gameOnly.getLastAppId());
+                    return created;
+                });
+        long previousLastAppId = cp.getLastAppId() == null ? 0 : cp.getLastAppId();
+        if (previousLastAppId <= 0) {
+            throw new NewGamesCheckpointUnavailableException(
+                    "The new-games catalog checkpoint has no valid cursor");
+        }
+        cp.running();
+        checkpoints.save(cp);
+        try {
+            SteamCatalogClient.CatalogPage page = catalog.page(
+                    previousLastAppId, null, ADMIN_EXPAND_MAX_APPS_PER_REQUEST);
+            logPage(page, ADMIN_EXPAND_MAX_APPS_PER_REQUEST, previousLastAppId);
+            if ((page.hasMore() && page.items().isEmpty())
+                    || (!page.items().isEmpty() && page.lastAppId() <= previousLastAppId)) {
+                throw new IllegalStateException("Steam new-games page made no cursor progress");
+            }
+            Set<Long> existingAppIds = page.items().isEmpty()
+                    ? Set.of()
+                    : games.findBySteamAppIdIn(page.items().stream()
+                            .map(SteamCatalogClient.CatalogItem::appId)
+                            .collect(Collectors.toSet())).stream()
+                            .map(SteamGame::getSteamAppId)
+                            .collect(Collectors.toSet());
+            List<SteamCatalogClient.CatalogItem> newItems = page.items().stream()
+                    .filter(item -> !existingAppIds.contains(item.appId()))
+                    .toList();
+            List<SteamGame> saved = newItems.isEmpty()
+                    ? List.of()
+                    : persistence.upsertGameCatalogAll(newItems);
+            long currentCatalog = games.count();
+            long currentLastAppId = page.items().isEmpty()
+                    ? previousLastAppId
+                    : page.lastAppId();
+            cp.progress(currentLastAppId);
+            checkpoints.save(cp);
+            return new NewGamesCatalogSyncResult(
+                    page.items().size(), saved.size(), saved.size(), currentCatalog,
+                    previousLastAppId, currentLastAppId, page.hasMore(),
+                    cp.getLastSuccessfulSyncAt());
+        } catch (RuntimeException exception) {
+            cp.failed(exception.getClass().getSimpleName());
+            checkpoints.save(cp);
+            throw exception;
+        }
+    }
+
     public int taxonomyBatch() {
         List<SteamGame> targets = games.findTaxonomyCandidates(PageRequest.of(0, batchSize));
         targets.forEach(tagService::rebuild);
@@ -718,6 +780,23 @@ public class SteamCatalogSyncService {
             long lastAppId,
             long discoveredCount,
             boolean completed) {}
+
+    public record NewGamesCatalogSyncResult(
+            int fetched,
+            int upserted,
+            long newlySaved,
+            long currentCatalog,
+            long previousLastAppId,
+            long currentLastAppId,
+            boolean hasMore,
+            Instant lastRunAt) {}
+
+    public static final class NewGamesCheckpointUnavailableException
+            extends IllegalStateException {
+        public NewGamesCheckpointUnavailableException(String message) {
+            super(message);
+        }
+    }
 
     public record EnrichmentBatchResult(
             int processed,

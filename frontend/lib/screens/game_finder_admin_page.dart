@@ -28,6 +28,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   GameFinderAdminCatalogExpandResult? _catalogResult;
   GameFinderAdminFullCatalogSyncResult? _fullCatalogResult;
   GameFinderAdminGameCatalogSyncResult? _gameCatalogResult;
+  GameFinderAdminNewGamesSyncResult? _newGamesResult;
   int _batchSize = 1;
   int _igdbBatchSize = 5;
   int _targetTotal = 500;
@@ -52,6 +53,7 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
   bool _continuousFullCatalog = false;
   bool _stopFullCatalogRequested = false;
   bool _gameCatalogRunning = false;
+  bool _newGamesRunning = false;
   bool _continuousGameCatalog = false;
   bool _stopGameCatalogRequested = false;
   String? _error;
@@ -63,7 +65,8 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
       _igdbVerifyRunning ||
       _catalogRunning ||
       _fullCatalogRunning ||
-      _gameCatalogRunning;
+      _gameCatalogRunning ||
+      _newGamesRunning;
 
   @override
   void dispose() {
@@ -352,6 +355,28 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
     }
   }
 
+  Future<void> _runNewGamesSync() async {
+    if (_maintenanceRunning) return;
+    setState(() {
+      _newGamesRunning = true;
+      _error = null;
+    });
+    try {
+      final value =
+          await (widget.repository ?? GameFinderAdminRepository.instance)
+              .syncNewSteamGames();
+      if (!mounted) return;
+      setState(() => _newGamesResult = value);
+      await _loadStatus();
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = _message(error));
+    } catch (_) {
+      if (mounted) setState(() => _error = '신규 Steam 게임 확인 중 오류가 발생했습니다.');
+    } finally {
+      if (mounted) setState(() => _newGamesRunning = false);
+    }
+  }
+
   String _message(ApiException error) {
     return switch (error.statusCode) {
       400 => '처리 개수 설정을 확인해주세요.',
@@ -471,6 +496,12 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
         if (_gameCatalogResult != null) ...[
           const SizedBox(height: 14),
           _gameCatalogResultPanel(_gameCatalogResult!, panel, border),
+        ],
+        const SizedBox(height: 18),
+        _newGamesPanel(panel, border),
+        if (_newGamesResult != null) ...[
+          const SizedBox(height: 14),
+          _newGamesResultPanel(_newGamesResult!, panel, border),
         ],
         const SizedBox(height: 18),
         const Text('STEAM METADATA',
@@ -953,6 +984,72 @@ class _GameFinderAdminPageState extends State<GameFinderAdminPage> {
           _line('누적 발견', value.discoveredCount),
           _line('마지막 App ID', value.lastAppId),
           _line('처리 시간(ms)', value.durationMs),
+        ]),
+      );
+
+  Widget _newGamesPanel(Color panel, Color border) {
+    final status = _status?.newGamesCatalogSync;
+    final lastRun = status?.lastSuccessfulRunAt?.toLocal().toString() ?? '-';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('신규 STEAM GAME 확인',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        const Text('초기 game-only 수집 이후 추가된 Steam 게임을 최대 500개씩 확인합니다.'),
+        const SizedBox(height: 12),
+        Text('마지막 확인 App ID: ${status?.lastAppId ?? 0}'),
+        Text('마지막 확인: $lastRun'),
+        Text('상태: ${status?.status ?? 'NEW'}'),
+        if (status?.hasFailure == true)
+          const Text('최근 실행 오류가 있습니다. 다시 시도할 수 있습니다.'),
+        const SizedBox(height: 14),
+        FilledButton.icon(
+          onPressed: _maintenanceRunning ? null : _runNewGamesSync,
+          icon: _newGamesRunning
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.manage_search_rounded),
+          label: Text(_newGamesRunning ? '신규 게임 확인 중' : '신규 게임 확인'),
+        ),
+      ]),
+    );
+  }
+
+  Widget _newGamesResultPanel(
+          GameFinderAdminNewGamesSyncResult value, Color panel, Color border) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('최근 신규 Steam 게임 확인 결과',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+          _line('조회', value.fetched),
+          _line('UPSERT', value.upserted),
+          _line('신규 저장', value.newlySaved),
+          _line('현재 Catalog', value.currentCatalog),
+          _line('이전 App ID', value.previousLastAppId),
+          _line('현재 App ID', value.currentLastAppId),
+          const SizedBox(height: 6),
+          Text(value.fetched == 0
+              ? '현재 신규 Steam 게임이 없습니다. 나중에 다시 확인할 수 있습니다.'
+              : value.hasMore
+                  ? '추가 결과가 있습니다. 신규 게임 확인을 다시 실행할 수 있습니다.'
+                  : '현재 확인 가능한 신규 Steam 게임을 반영했습니다.'),
         ]),
       );
 

@@ -10,6 +10,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminNewGamesSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
@@ -186,6 +187,19 @@ public class GameFinderAdminController {
         return maintenance.tryGameCatalogSync()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+    }
+
+    @PostMapping("/catalog/new-games")
+    public GameFinderAdminNewGamesSyncResponse newGamesCatalogSync(
+            HttpServletRequest servletRequest) {
+        requireAdmin(servletRequest);
+        try {
+            return maintenance.tryNewGamesSync()
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.CONFLICT, "GAME FINDER maintenance is already running"));
+        } catch (SteamCatalogSyncService.NewGamesCheckpointUnavailableException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
+        }
     }
 
     private AuthenticatedUser currentUser(HttpServletRequest servletRequest) {

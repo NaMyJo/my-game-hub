@@ -31,11 +31,13 @@ public record GameFinderAdminStatusResponse(
         PlayerMissingClassification playerMissingClassification,
         MetadataRuntimeConfig metadataRuntimeConfig,
         Checkpoint checkpoint,
+        NewGamesCatalogSync newGamesCatalogSync,
         FullCatalogSync fullCatalogSync,
         FullCatalogSync gameOnlyCatalogSync
 ) {
     public static GameFinderAdminStatusResponse from(
             GameFinderAdminStatusProjection value, Checkpoint checkpoint,
+            NewGamesCatalogSync newGamesCatalogSync,
             FullCatalogSync fullCatalogSync, FullCatalogSync gameOnlyCatalogSync,
             long remainingCandidates, long remainingMetadataCandidates,
             long remainingIgdbCandidates, MetadataRuntimeConfig metadataRuntimeConfig,
@@ -57,7 +59,8 @@ public record GameFinderAdminStatusResponse(
                 value.getIgdbSuccessCount(), value.getIgdbSuccessPlayerDataCount(),
                 value.getIgdbSuccessPlayerDataMissingCount(),
                 PlayerMissingClassification.from(classification),
-                metadataRuntimeConfig, checkpoint, fullCatalogSync, gameOnlyCatalogSync);
+                metadataRuntimeConfig, checkpoint, newGamesCatalogSync,
+                fullCatalogSync, gameOnlyCatalogSync);
     }
 
     public record EnrichmentCounts(
@@ -72,6 +75,13 @@ public record GameFinderAdminStatusResponse(
             Long lastAppId,
             Instant lastSuccessfulSyncAt,
             String status,
+            boolean hasFailure
+    ) {}
+
+    public record NewGamesCatalogSync(
+            String status,
+            Long lastAppId,
+            Instant lastSuccessfulRunAt,
             boolean hasFailure
     ) {}
 

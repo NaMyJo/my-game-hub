@@ -16,6 +16,9 @@ public class CatalogSyncCheckpoint {
     @Column(name="processed_count") private Long processedCount;
     protected CatalogSyncCheckpoint() {}
     public CatalogSyncCheckpoint(String key){this.syncKey=key; this.status="NEW"; this.lastAppId=0L;}
+    public void initializeCursor(long appId){
+        if(lastAppId==null||lastAppId==0)lastAppId=appId;
+    }
     public void running(){if(lastAppId==null||lastAppId==0)pendingMaxModified=lastModifiedSince;status="RUNNING"; failureInfo=null;}
     public void page(long appId,long maxModified){lastAppId=appId;pendingMaxModified=maxModified;}
     public void progress(long appId){lastAppId=appId;lastSuccessfulSyncAt=Instant.now();status="SUCCESS";failureInfo=null;}

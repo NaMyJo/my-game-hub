@@ -9,6 +9,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminNewGamesSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyRequest;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
@@ -192,6 +193,8 @@ class GameFinderAdminControllerTest {
     void adminCanReadAggregateStatus() {
         var counts = new GameFinderAdminStatusResponse.EnrichmentCounts(1, 2, 3, 4, 5);
         var checkpoint = new GameFinderAdminStatusResponse.Checkpoint(10L, null, "SUCCESS", false);
+        var newGamesSync = new GameFinderAdminStatusResponse.NewGamesCatalogSync(
+                "SUCCESS", 10L, null, false);
         var fullSync = new GameFinderAdminStatusResponse.FullCatalogSync(
                 "NEW", 0L, 0, null, false, false);
         var status = new GameFinderAdminStatusResponse(
@@ -201,10 +204,45 @@ class GameFinderAdminControllerTest {
                 new GameFinderAdminStatusResponse.PlayerMissingClassification(
                         3, 1, 1, 1, 0, 1, 0, 2, 1, 1, 0),
                 new GameFinderAdminStatusResponse.MetadataRuntimeConfig(1, 500),
-                checkpoint, fullSync, fullSync);
+                checkpoint, newGamesSync, fullSync, fullSync);
         when(statusService.status()).thenReturn(status);
 
         assertThat(controller.status(authenticated("admin-uid"))).isSameAs(status);
+    }
+
+    @Test
+    void newGamesCatalogSyncRequiresAdminAndDelegates() {
+        var response = new GameFinderAdminNewGamesSyncResponse(
+                1, 1, 1, 101, 500, 600, false, java.time.Instant.now());
+        when(maintenance.tryNewGamesSync()).thenReturn(Optional.of(response));
+
+        assertThatThrownBy(() -> controller.newGamesCatalogSync(
+                new MockHttpServletRequest()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode())
+                                .isEqualTo(HttpStatus.UNAUTHORIZED));
+        assertThatThrownBy(() -> controller.newGamesCatalogSync(
+                authenticated("regular-user")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode())
+                                .isEqualTo(HttpStatus.FORBIDDEN));
+        assertThat(controller.newGamesCatalogSync(authenticated("admin-uid")))
+                .isSameAs(response);
+        verify(maintenance).tryNewGamesSync();
+    }
+
+    @Test
+    void newGamesCatalogSyncReturnsConflictWhenBaselineCursorIsUnavailable() {
+        when(maintenance.tryNewGamesSync()).thenThrow(
+                new SteamCatalogSyncService.NewGamesCheckpointUnavailableException(
+                        "A valid game-only catalog cursor is required before checking new games"));
+
+        assertThatThrownBy(() -> controller.newGamesCatalogSync(
+                authenticated("admin-uid")))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                    assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+                    assertThat(error.getReason()).contains("valid game-only catalog cursor");
+                });
     }
 
     @Test

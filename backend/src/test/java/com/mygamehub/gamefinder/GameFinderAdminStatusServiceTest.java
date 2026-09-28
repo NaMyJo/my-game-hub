@@ -16,8 +16,13 @@ class GameFinderAdminStatusServiceTest {
         var classification = mock(PlayerMissingClassificationProjection.class);
         var fullCheckpoint = new CatalogSyncCheckpoint("steam-catalog-admin-full-sync");
         fullCheckpoint.fullSyncPage(500, 500, false);
+        var newGamesCheckpoint = new CatalogSyncCheckpoint("steam-catalog-admin-new-games");
+        newGamesCheckpoint.initializeCursor(550);
+        newGamesCheckpoint.progress(600);
         when(checkpoints.findById("steam-catalog-admin-full-sync"))
                 .thenReturn(java.util.Optional.of(fullCheckpoint));
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(java.util.Optional.of(newGamesCheckpoint));
         when(games.adminStatus()).thenReturn(projection);
         when(games.playerMissingClassification()).thenReturn(classification);
         when(projection.getTotal()).thenReturn(102L);
@@ -60,6 +65,8 @@ class GameFinderAdminStatusServiceTest {
         assertThat(response.fullCatalogSync().lastAppId()).isEqualTo(500);
         assertThat(response.fullCatalogSync().discoveredCount()).isEqualTo(500);
         assertThat(response.fullCatalogSync().completed()).isFalse();
+        assertThat(response.newGamesCatalogSync().lastAppId()).isEqualTo(600);
+        assertThat(response.newGamesCatalogSync().status()).isEqualTo("SUCCESS");
         assertThat(response.remainingCandidates()).isEqualTo(17);
         assertThat(response.gameCatalogCount()).isEqualTo(90);
         assertThat(response.gameCount()).isEqualTo(80);

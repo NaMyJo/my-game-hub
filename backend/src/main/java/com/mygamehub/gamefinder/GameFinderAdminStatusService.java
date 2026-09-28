@@ -34,6 +34,13 @@ public class GameFinderAdminStatusService {
                         value.getFailureInfo() != null && !value.getFailureInfo().isBlank()))
                 .orElseGet(() -> new GameFinderAdminStatusResponse.FullCatalogSync(
                         "NEW", 0L, 0, null, false, false));
+        var newGamesSync = checkpoints.findById(
+                        SteamCatalogSyncService.ADMIN_NEW_GAMES_CHECKPOINT_KEY)
+                .map(value -> new GameFinderAdminStatusResponse.NewGamesCatalogSync(
+                        value.getStatus(), value.getLastAppId(), value.getLastSuccessfulSyncAt(),
+                        value.getFailureInfo() != null && !value.getFailureInfo().isBlank()))
+                .orElseGet(() -> new GameFinderAdminStatusResponse.NewGamesCatalogSync(
+                        "NEW", 0L, null, false));
         var gameOnlySync = checkpoints.findById(SteamCatalogSyncService.ADMIN_GAME_ONLY_CHECKPOINT_KEY)
                 .map(value -> new GameFinderAdminStatusResponse.FullCatalogSync(
                         value.getStatus(), value.getLastAppId(),
@@ -44,7 +51,8 @@ public class GameFinderAdminStatusService {
                         "NEW", 0L, 0, null, false, false));
         long remainingCandidates = syncService.remainingEnrichmentCandidates();
         return GameFinderAdminStatusResponse.from(
-                games.adminStatus(), checkpoint, fullSync, gameOnlySync, remainingCandidates,
+                games.adminStatus(), checkpoint, newGamesSync, fullSync, gameOnlySync,
+                remainingCandidates,
                 syncService.remainingMetadataCandidates(),
                 syncService.remainingIgdbCandidates(),
                 new GameFinderAdminStatusResponse.MetadataRuntimeConfig(

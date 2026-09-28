@@ -4,6 +4,7 @@ import com.mygamehub.gamefinder.dto.GameFinderAdminEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminCatalogExpandResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminFullCatalogSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminGameCatalogSyncResponse;
+import com.mygamehub.gamefinder.dto.GameFinderAdminNewGamesSyncResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminStageEnrichResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminMetadataVerifyResponse;
 import com.mygamehub.gamefinder.dto.GameFinderAdminIgdbVerifyResponse;
@@ -202,6 +203,27 @@ public class GameFinderAdminMaintenanceService {
                     result.fetched(), result.eligibleCatalogTotal(), result.lastAppId(),
                     result.discoveredCount(), result.completed(), durationMs);
             return Optional.of(GameFinderAdminGameCatalogSyncResponse.from(result, durationMs));
+        } finally {
+            maintenanceRunning.set(false);
+        }
+    }
+
+    public Optional<GameFinderAdminNewGamesSyncResponse> tryNewGamesSync() {
+        if (!maintenanceRunning.compareAndSet(false, true)) {
+            log.warn("game_finder_admin_new_games_rejected reason=maintenance_running");
+            return Optional.empty();
+        }
+        log.info("game_finder_admin_new_games_start maxApps={}",
+                SteamCatalogSyncService.ADMIN_EXPAND_MAX_APPS_PER_REQUEST);
+        try {
+            var result = syncService.syncNewGamesPage();
+            log.info("game_finder_admin_new_games_complete fetched={} upserted={} "
+                            + "newlySaved={} currentCatalog={} previousLastAppId={} "
+                            + "currentLastAppId={} hasMore={}",
+                    result.fetched(), result.upserted(), result.newlySaved(),
+                    result.currentCatalog(), result.previousLastAppId(),
+                    result.currentLastAppId(), result.hasMore());
+            return Optional.of(GameFinderAdminNewGamesSyncResponse.from(result));
         } finally {
             maintenanceRunning.set(false);
         }

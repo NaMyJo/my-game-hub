@@ -69,6 +69,29 @@ void main() {
     expect(find.text('다음 최대 500개를 이어서 수집할 수 있습니다.'), findsOneWidget);
   });
 
+  testWidgets('new Steam games check remains available after an empty result',
+      (tester) async {
+    final repository = _FakeRepository();
+    await pumpAdminPage(tester, repository);
+
+    await tapVisible(tester, find.text('신규 게임 확인'));
+    await tester.pumpAndSettle();
+
+    expect(repository.newGamesCalls, 1);
+    expect(
+        find.text('현재 신규 Steam 게임이 없습니다. 나중에 다시 확인할 수 있습니다.'), findsOneWidget);
+    expect(
+        tester
+            .widget<FilledButton>(
+              find.ancestor(
+                of: find.text('신규 게임 확인'),
+                matching: find.byType(FilledButton),
+              ),
+            )
+            .onPressed,
+        isNotNull);
+  });
+
   testWidgets('metadata enrichment runs one batch with the selected size',
       (tester) async {
     final repository = _FakeRepository();
@@ -100,6 +123,7 @@ void main() {
 class _FakeRepository extends GameFinderAdminRepository {
   int statusCalls = 0;
   int fullSyncCalls = 0;
+  int newGamesCalls = 0;
   int enrichCalls = 0;
   int igdbCalls = 0;
   final requestedMetadataBatches = <int>[];
@@ -154,6 +178,12 @@ class _FakeRepository extends GameFinderAdminRepository {
         lastAppId: 0,
         lastSuccessfulSyncAt: null,
         status: 'NEW',
+        hasFailure: false,
+      ),
+      newGamesCatalogSync: GameFinderNewGamesCatalogSyncStatus(
+        status: 'SUCCESS',
+        lastAppId: 500,
+        lastSuccessfulRunAt: null,
         hasFailure: false,
       ),
       fullCatalogSync: GameFinderFullCatalogSyncStatus(
@@ -216,6 +246,21 @@ class _FakeRepository extends GameFinderAdminRepository {
       discoveredCount: 500,
       completed: false,
       durationMs: 100,
+    );
+  }
+
+  @override
+  Future<GameFinderAdminNewGamesSyncResult> syncNewSteamGames() async {
+    newGamesCalls++;
+    return const GameFinderAdminNewGamesSyncResult(
+      fetched: 0,
+      upserted: 0,
+      newlySaved: 0,
+      currentCatalog: 102,
+      previousLastAppId: 500,
+      currentLastAppId: 500,
+      hasMore: false,
+      lastRunAt: null,
     );
   }
 

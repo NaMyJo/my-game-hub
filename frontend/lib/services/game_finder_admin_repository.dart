@@ -101,4 +101,11 @@ class GameFinderAdminRepository {
     ) as Map<String, dynamic>;
     return GameFinderAdminGameCatalogSyncResult.fromJson(json);
   }
+
+  Future<GameFinderAdminNewGamesSyncResult> syncNewSteamGames() async {
+    final json = await ApiClient.instance.post(
+      '/api/admin/game-finder/catalog/new-games',
+    ) as Map<String, dynamic>;
+    return GameFinderAdminNewGamesSyncResult.fromJson(json);
+  }
 }

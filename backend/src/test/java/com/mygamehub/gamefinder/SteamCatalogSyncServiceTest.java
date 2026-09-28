@@ -546,6 +546,116 @@ class SteamCatalogSyncServiceTest {
         verifyNoInteractions(catalog);
     }
 
+    @Test
+    void newGamesScanStartsFromGameOnlyCheckpointAndUsesEligibleUpsert() {
+        var gameOnly = new CatalogSyncCheckpoint("steam-catalog-admin-game-only");
+        gameOnly.fullSyncPage(500, 500, true);
+        var item = new SteamCatalogClient.CatalogItem(600, "New Game", 2, 2);
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(Optional.empty());
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.of(gameOnly));
+        when(catalog.page(500, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), false, 600));
+        when(persistence.upsertGameCatalogAll(List.of(item))).thenReturn(
+                List.of(new SteamGame(600, "New Game", 2, 2)));
+        when(games.count()).thenReturn(248_617L);
+
+        var result = service.syncNewGamesPage();
+
+        assertEquals(500, result.previousLastAppId());
+        assertEquals(600, result.currentLastAppId());
+        assertEquals(1, result.fetched());
+        assertEquals(1, result.upserted());
+        assertEquals(1, result.newlySaved());
+        assertFalse(result.hasMore());
+        verify(catalog).page(500, null, 500);
+        verify(persistence).upsertGameCatalogAll(List.of(item));
+        verifyNoInteractions(store, igdb, tagService);
+        assertEquals(500, gameOnly.getLastAppId());
+        assertEquals("COMPLETED", gameOnly.getStatus());
+    }
+
+    @Test
+    void newGamesScanFailsSafelyWithoutGameOnlyCursor() {
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(Optional.empty());
+        when(checkpoints.findById("steam-catalog-admin-game-only"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(SteamCatalogSyncService.NewGamesCheckpointUnavailableException.class,
+                service::syncNewGamesPage);
+
+        verifyNoInteractions(catalog, persistence);
+        verify(checkpoints, never()).save(any());
+    }
+
+    @Test
+    void newGamesPersistenceFailureDoesNotAdvanceCursor() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-new-games");
+        checkpoint.initializeCursor(500);
+        var item = new SteamCatalogClient.CatalogItem(600, "New Game", 2, 2);
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(248_616L);
+        when(catalog.page(500, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(item), false, 600));
+        when(persistence.upsertGameCatalogAll(List.of(item)))
+                .thenThrow(new IllegalStateException("db"));
+
+        assertThrows(IllegalStateException.class, service::syncNewGamesPage);
+
+        assertEquals(500, checkpoint.getLastAppId());
+        assertEquals("FAILED", checkpoint.getStatus());
+    }
+
+    @Test
+    void emptyNewGamesResultRemainsRerunnable() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-new-games");
+        checkpoint.initializeCursor(500);
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(Optional.of(checkpoint));
+        when(games.count()).thenReturn(248_616L);
+        when(catalog.page(500, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(List.of(), false, 500));
+
+        var first = service.syncNewGamesPage();
+        var second = service.syncNewGamesPage();
+
+        assertEquals(0, first.fetched());
+        assertEquals(0, second.fetched());
+        assertEquals("SUCCESS", checkpoint.getStatus());
+        assertEquals(500, checkpoint.getLastAppId());
+        verify(catalog, times(2)).page(500, null, 500);
+        verify(persistence, never()).upsertGameCatalogAll(anyCollection());
+    }
+
+    @Test
+    void newGamesScanSkipsExistingRowsWithoutChangingTheirEligibility() {
+        var checkpoint = new CatalogSyncCheckpoint("steam-catalog-admin-new-games");
+        checkpoint.initializeCursor(500);
+        var existingItem = new SteamCatalogClient.CatalogItem(600, "Existing", 2, 2);
+        var newItem = new SteamCatalogClient.CatalogItem(700, "New", 3, 3);
+        var existingGame = new SteamGame(600, "Existing", 2, 2);
+        when(checkpoints.findById("steam-catalog-admin-new-games"))
+                .thenReturn(Optional.of(checkpoint));
+        when(catalog.page(500, null, 500)).thenReturn(
+                new SteamCatalogClient.CatalogPage(
+                        List.of(existingItem, newItem), false, 700));
+        when(games.findBySteamAppIdIn(Set.of(600L, 700L)))
+                .thenReturn(List.of(existingGame));
+        when(persistence.upsertGameCatalogAll(List.of(newItem)))
+                .thenReturn(List.of(new SteamGame(700, "New", 3, 3)));
+        when(games.count()).thenReturn(248_617L);
+
+        var result = service.syncNewGamesPage();
+
+        assertEquals(2, result.fetched());
+        assertEquals(1, result.upserted());
+        assertEquals(1, result.newlySaved());
+        verify(persistence).upsertGameCatalogAll(List.of(newItem));
+    }
+
     @BeforeEach
     void persistenceReturnsEntities() {
         lenient().when(persistence.upsertAll(anyCollection())).thenAnswer(invocation ->

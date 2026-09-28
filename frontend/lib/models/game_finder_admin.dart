@@ -7,6 +7,7 @@ class GameFinderAdminStatus {
     required this.metadata,
     required this.igdb,
     required this.checkpoint,
+    required this.newGamesCatalogSync,
     required this.fullCatalogSync,
     required this.gameOnlyCatalogSync,
     required this.remainingCandidates,
@@ -35,6 +36,7 @@ class GameFinderAdminStatus {
   final int total, active, unavailable, removed;
   final GameFinderEnrichmentCounts metadata, igdb;
   final GameFinderCatalogCheckpoint checkpoint;
+  final GameFinderNewGamesCatalogSyncStatus newGamesCatalogSync;
   final GameFinderFullCatalogSyncStatus fullCatalogSync;
   final GameFinderFullCatalogSyncStatus gameOnlyCatalogSync;
   final int remainingCandidates;
@@ -61,6 +63,8 @@ class GameFinderAdminStatus {
             json['igdb'] as Map<String, dynamic>? ?? const {}),
         checkpoint: GameFinderCatalogCheckpoint.fromJson(
             json['checkpoint'] as Map<String, dynamic>? ?? const {}),
+        newGamesCatalogSync: GameFinderNewGamesCatalogSyncStatus.fromJson(
+            json['newGamesCatalogSync'] as Map<String, dynamic>? ?? const {}),
         fullCatalogSync: GameFinderFullCatalogSyncStatus.fromJson(
             json['fullCatalogSync'] as Map<String, dynamic>? ?? const {}),
         gameOnlyCatalogSync: GameFinderFullCatalogSyncStatus.fromJson(
@@ -251,6 +255,31 @@ class GameFinderCatalogCheckpoint {
         lastSuccessfulSyncAt:
             DateTime.tryParse(json['lastSuccessfulSyncAt'] as String? ?? ''),
         status: json['status'] as String? ?? 'NEW',
+        hasFailure: json['hasFailure'] as bool? ?? false,
+      );
+}
+
+class GameFinderNewGamesCatalogSyncStatus {
+  const GameFinderNewGamesCatalogSyncStatus({
+    required this.status,
+    required this.lastAppId,
+    required this.lastSuccessfulRunAt,
+    required this.hasFailure,
+  });
+
+  final String status;
+  final int lastAppId;
+  final DateTime? lastSuccessfulRunAt;
+  final bool hasFailure;
+
+  factory GameFinderNewGamesCatalogSyncStatus.fromJson(
+          Map<String, dynamic> json) =>
+      GameFinderNewGamesCatalogSyncStatus(
+        status: json['status'] as String? ?? 'NEW',
+        lastAppId: (json['lastAppId'] as num?)?.toInt() ?? 0,
+        lastSuccessfulRunAt: DateTime.tryParse(
+          json['lastSuccessfulRunAt'] as String? ?? '',
+        ),
         hasFailure: json['hasFailure'] as bool? ?? false,
       );
 }
