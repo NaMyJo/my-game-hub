@@ -37,63 +37,34 @@ MY GAME HUB는 게임마다 다른 계정 형식과 전적 데이터를 하나�
 ## Screenshots
 
 <table>
-
-  <tr>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/01-login.jpg" alt="MY GAME HUB 시작 화면" width="260"><br>
-
-      <b>시작 화면</b>
-
-    </td>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/02-dashboard.jpg" alt="MY GAME HUB 통합 대시보드" width="260"><br>
-
-      <b>통합 대시보드</b>
-
-    </td>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/05-game-finder.jpg" alt="MY GAME HUB GAME FINDER" width="260"><br>
-
-      <b>GAME FINDER</b>
-
-    </td>
-
-  </tr>
-
-  <tr>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/03-tools.jpg" alt="MY GAME HUB 도구 모음" width="260"><br>
-
-      <b>도구 모음</b>
-
-    </td>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/04-game-identity.jpg" alt="MY GAME HUB 게임 신분증" width="260"><br>
-
-      <b>게임 신분증</b>
-
-    </td>
-
-    <td align="center" width="33%">
-
-      <img src="docs/screenshots/06-pink-theme.jpg" alt="MY GAME HUB Pink Mode 대시보드" width="260"><br>
-
-      <b>Pink Mode</b>
-
-    </td>
-
-  </tr>
-
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/01-login.jpg" alt="MY GAME HUB 시작 화면" width="220">
+      <div><b>시작 화면</b></div>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/02-dashboard.jpg" alt="MY GAME HUB 통합 대시보드" width="220">
+      <div><b>통합 대시보드</b></div>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/05-game-finder.jpg" alt="MY GAME HUB GAME FINDER" width="220">
+      <div><b>GAME FINDER</b></div>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/03-tools.jpg" alt="MY GAME HUB 도구 모음" width="220">
+      <div><b>도구 모음</b></div>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/04-game-identity.jpg" alt="MY GAME HUB 게임 신분증" width="220">
+      <div><b>게임 신분증</b></div>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/screenshots/06-pink-theme.jpg" alt="MY GAME HUB Pink Mode 대시보드" width="220">
+      <div><b>Pink Mode</b></div>
+    </td>
+  </tr>
 </table>
 
 ## Key Features
