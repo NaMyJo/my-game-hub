@@ -1,0 +1,410 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MY GAME HUB 전체 System Architecture",
+    "output": "my-game-hub-architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/NaMyJo/my-game-hub",
+      "provider": "github",
+      "revision": "4b95e4a3786e36cf95565f2910894f0534aeed7c"
+    },
+    "viewBox": [1340, 800]
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "User",
+      "sublabel": "게임 계정 관리 및 게임 탐색",
+      "pos": [30, 340],
+      "size": [150, 76]
+    },
+    {
+      "id": "flutterWeb",
+      "type": "frontend",
+      "label": "Flutter Web",
+      "sublabel": "Vercel 배포",
+      "tag": "Responsive UI",
+      "pos": [250, 180],
+      "size": [180, 82],
+      "sources": [
+        {
+          "path": "frontend/lib/main.dart",
+          "line": 1,
+          "end_line": 17,
+          "label": "Flutter entrypoint"
+        },
+        {
+          "path": "frontend/vercel.json",
+          "line": 1,
+          "end_line": 8,
+          "label": "Vercel SPA routing"
+        }
+      ]
+    },
+    {
+      "id": "flutterAndroid",
+      "type": "frontend",
+      "label": "Flutter Android",
+      "sublabel": "Native Google Sign-In",
+      "tag": "com.mygamehub.app",
+      "pos": [250, 500],
+      "size": [180, 82],
+      "sources": [
+        {
+          "path": "frontend/android/app/src/main/AndroidManifest.xml",
+          "line": 1,
+          "end_line": 30,
+          "label": "Android application"
+        },
+        {
+          "path": "frontend/android/app/build.gradle.kts",
+          "line": 51,
+          "end_line": 72,
+          "label": "Android build config"
+        }
+      ]
+    },
+    {
+      "id": "firebaseAuth",
+      "type": "security",
+      "label": "Firebase Authentication",
+      "sublabel": "Google + Anonymous",
+      "tag": "Firebase ID Token",
+      "pos": [770, 30],
+      "size": [220, 86],
+      "sources": [
+        {
+          "path": "frontend/lib/services/auth_service.dart",
+          "line": 34,
+          "end_line": 93,
+          "label": "Client authentication"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/auth/FirebaseAuthInterceptor.java",
+          "line": 16,
+          "end_line": 53,
+          "label": "ID token verification"
+        }
+      ]
+    },
+    {
+      "id": "springApi",
+      "type": "backend",
+      "label": "Spring Boot REST API",
+      "sublabel": "Profile, Accounts, Identity, Finder",
+      "tag": "Render / Docker + Firebase Admin",
+      "pos": [770, 330],
+      "size": [220, 92],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/config/WebMvcAuthConfig.java",
+          "line": 10,
+          "end_line": 26,
+          "label": "Protected API boundary"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/game/GameAccountService.java",
+          "line": 38,
+          "end_line": 72,
+          "label": "Core game domains"
+        },
+        {
+          "path": "backend/Dockerfile",
+          "line": 1,
+          "end_line": 17,
+          "label": "Backend container"
+        }
+      ]
+    },
+    {
+      "id": "clientRuntime",
+      "type": "frontend",
+      "label": "Flutter Client Runtime",
+      "sublabel": "AuthService + ApiClient",
+      "tag": "Shared Web / Android",
+      "pos": [500, 330],
+      "size": [220, 92],
+      "sources": [
+        {
+          "path": "frontend/lib/services/auth_service.dart",
+          "line": 34,
+          "end_line": 93,
+          "label": "Firebase sign-in flows"
+        },
+        {
+          "path": "frontend/lib/services/api_client.dart",
+          "line": 16,
+          "end_line": 44,
+          "label": "Bearer REST client"
+        }
+      ]
+    },
+    {
+      "id": "gameFinder",
+      "type": "backend",
+      "label": "GAME FINDER",
+      "sublabel": "Hard Filter + Tag Similarity",
+      "tag": "Catalog / Taxonomy / Preferences / Picks",
+      "pos": [770, 490],
+      "size": [220, 92],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/GameFinderController.java",
+          "line": 14,
+          "end_line": 72,
+          "label": "Finder REST API"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/GameFinderRecommendationService.java",
+          "line": 16,
+          "end_line": 112,
+          "label": "Recommendation service"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/GameFinderHardFilter.java",
+          "line": 7,
+          "end_line": 54,
+          "label": "Hard filters"
+        }
+      ]
+    },
+    {
+      "id": "neonDb",
+      "type": "database",
+      "label": "PostgreSQL / Neon",
+      "sublabel": "JPA + JDBC batch",
+      "tag": "Firebase UID scoped",
+      "pos": [1080, 330],
+      "size": [220, 92],
+      "sources": [
+        {
+          "path": "backend/src/main/resources/application-prod.yml",
+          "line": 1,
+          "end_line": 11,
+          "label": "Production datasource"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/game/GameAccount.java",
+          "line": 7,
+          "end_line": 18,
+          "label": "User-owned game data"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/SteamGame.java",
+          "line": 11,
+          "end_line": 69,
+          "label": "Catalog data model"
+        }
+      ]
+    },
+    {
+      "id": "gameApis",
+      "type": "external",
+      "label": "External Game APIs",
+      "sublabel": "8 Games / 7 APIs; Riot=LoL+TFT",
+      "tag": "LostArk/Riot(LoL+TFT)/ER/Nexon/Neople/PUBG/HenrikDev",
+      "pos": [1080, 100],
+      "size": [220, 110],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/game/GameType.java",
+          "line": 3,
+          "end_line": 12,
+          "label": "Eight supported games"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/game/GameAccountService.java",
+          "line": 42,
+          "end_line": 71,
+          "label": "External API clients"
+        }
+      ]
+    },
+    {
+      "id": "steam",
+      "type": "external",
+      "label": "Steam",
+      "sublabel": "Web API + Store metadata",
+      "tag": "Steam App ID",
+      "pos": [770, 650],
+      "size": [220, 86],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/SteamCatalogClient.java",
+          "line": 20,
+          "end_line": 89,
+          "label": "Steam catalog client"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/SteamStoreDetailClient.java",
+          "line": 18,
+          "end_line": 28,
+          "label": "Store metadata client"
+        }
+      ]
+    },
+    {
+      "id": "igdb",
+      "type": "external",
+      "label": "IGDB",
+      "sublabel": "Taxonomy + multiplayer_modes",
+      "tag": "Steam external_game mapping",
+      "pos": [1080, 490],
+      "size": [220, 92],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/IgdbEnrichmentClient.java",
+          "line": 27,
+          "end_line": 43,
+          "label": "IGDB client configuration"
+        },
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/IgdbEnrichmentClient.java",
+          "line": 78,
+          "end_line": 180,
+          "label": "App ID enrichment"
+        }
+      ]
+    },
+    {
+      "id": "twitchOauth",
+      "type": "security",
+      "label": "Twitch OAuth",
+      "sublabel": "IGDB client credentials",
+      "tag": "Access token cache",
+      "pos": [1080, 650],
+      "size": [220, 82],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/mygamehub/gamefinder/IgdbEnrichmentClient.java",
+          "line": 276,
+          "end_line": 310,
+          "label": "OAuth token flow"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Client Channels",
+      "wraps": ["flutterWeb", "flutterAndroid", "clientRuntime"],
+      "pad": 24
+    },
+    {
+      "kind": "region",
+      "label": "Render / Docker Backend",
+      "wraps": ["springApi", "gameFinder"],
+      "pad": 26
+    },
+    {
+      "kind": "security-group",
+      "label": "Neon Managed PostgreSQL",
+      "wraps": ["neonDb"],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "id": "userWeb",
+      "from": "user",
+      "to": "flutterWeb",
+      "label": "Web 접속",
+      "variant": "emphasis"
+    },
+    {
+      "id": "userAndroid",
+      "from": "user",
+      "to": "flutterAndroid",
+      "label": "Android 앱",
+      "variant": "emphasis"
+    },
+    {
+      "id": "webRuntime",
+      "from": "flutterWeb",
+      "to": "clientRuntime"
+    },
+    {
+      "id": "androidRuntime",
+      "from": "flutterAndroid",
+      "to": "clientRuntime"
+    },
+    {
+      "id": "clientAuth",
+      "from": "clientRuntime",
+      "to": "firebaseAuth",
+      "label": "Google / Anonymous 인증",
+      "variant": "security"
+    },
+    {
+      "id": "clientApi",
+      "from": "clientRuntime",
+      "to": "springApi",
+      "label": "HTTPS REST + Bearer ID Token",
+      "variant": "emphasis",
+      "labelAt": [745, 445],
+      "route": "straight"
+    },
+    {
+      "id": "verifyToken",
+      "from": "springApi",
+      "to": "firebaseAuth",
+      "label": "Firebase Admin SDK 검증",
+      "variant": "security",
+      "labelAt": [880, 250]
+    },
+    {
+      "id": "apiFinder",
+      "from": "springApi",
+      "to": "gameFinder",
+      "label": "검색 / 추천 / 선호 설정",
+      "labelAt": [880, 465]
+    },
+    {
+      "id": "coreDb",
+      "from": "springApi",
+      "to": "neonDb",
+      "label": "JPA: User, Accounts, Identity",
+      "labelAt": [1175, 445]
+    },
+    {
+      "id": "finderDb",
+      "from": "gameFinder",
+      "to": "neonDb",
+      "label": "Catalog, Taxonomy, Preferences, Picks",
+      "labelAt": [1035, 455]
+    },
+    {
+      "id": "coreGameApis",
+      "from": "springApi",
+      "to": "gameApis",
+      "label": "계정 조회 및 전적 동기화",
+      "labelAt": [1035, 270]
+    },
+    {
+      "id": "finderSteam",
+      "from": "gameFinder",
+      "to": "steam",
+      "label": "카탈로그 + Store metadata",
+      "labelAt": [880, 620]
+    },
+    {
+      "id": "finderIgdb",
+      "from": "gameFinder",
+      "to": "igdb",
+      "label": "Steam App ID 매핑 + Taxonomy",
+      "labelAt": [1035, 590]
+    },
+    {
+      "id": "igdbOauth",
+      "from": "igdb",
+      "to": "twitchOauth",
+      "label": "OAuth client_credentials",
+      "variant": "security",
+      "labelAt": [1190, 620]
+    }
+  ]
+}
